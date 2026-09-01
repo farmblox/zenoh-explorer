@@ -25,7 +25,15 @@ export function SessionTabs() {
   return (
     // No drag attribute needed: the title bar above is marked "deep", so the
     // empty space here drags while the buttons inside keep their clicks.
-    <div className="flex min-w-0 flex-1 items-center gap-1 px-3">
+    //
+    // No left padding: the first tab's edge has to land on the content pane's,
+    // and the title bar's left block is already exactly the sidebar's width.
+    // The gap from the sidebar toggle comes from that block's own right padding
+    // instead. (Collapsed, the two cannot line up — the traffic lights hold the
+    // block at 122px while the pane moves in to 72px — and giving way there
+    // would put the toggle under the window buttons, where it is both invisible
+    // and unclickable.)
+    <div className="flex min-w-0 flex-1 items-center gap-1 pr-3">
       {sessions.map((session) => {
         const active = session.id === activeId;
         return (
