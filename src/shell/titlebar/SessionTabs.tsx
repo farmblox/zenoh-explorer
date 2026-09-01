@@ -1,10 +1,10 @@
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 
-import { StatusDot } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { groupedNumber } from "@/lib/format";
 import { focusRingOnChrome, transitionFast } from "@/lib/states";
 import { useSessionStore, useUiStore } from "@/stores";
+import { SessionTab } from "./SessionTab";
 
 /**
  * The session tab strip.
@@ -12,6 +12,10 @@ import { useSessionStore, useUiStore } from "@/stores";
  * One tab per open Zenoh session, plus a tab for each connection attempt still
  * in flight — so clicking Connect gives immediate feedback rather than a dialog
  * that sits there while a TCP connect times out.
+ *
+ * An attempt looks the same as a session and closes the same way. It is the
+ * same thing at a different point in its life, and a tab you cannot close
+ * because it has not finished opening is the one you most want to be rid of.
  */
 export function SessionTabs() {
   const sessions = useSessionStore((state) => state.sessions);
@@ -20,6 +24,7 @@ export function SessionTabs() {
   const setActive = useSessionStore((state) => state.setActive);
   const disconnect = useSessionStore((state) => state.disconnect);
   const dismissPending = useSessionStore((state) => state.dismissPending);
+  const editProfile = useSessionStore((state) => state.editProfile);
   const openOverlay = useUiStore((state) => state.openOverlay);
 
   return (
@@ -34,78 +39,49 @@ export function SessionTabs() {
     // would put the toggle under the window buttons, where it is both invisible
     // and unclickable.)
     <div className="flex min-w-0 flex-1 items-center gap-1 pr-3">
-      {sessions.map((session) => {
-        const active = session.id === activeId;
-        return (
-          <div
-            key={session.id}
-            className={cn(
-              // A tab, not a pill. Fully rounded reads as a chip — something
-              // you dismiss — where these are places you go. The softened
-              // rectangle and the extra height give them the weight of a
-              // destination, and let the active one sit as a raised surface
-              // rather than a tinted lozenge.
-              "group rounded-control flex h-8 shrink-0 items-center gap-2 pr-1.5 pl-3",
-              transitionFast,
-              active
-                ? "bg-surface-2 border-line border shadow-[0_1px_0_var(--line-soft)]"
-                : "hover:bg-surface-2/60 border border-transparent",
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => setActive(session.id)}
-              className={cn("text-small rounded-inner flex items-center gap-2", focusRingOnChrome)}
-              aria-current={active ? "page" : undefined}
-            >
-              <StatusDot status={session.transportCount > 0 ? "live" : "degraded"} />
-              <span className={cn("max-w-40 truncate", active ? "text-ink" : "text-ink-muted")}>
-                {session.profile.name}
-              </span>
-              <span className="numeric text-tiny text-ink-faint">
-                {groupedNumber(session.transportCount)}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => void disconnect(session.id)}
-              aria-label={`Close ${session.profile.name}`}
-              className={cn(
-                "text-ink-faint rounded-inner flex size-4 items-center justify-center",
-                "hover:text-ink opacity-0 transition-opacity group-hover:opacity-100",
-                "focus-visible:opacity-100",
-                focusRingOnChrome,
-              )}
-            >
-              <X size={11} />
-            </button>
-          </div>
-        );
-      })}
+      {sessions.map((session) => (
+        <SessionTab
+          key={session.id}
+          label={session.profile.name}
+          status={session.transportCount > 0 ? "live" : "degraded"}
+          meta={groupedNumber(session.transportCount)}
+          active={session.id === activeId}
+          title={
+            session.transportCount > 0
+              ? `${session.profile.name} — ${groupedNumber(session.transportCount)} transports`
+              : `${session.profile.name} — connected to nothing`
+          }
+          onSelect={() => setActive(session.id)}
+          onClose={() => void disconnect(session.id)}
+          closeLabel={`Close ${session.profile.name}`}
+        />
+      ))}
 
       {pending.map((attempt) => (
-        <div
+        <SessionTab
           key={attempt.key}
-          className={cn(
-            "text-small rounded-control flex h-8 shrink-0 items-center gap-2 border px-3",
+          label={attempt.profile.name}
+          status={attempt.error ? "down" : "connecting"}
+          pulse={!attempt.error}
+          tone={attempt.error ? "danger" : "default"}
+          title={attempt.error ?? "Connecting — click to change the settings"}
+          // A failed attempt keeps its profile so the dialog can reopen on it;
+          // clicking one that is still running would have nothing to show.
+          onSelect={
             attempt.error
-              ? "bg-danger-subtle border-danger/30 text-danger"
-              : "bg-surface-2 border-line text-ink-muted",
-          )}
-          title={attempt.error ?? "Connecting…"}
-        >
-          <StatusDot status={attempt.error ? "down" : "connecting"} pulse={!attempt.error} />
-          <span className="max-w-40 truncate">{attempt.profile.name}</span>
-          {attempt.error ? (
-            <button
-              type="button"
-              onClick={() => dismissPending(attempt.key)}
-              aria-label="Dismiss failed connection"
-            >
-              <X size={11} />
-            </button>
-          ) : null}
-        </div>
+              ? () => {
+                  editProfile(attempt.profile);
+                  openOverlay("connect");
+                }
+              : undefined
+          }
+          onClose={() => dismissPending(attempt.key)}
+          closeLabel={
+            attempt.error
+              ? `Dismiss the failed connection to ${attempt.profile.name}`
+              : `Stop connecting to ${attempt.profile.name}`
+          }
+        />
       ))}
 
       <button

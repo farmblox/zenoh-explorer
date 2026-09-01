@@ -347,7 +347,7 @@ export function ConnectForm({ initial, onChange, onSubmit }: ConnectFormProps) {
             />
           </Field>
 
-          <Field label="Retry" hint="Backoff when the router is unreachable">
+          <Field label="Retry" hint="Keeps trying when the router is unreachable">
             <div className="flex items-center gap-3">
               <Checkbox
                 label="Retry automatically"

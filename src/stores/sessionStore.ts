@@ -39,7 +39,14 @@ interface SessionState {
   /** Closes a session and selects a neighbouring tab. */
   disconnect(sessionId: SessionId): Promise<void>;
   setActive(sessionId: SessionId | null): void;
-  /** Clears a failed attempt so its tab disappears. */
+  /**
+   * Abandons a connection attempt, whether it failed or is still running.
+   *
+   * A connect already in flight cannot be recalled — Zenoh is partway through a
+   * handshake — so an abandoned one that later succeeds is closed again rather
+   * than adopted. Otherwise cancelling would open the very session it was meant
+   * to prevent, some seconds after the tab disappeared.
+   */
   dismissPending(key: string): void;
   /**
    * The profile to reopen the connect dialog with.
@@ -56,6 +63,14 @@ interface SessionState {
 }
 
 let pendingCounter = 0;
+
+/**
+ * Attempts the user gave up on while they were still running.
+ *
+ * Outside the store because nothing renders from it: it exists only so a
+ * connect that resolves after its tab is gone knows to close itself.
+ */
+const abandoned = new Set<string>();
 
 export const useSessionStore = create<SessionState>()((set, get) => ({
   sessions: [],
@@ -81,6 +96,14 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
     try {
       const id = await sessionIpc.connect(profile);
+
+      // Cancelled while the handshake was still running: close the session
+      // Zenoh went ahead and opened, and report nothing.
+      if (abandoned.delete(key)) {
+        await sessionIpc.disconnect(id);
+        return null;
+      }
+
       await get().refresh();
       set((state) => ({
         activeId: id,
@@ -91,6 +114,9 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       // Keep the failed attempt on the strip WITH its profile, so the user can
       // reopen the dialog and correct it. Losing the profile here was the
       // actual bug: a wrong certificate path meant retyping everything.
+      // Someone who cancelled does not need to be told it then failed.
+      if (abandoned.delete(key)) return null;
+
       const failure = toIpcError(thrown);
       set((state) => ({
         pending: state.pending.map((p) => (p.key === key ? { ...p, error: failure.message } : p)),
@@ -132,8 +158,12 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
   setActive: (sessionId) => set({ activeId: sessionId }),
 
-  dismissPending: (key) =>
-    set((state) => ({ pending: state.pending.filter((p) => p.key !== key) })),
+  dismissPending: (key) => {
+    // Only an attempt still running needs remembering; a failed one has already
+    // finished and has nothing left to arrive.
+    if (!get().pending.find((p) => p.key === key)?.error) abandoned.add(key);
+    set((state) => ({ pending: state.pending.filter((p) => p.key !== key) }));
+  },
 
   editProfile: (profile) => set({ draft: profile }),
   clearDraft: () => set({ draft: null }),
@@ -150,3 +180,11 @@ export const useActiveSessionId = (): SessionId | null => useSessionStore((s) =>
 /** Subscribes to the active session summary. */
 export const useActiveSession = (): SessionSummary | null =>
   useSessionStore((s) => s.sessions.find((session) => session.id === s.activeId) ?? null);
+
+// Exposed only in development, so the design harness can put the tab strip into
+// states that need a real network to reach — a connection mid-handshake, a
+// failed one. Stripped from production builds by the bundler's dead-code pass.
+if (import.meta.env.DEV) {
+  (globalThis as { __ZUSTAND_SESSION__?: typeof useSessionStore }).__ZUSTAND_SESSION__ =
+    useSessionStore;
+}

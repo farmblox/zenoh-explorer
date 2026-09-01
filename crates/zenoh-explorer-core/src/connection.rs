@@ -147,6 +147,21 @@ impl ConnectionOptions {
         push("connect/exit_on_failure", "false".to_owned());
 
         if let Some(retry) = &self.retry {
+            // A backoff is inert without a non-zero global connect timeout.
+            //
+            // Zenoh reads `connect/timeout_ms` before it reads the backoff, and
+            // takes a "connect once, do not retry" path when it is zero. That
+            // default is MODE-DEPENDENT: -1 for a router or peer, but 0 for a
+            // client — which is how this explorer connects by default. So
+            // asking for a backoff in client mode configured something Zenoh
+            // then declined to consult.
+            //
+            // -1 is "keep trying", the same value a peer gets. An explicit
+            // timeout wins: it is set below and this leaves it alone.
+            if self.connect_timeout_ms.is_none() {
+                push("connect/timeout_ms", "-1".to_owned());
+            }
+
             // The whole object in one write, not three nested keys.
             // `connect.retry` is `Option` in Zenoh's schema, and `insert_json5`
             // resolves a path against what already exists rather than creating
@@ -219,6 +234,31 @@ mod tests {
         // Leaves Zenoh's own timing alone.
         assert!(!map.contains_key("connect/timeout_ms"));
         assert!(!map.contains_key("connect/retry"));
+    }
+
+    /// Asking for a backoff also opens the window Zenoh needs to use it.
+    ///
+    /// `connect/timeout_ms` defaults to 0 in client mode, and Zenoh treats a
+    /// zero global timeout as "connect once, do not retry" — so the backoff
+    /// would be configured and then ignored, which is exactly how it behaved.
+    #[test]
+    fn retry_sets_a_connect_timeout_so_the_backoff_is_used() {
+        let options = ConnectionOptions {
+            retry: Some(RetryConfig::default()),
+            ..Default::default()
+        };
+        assert_eq!(entries(&options)["connect/timeout_ms"], "-1");
+    }
+
+    /// An explicit timeout is the user's, and outranks the one retry implies.
+    #[test]
+    fn an_explicit_connect_timeout_wins_over_the_retry_default() {
+        let options = ConnectionOptions {
+            retry: Some(RetryConfig::default()),
+            connect_timeout_ms: Some(2_500),
+            ..Default::default()
+        };
+        assert_eq!(entries(&options)["connect/timeout_ms"], "2500");
     }
 
     /// The backoff goes in as ONE object.

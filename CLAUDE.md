@@ -52,6 +52,22 @@ that must travel; `TlsConfig::redacted()` before logging either.
 
 ## Things that will trip you up
 
+**A backoff needs a non-zero `connect/timeout_ms` to run at all.** Zenoh reads
+the global connect timeout first and takes a "connect once, do not retry" path
+when it is zero — and that default is mode-dependent: `-1` for a router or
+peer, `0` for a CLIENT, which is how the explorer connects by default. So
+`connection.rs` sets `-1` alongside the backoff unless the user gave a timeout
+of their own. Without it the retry config is written, accepted, and ignored.
+
+**`connect.retry` is an `Option` block, so its keys cannot be reached by path.**
+`insert_json5` resolves against what already exists rather than creating it, so
+`connect/retry/period_init_ms` is rejected with "unknown key" when `retry` is
+unset. Write the whole object in one go. Every other nested block we touch
+(`scouting/multicast`, `transport/link/tls`) derives `Default` and is always
+present, which is why this is the only one. `config.rs` has a test that sets
+every option at once, because emitting the right key and having Zenoh accept it
+are different things.
+
 **`adminspace.enabled` defaults to `false` in Zenoh 1.x.** Most "the explorer
 sees nothing" situations are this. Do not treat an empty admin-space reply as an
 empty network — the probe already reports it as a diagnostic.
