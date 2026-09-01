@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Boxes, Network } from "lucide-react";
 
 import {
+  Badge,
   EmptyState,
   Mix,
   Panel,
@@ -91,11 +92,18 @@ export function RegionsView() {
                         {description.id}
                       </h2>
                       {region.containsLocal ? (
-                        <span className="text-tiny text-accent shrink-0">this explorer</span>
+                        // A badge, not accent text: accent text beside a title
+                        // reads as a link to somewhere.
+                        <Badge tone="accent">this explorer</Badge>
                       ) : null}
                     </div>
-                    <p className="text-tiny text-ink-faint mt-2 leading-relaxed">
-                      {description.description}
+                    {/* The short form, so every card in a row is the same
+                        height. The full explanation is the tooltip. */}
+                    <p
+                      className="text-tiny text-ink-faint mt-2 truncate"
+                      title={description.description}
+                    >
+                      {description.summary}
                     </p>
                   </header>
 

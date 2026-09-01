@@ -24,14 +24,6 @@ const COLUMNS: readonly Column<TransportSummary>[] = [
     cell: (row) => <span className="numeric text-ink-muted">{row.links.length}</span>,
   },
   {
-    id: "locator",
-    header: "Locator",
-    width: "flex",
-    cell: (row) => (
-      <span className="numeric text-ink-muted truncate">{row.links[0]?.dst ?? "–"}</span>
-    ),
-  },
-  {
     id: "features",
     header: "Features",
     width: 190,
@@ -41,6 +33,17 @@ const COLUMNS: readonly Column<TransportSummary>[] = [
         {row.shm ? <Badge tone="ok">shm</Badge> : null}
         {row.multicast ? <Badge tone="neutral">mcast</Badge> : null}
       </span>
+    ),
+  },
+  // Last, because it is the flexible one. A flex column in the middle expands
+  // while its content stays short, which opens a hole inside the table instead
+  // of leaving slack at the edge where it reads as margin.
+  {
+    id: "locator",
+    header: "Locator",
+    width: "flex",
+    cell: (row) => (
+      <span className="numeric text-ink-muted truncate">{row.links[0]?.dst ?? "–"}</span>
     ),
   },
 ];

@@ -17,6 +17,13 @@ const COLUMNS: readonly Column<ScoutedNode>[] = [
   },
   { id: "zid", header: "Zid", width: 220, cell: (row) => <Zid zid={row.zid} copyable /> },
   {
+    id: "seen",
+    header: "Seen",
+    width: 110,
+    align: "right",
+    cell: (row) => <span className="text-ink-faint">{relativeTime(row.seenAtMs)}</span>,
+  },
+  {
     id: "locators",
     header: "Locators",
     width: "flex",
@@ -25,13 +32,6 @@ const COLUMNS: readonly Column<ScoutedNode>[] = [
         {row.locators.join("  ") || "–"}
       </span>
     ),
-  },
-  {
-    id: "seen",
-    header: "Seen",
-    width: 110,
-    align: "right",
-    cell: (row) => <span className="text-ink-faint">{relativeTime(row.seenAtMs)}</span>,
   },
 ];
 

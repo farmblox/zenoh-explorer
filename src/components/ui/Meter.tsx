@@ -30,8 +30,8 @@ const SIZES: Record<MeterSize, string> = {
 
 const TONES: Record<MeterTone, string> = {
   accent: "bg-accent",
-  "accent-soft": "bg-accent/55",
-  "accent-faint": "bg-accent/28",
+  "accent-soft": "bg-accent/60",
+  "accent-faint": "bg-accent/32",
   ok: "bg-ok",
   warn: "bg-warn",
   danger: "bg-danger",
@@ -112,7 +112,10 @@ export function Mix({ segments, size = "sm", legend, className }: MixProps) {
 
   return (
     <div className={className}>
-      <div className={cn("flex gap-0.5", SIZES[size])}>
+      {/* The track matters more here than on a Meter: a composition that is all
+          one thing fills the bar completely, and without something to fill it
+          reads as a horizontal rule. */}
+      <div className={cn("bg-line-soft flex gap-0.5 overflow-hidden rounded-full", SIZES[size])}>
         {present.map((segment) => (
           <span
             key={segment.key}

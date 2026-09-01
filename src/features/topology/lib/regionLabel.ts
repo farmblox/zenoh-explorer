@@ -76,7 +76,9 @@ export function describeRegion(region: string): RegionDescription {
     return {
       id: region,
       summary: `Downstream · ${south.mode}s`,
-      description: `Downstream of a router: peers and ${south.mode}s attached below it. Created automatically by the default gateway policy.`,
+      // Reads the mode straight from the identifier, so `south:0:peer` used to
+      // render "peers and peers attached below it".
+      description: `Downstream of a router: the ${south.mode}s attached below it. Created automatically by the default gateway policy.`,
       derived: true,
     };
   }
