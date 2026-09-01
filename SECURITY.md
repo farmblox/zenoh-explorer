@@ -32,6 +32,20 @@ session itself needs network access.
 The WebDriver hooks used by the E2E suite sit behind the `e2e` cargo feature and
 a separate config overlay. Release builds don't have them.
 
+## Open advisories in the dependency tree
+
+`pnpm audit` reports one, and it has no fix upstream:
+
+**`extract-zip@2.0.1` — symlink path traversal (high).** No patched version
+exists; 2.0.1 is the latest release. It reaches us through
+`@wdio/cli → @wdio/utils → @puppeteer/browsers`, which is a `devDependency`
+used only by the E2E suite, and it runs only when WebDriver downloads a browser
+from Google's CDN. Nothing in a release build links it, and no user-supplied
+archive is ever extracted. We'll drop the override note when upstream moves.
+
+Two others — `serialize-javascript` and `deepmerge-ts` — are pinned to patched
+versions through `pnpm.overrides` in `package.json`.
+
 ## Known weak spot
 
 Credentials in a connection profile's `advancedJson5` go into
