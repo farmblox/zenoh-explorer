@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/farmblox/zenoh-explorer/releases/latest/download/latest.json"
+      ],
+      "pubkey": "REPLACE_ME_WITH_THE_CONTENTS_OF_YOUR_PUBLIC_KEY"
+    }
+  }
+}

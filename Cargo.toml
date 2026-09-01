@@ -1,0 +1,76 @@
+[workspace]
+members = ["crates/*", "src-tauri"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "Apache-2.0"
+authors = ["Farmblox"]
+repository = "https://github.com/farmblox/zenoh-explorer"
+
+[workspace.dependencies]
+zenoh-explorer-core = { path = "crates/zenoh-explorer-core" }
+
+# Zenoh.
+# - `unstable`      : session/transport/link introspection the topology view needs
+# - `internal`      : admin-space key constants
+# - `shared-memory` : lets the explorer report SHM transports, which zenohd uses
+zenoh = { version = "1.10", features = [
+  "unstable",
+  "internal",
+  "shared-memory",
+] }
+zenoh-ext = { version = "1.10", features = ["unstable"] }
+zenoh-config = "1.10"
+
+tokio = { version = "1.53", features = ["rt-multi-thread", "sync", "time", "macros"] }
+tokio-util = "0.7"
+futures = "0.3"
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ts-rs = { version = "12.0", features = ["serde-compat", "no-serde-warnings", "format"] }
+
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+parking_lot = "0.12"
+dashmap = "6.2"
+ahash = "0.8"
+uuid = { version = "1.26", features = ["v4", "serde"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Noise we deliberately opt out of.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Correctness bars we hold ourselves to.
+unwrap_used = "warn"
+dbg_macro = "warn"
+todo = "warn"
+
+# Debug builds stay fast; the release profile is tuned for a shippable desktop binary.
+[profile.dev]
+incremental = true
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = "s"
+panic = "abort"
+strip = true

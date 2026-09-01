@@ -1,0 +1,9 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Read the shape of the network: refresh the topology graph, scout for nodes that
+are reachable but not connected, and trace the route between two nodes. All
+read-only.
+"""
+permissions = ["allow-resync", "allow-scout", "allow-route-trace"]

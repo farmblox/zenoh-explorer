@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#1b1f26"/>
+      <stop offset="100%" stop-color="#0a0b0d"/>
+    </linearGradient>
+    <linearGradient id="wire" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#7db8ff"/>
+      <stop offset="100%" stop-color="#2f7fe0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- tile -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#tile)"/>
+  <rect x="64.5" y="64.5" width="895" height="895" rx="199.5"
+        fill="none" stroke="#ffffff" stroke-opacity="0.09" stroke-width="3"/>
+
+  <!-- a route across the network: reads as a Z, and as a traced path -->
+  <g fill="none" stroke="url(#wire)" stroke-width="52"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 318 350 L 706 350 L 318 674 L 706 674"/>
+  </g>
+
+  <!-- the nodes the route passes through -->
+  <g fill="#0a0b0d" stroke="#9ecbff" stroke-width="26">
+    <circle cx="318" cy="350" r="42"/>
+    <circle cx="706" cy="674" r="42"/>
+  </g>
+</svg>

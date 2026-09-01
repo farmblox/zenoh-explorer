@@ -1,0 +1,2 @@
+# Keep the `Result<T, E>`-in-signature lint useful: our error enum is boxed and small.
+too-many-arguments-threshold = 8

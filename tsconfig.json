@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    "types": ["vite/client", "node"],
+
+    /* Vite transpiles; tsc only ever type-checks. */
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    /* Strictness. These are the defaults we hold the codebase to; loosening one
+       should be a deliberate, reviewed decision rather than a quiet edit. */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+
+    /* No `baseUrl`: it is deprecated in TS 6 and gone in TS 7, and `paths`
+       resolves against this file's directory without it. */
+    "paths": {
+      "@/*": ["./src/*"],
+      "@plugin/zenoh-session": ["./crates/tauri-plugin-zenoh-session/guest-js/index.ts"],
+      "@plugin/zenoh-topology": ["./crates/tauri-plugin-zenoh-topology/guest-js/index.ts"],
+      "@plugin/zenoh-keyspace": ["./crates/tauri-plugin-zenoh-keyspace/guest-js/index.ts"],
+      "@plugin/zenoh-data": ["./crates/tauri-plugin-zenoh-data/guest-js/index.ts"],
+      "@plugin/zenoh-profiles": ["./crates/tauri-plugin-zenoh-profiles/guest-js/index.ts"]
+    }
+  },
+  "include": ["src", "crates/*/guest-js", "vite.config.ts", "vitest.config.ts", "eslint.config.js"]
+}

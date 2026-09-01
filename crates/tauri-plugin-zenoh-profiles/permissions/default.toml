@@ -1,0 +1,13 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Read and write saved connection profiles. The store holds addresses, transport
+settings and paths to certificate files — never private key material.
+"""
+permissions = [
+  "allow-list-profiles",
+  "allow-save-profile",
+  "allow-delete-profile",
+  "allow-record-connection",
+]

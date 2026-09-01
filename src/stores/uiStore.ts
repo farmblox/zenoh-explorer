@@ -1,0 +1,125 @@
+/**
+ * Window-level UI state: which view is showing, what the chrome looks like,
+ * which overlay is open.
+ *
+ * Navigation lives in a store rather than a router because this is a desktop
+ * window, not a document. There is no URL, no back button and no deep-linkable
+ * address — but there *is* a per-session view, because each tab remembers where
+ * you were. A router would model the first three and fight the fourth.
+ */
+import { create } from "zustand";
+
+import type { SessionId } from "@/ipc";
+import type { ViewId } from "@/navigation/types";
+
+/** Storage key. Also read by the boot script in index.html — keep them equal. */
+const THEME_KEY = "zenoh-explorer.theme";
+
+/** What the user chose, which is not the same as what is being rendered. */
+export type ThemePreference = "system" | "light" | "dark";
+
+/** What is actually on screen. */
+export type ResolvedTheme = "light" | "dark";
+
+/** Overlays are mutually exclusive; only one can be open. */
+export type Overlay = "none" | "palette" | "connect" | "shortcuts" | "settings";
+
+interface UiState {
+  /** Which view each session is showing. Switching tabs restores the view. */
+  viewBySession: Record<string, ViewId>;
+  /**
+   * The view shown when no session is open.
+   *
+   * Scouting, because it is the only view that does anything useful without a
+   * session: it shows what is on the network, which is exactly the question
+   * you have when you are not connected to it yet.
+   */
+  fallbackView: ViewId;
+  sidebarCollapsed: boolean;
+  statusBarExpanded: boolean;
+  overlay: Overlay;
+  themePreference: ThemePreference;
+
+  setView(sessionId: SessionId | null, view: ViewId): void;
+  viewFor(sessionId: SessionId | null): ViewId;
+  forgetSession(sessionId: SessionId): void;
+
+  toggleSidebar(): void;
+  toggleStatusBar(): void;
+
+  openOverlay(overlay: Exclude<Overlay, "none">): void;
+  closeOverlay(): void;
+
+  setThemePreference(preference: ThemePreference): void;
+}
+
+export const useUiStore = create<UiState>()((set, get) => ({
+  viewBySession: {},
+  fallbackView: "scouting",
+  sidebarCollapsed: false,
+  statusBarExpanded: false,
+  overlay: "none",
+  themePreference: readStoredTheme(),
+
+  setView: (sessionId, view) =>
+    set((state) =>
+      sessionId === null
+        ? { fallbackView: view }
+        : { viewBySession: { ...state.viewBySession, [sessionId]: view } },
+    ),
+
+  viewFor: (sessionId) => {
+    const state = get();
+    if (sessionId === null) return state.fallbackView;
+    return state.viewBySession[sessionId] ?? "topology";
+  },
+
+  forgetSession: (sessionId) =>
+    set((state) => {
+      const next = { ...state.viewBySession };
+      delete next[sessionId];
+      return { viewBySession: next };
+    }),
+
+  toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  toggleStatusBar: () => set((state) => ({ statusBarExpanded: !state.statusBarExpanded })),
+
+  openOverlay: (overlay) => set({ overlay }),
+  closeOverlay: () => set({ overlay: "none" }),
+
+  setThemePreference: (preference) => {
+    set({ themePreference: preference });
+    persistTheme(preference);
+    applyTheme(resolveTheme(preference));
+  },
+}));
+
+/** Turns a preference into the theme to render. */
+export function resolveTheme(preference: ThemePreference): ResolvedTheme {
+  if (preference !== "system") return preference;
+  return globalThis.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+/** Stamps the theme onto the document, where the token stylesheet reads it. */
+export function applyTheme(theme: ResolvedTheme): void {
+  document.documentElement.dataset["theme"] = theme;
+}
+
+function readStoredTheme(): ThemePreference {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    return stored === "light" || stored === "dark" ? stored : "system";
+  } catch {
+    // Blocked storage is not an error worth surfacing; fall back to system.
+    return "system";
+  }
+}
+
+function persistTheme(preference: ThemePreference): void {
+  try {
+    if (preference === "system") localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, preference);
+  } catch {
+    // The choice still applies for this run; it just will not survive a restart.
+  }
+}

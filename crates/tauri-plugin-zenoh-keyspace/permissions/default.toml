@@ -1,0 +1,14 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Browse the observed key space and analyse key expressions. `analyse-key-expr`
+and `test-key-expr` are pure functions over strings and touch no session.
+"""
+permissions = [
+  "allow-expand-keys",
+  "allow-refresh-declarations",
+  "allow-clear-keys",
+  "allow-analyse-key-expr",
+  "allow-test-key-expr",
+]

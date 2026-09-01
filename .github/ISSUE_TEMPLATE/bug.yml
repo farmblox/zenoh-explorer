@@ -1,0 +1,64 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: if the topology view is empty, check whether your nodes
+        have `adminspace.enabled` set to `true`. Zenoh defaults it to `false`,
+        and it accounts for most "the explorer sees nothing" reports.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Zenoh Explorer version
+      placeholder: "0.1.0, or a commit SHA if built from source"
+    validations:
+      required: true
+
+  - type: input
+    id: zenoh-version
+    attributes:
+      label: Zenoh version
+      placeholder: "1.10.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS, Linux, Windows]
+    validations:
+      required: true
+
+  - type: textarea
+    id: network
+    attributes:
+      label: Network setup
+      description: |
+        How the nodes are deployed and configured. Routers vs peers, transports
+        in use, and whether `adminspace.enabled` is on.
+      placeholder: "One zenohd in Docker, adminspace enabled, two peers on the host"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Anything from the Events view, plus the log file if you have it.
+        macOS `~/Library/Logs/ag.farmblox.zenoh-explorer/`,
+        Linux `~/.local/share/ag.farmblox.zenoh-explorer/logs/`,
+        Windows `%LOCALAPPDATA%\ag.farmblox.zenoh-explorer\logs\`.
+      render: shell

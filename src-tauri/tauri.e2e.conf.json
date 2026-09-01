@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "security": {
+      "capabilities": [
+        "default",
+        {
+          "identifier": "e2e",
+          "description": "WebDriver hooks for the end-to-end suite. Declared here rather than in capabilities/ because that directory is scanned on every build, and wdio:default only exists when the `e2e` cargo feature compiles the plugin in.",
+          "windows": ["main"],
+          "permissions": ["wdio:default"]
+        }
+      ]
+    },
+    "withGlobalTauri": true
+  }
+}

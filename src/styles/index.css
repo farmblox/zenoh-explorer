@@ -1,0 +1,227 @@
+@import "tailwindcss";
+
+/* Fonts are bundled, not fetched. A desktop tool has to render correctly with
+   no network, and a CDN font would also violate the app's CSP. */
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource-variable/geist-mono";
+
+/* React Flow's positioning styles only. Its default theme is skipped: the
+   widgets are restyled with our tokens in TopologyCanvas. */
+@import "@xyflow/react/dist/base.css";
+
+@import "./theme.css";
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--surface-0);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-small);
+    /* 450, not 400. IBM Plex Sans is variable, so this is a real instance
+       rather than a synthesised one, and it is the single biggest reason small
+       UI text stops looking thin and washed out. */
+    font-weight: var(--font-weight-normal);
+    /* Interface type is set slightly tight. Default tracking at these sizes is
+       one of the clearest tells of an unconsidered UI. */
+    letter-spacing: var(--tracking-ui);
+
+    /* Grayscale antialiasing renders lighter than the default, which is why the
+       weight above is 450 rather than 400. The two go together. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-optical-sizing: auto;
+    /* Never let the browser fake a weight or a slant; with a variable font
+       every instance is real, and a synthesised one looks muddy next to it. */
+    font-synthesis: none;
+  }
+
+  /* Headings tighten further as they grow. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: var(--tracking-title);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  /* Chrome, not a document: the window itself must never scroll or rubber-band,
+     and text is not selectable unless a component opts in.
+
+     The `-webkit-` prefix is not optional. WKWebView ignores the unprefixed
+     `user-select`, so without it the whole window stays selectable and dragging
+     across the UI highlights it like a web page — the single clearest tell that
+     a desktop app is really a webview. */
+  body {
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+
+  /* Values the user will want to copy — keys, zids, payloads — opt back in. */
+  .selectable,
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: auto;
+  }
+
+  /* Browsers give <button> a `default` cursor, not a pointer. Anything that
+     responds to a click should say so. */
+  button:not(:disabled),
+  a[href],
+  summary,
+  [role="button"]:not([aria-disabled="true"]),
+  [role="radio"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="treeitem"],
+  [role="option"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: default;
+  }
+
+  /* A ring rather than a hard outline: it follows the element's own radius and
+     reads as part of the control instead of a rectangle drawn around it. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-radius: var(--radius-inner);
+  }
+
+  /* The default ring is only ever right for keyboard users; pointer clicks
+     should not leave one behind. */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background: var(--accent-subtle);
+  }
+}
+
+@layer components {
+  /* Scrollbars: present when scrolling, invisible when idle. Sized so they sit
+     inside dense panels without stealing a column of content. */
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--wire) transparent;
+  }
+
+  .scroll-thin::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: var(--wire);
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 8px;
+  }
+
+  .scroll-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--wire-strong);
+    background-clip: padding-box;
+  }
+
+  /* The dotted canvas the topology graph sits on. */
+  .canvas-grid {
+    background-image: radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+}
+
+@layer utilities {
+  /* Numbers that must line up in a column: tabular figures, monospace. */
+  .numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Dragging the window is driven by the `data-tauri-drag-region` attribute,
+     not by CSS — WebKit ignores Electron's `-webkit-app-region`. All this rule
+     does is give those areas the right cursor affordance and keep text from
+     being selected mid-drag. */
+  [data-tauri-drag-region] {
+    cursor: default;
+    user-select: none;
+  }
+}
+
+/* ------------------------------------------------------------------ motion --
+   Keyframes for the three ways something can arrive. Durations and easing come
+   from the tokens, so a component writes `animate-[var(--animate-scale-in)]`
+   and inherits the system rather than picking its own timing. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    /* 0.98, not 0.9. A dialog should look like it was already there and came
+       into focus, not like it flew in. */
+    transform: scale(0.98);
+  }
+}
+
+/* A live tap's status dot. */
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* One change landing. Fires once, on a ring drawn around a status dot, so the
+   dot itself never moves or changes colour — a network event should register
+   without redrawing the thing you were reading. */
+@keyframes ping-once {
+  from {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+
+/* Traffic moving along a graph edge.
+   The dash pattern is mostly gap, so what travels the line reads as a few
+   discrete packets rather than a marching barber pole. Offset by exactly one
+   pattern length per cycle, which is what makes the loop seamless. */
+@keyframes wire-flow {
+  to {
+    stroke-dashoffset: -26;
+  }
+}
+
+/* Respect the system setting. Everything here is decorative. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

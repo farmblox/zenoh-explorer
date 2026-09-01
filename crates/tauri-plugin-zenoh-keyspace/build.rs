@@ -1,0 +1,14 @@
+//! Generates this plugin's permission set from its command list.
+
+/// Commands exposed by the key-space plugin.
+const COMMANDS: &[&str] = &[
+    "expand_keys",
+    "refresh_declarations",
+    "clear_keys",
+    "analyse_key_expr",
+    "test_key_expr",
+];
+
+fn main() {
+    tauri_plugin::Builder::new(COMMANDS).build();
+}

@@ -1,0 +1,25 @@
+[package]
+name = "tauri-plugin-zenoh-topology"
+description = "Topology, scouting and route tracing for the Zenoh Explorer."
+links = "tauri-plugin-zenoh-topology"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[build-dependencies]
+tauri-plugin = { version = "2.6", features = ["build"] }
+
+[dependencies]
+zenoh-explorer-core.workspace = true
+tauri-plugin-zenoh-session = { path = "../tauri-plugin-zenoh-session" }
+tauri = "2.11"
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true

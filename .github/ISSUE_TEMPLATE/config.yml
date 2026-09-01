@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Zenoh questions
+    url: https://github.com/eclipse-zenoh/zenoh/discussions
+    about: For questions about Zenoh itself rather than this explorer.
+  - name: Security issue
+    url: https://github.com/farmblox/zenoh-explorer/security/advisories/new
+    about: Please report vulnerabilities privately.

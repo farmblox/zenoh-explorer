@@ -1,0 +1,2084 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;450;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;background:var(--onac);}
+*{box-sizing:border-box;}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--wire);border-radius:8px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--wire2);background-clip:padding-box;border:3px solid transparent}
+::-webkit-scrollbar-track{background:transparent}
+a{color:#4a9eff;text-decoration:none}
+a:hover{color:#7db8ff}
+@keyframes zpulse{0%{opacity:.28;transform:scale(1)}70%{opacity:0;transform:scale(2.8)}100%{opacity:0;transform:scale(2.8)}}
+@keyframes zdash{to{stroke-dashoffset:-30}}
+@keyframes zblink{0%,100%{opacity:1}50%{opacity:.3}}
+:root{--bg0:#08090a;--bg1:#0c0d0f;--bg2:#101215;--bg3:#191c21;--line:rgba(255,255,255,.075);--soft:rgba(255,255,255,.04);--t1:#f4f5f7;--t2:#969ba5;--t3:#8a919c;--ac:#4a9eff;--ac2:#7db8ff;--acdim:rgba(74,158,255,.12);--ok:#4cc38a;--warn:#d9a441;--err:#e5604c;--mono:'Geist Mono',ui-monospace,Menlo,monospace;--onac:#08090a;--wire:rgba(255,255,255,.13);--wire2:rgba(255,255,255,.24);--fill:rgba(255,255,255,.015);--track:rgba(255,255,255,.22);--okdim:rgba(76,195,138,.13);--warndim:rgba(217,164,65,.13);--errdim:rgba(229,96,76,.14)}
+body[data-theme="light"]{--bg0:#f6f7f8;--bg1:#fdfdfe;--bg2:#ffffff;--bg3:#eceef0;--line:rgba(9,12,18,.11);--soft:rgba(9,12,18,.06);--t1:#14171c;--t2:#565d67;--t3:#6b7280;--ac:#1668d6;--ac2:#0f57b8;--acdim:rgba(22,104,214,.09);--ok:#177f52;--warn:#8a5b00;--err:#c0392b;--onac:#ffffff;--wire:rgba(9,12,18,.16);--wire2:rgba(9,12,18,.3);--fill:rgba(9,12,18,.016);--track:rgba(9,12,18,.22);--okdim:rgba(23,127,82,.1);--warndim:rgba(138,91,0,.1);--errdim:rgba(192,57,43,.1)}
+body[data-theme="light"]{background:#f6f7f8}
+*:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+
+<div style="width:1440px;height:940px;overflow:hidden;position:relative;font-family:'IBM Plex Sans',system-ui,sans-serif;">
+<div style="display:contents">
+<div style="width:100%;height:100%;display:flex;flex-direction:column;background:var(--bg1);color:var(--t1);">
+
+<!-- titlebar: session tabs -->
+<div style="height:44px;flex:none;display:flex;align-items:stretch;background:var(--bg0);">
+  <div style="width:{{ navW }};flex:none;display:flex;align-items:center;gap:10px;padding:0 12px 0 14px;border-bottom-right-radius:10px">
+    <div style="width:12px;height:12px;border-radius:50%;background:#e5604c"></div>
+    <div style="width:12px;height:12px;border-radius:50%;background:#d9a441"></div>
+    <div style="width:12px;height:12px;border-radius:50%;background:#4cc38a"></div>
+    <div style="flex:1"></div>
+    <div onClick="{{ toggleNav }}" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;color:var(--t3)" style-hover="background:var(--bg2);color:var(--t1)" title="Collapse sidebar">
+      <span style="display:block;width:13px;height:11px;border:1.5px solid currentColor;border-radius:2.5px;position:relative"><span style="position:absolute;left:3.5px;top:-1.5px;bottom:-1.5px;width:1.5px;background:currentColor"></span></span>
+    </div>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;align-items:center;gap:5px;padding:0 12px 0 10px;">
+    <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="3">
+      <div onClick="{{ s.go }}" style="height:28px;display:flex;align-items:center;gap:8px;padding:0 13px;border-radius:999px;cursor:pointer;background:{{ s.bg }};font-size:13px;color:{{ s.fg }}" style-hover="background:var(--bg2)">
+        <span style="width:6px;height:6px;border-radius:50%;background:{{ s.dot }};flex:none"></span>
+        {{ s.name }}
+        <span style="font:400 12px var(--mono);color:var(--t3)">{{ s.nodes }}</span>
+      </div>
+    </sc-for>
+    <div onClick="{{ openConnect }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:999px;font-size:16px;color:var(--t3);cursor:pointer;flex:none" style-hover="background:var(--bg2);color:var(--t1)" title="Connect to a network  ⌘N">+</div>
+  </div>
+</div>
+
+<div style="flex:1;display:flex;min-height:0;">
+
+  <!-- sidebar -->
+  <div style="width:{{ navW }};flex:none;display:flex;flex-direction:column;background:var(--bg0);padding:{{ navPad }};overflow:hidden;">
+    <div onClick="{{ openPalette }}" style="display:flex;align-items:center;justify-content:{{ navJust }};gap:{{ navGap }};width:{{ navItemW }};height:{{ navItemH }};margin:{{ navItemMargin }};padding:{{ navItemPad }};border-radius:8px;background:var(--bg2);border:1px solid var(--line);cursor:pointer;white-space:nowrap" style-hover="border-color:var(--t3)" title="Search nodes, keys and commands  ⌘K">
+      <span style="font-size:16px;color:var(--t2);flex:none;line-height:1">⌕</span>
+      <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+        <span style="flex:1;min-width:0;overflow:hidden;font-size:13px;color:var(--t3)">Search or command</span>
+        <span style="font:400 12px var(--mono);color:var(--t3);border:1px solid var(--line);border-radius:6px;padding:1.5px 5px;flex:none">⌘K</span>
+      </sc-if>
+    </div>
+    <sc-for list="{{ navSections }}" as="sec" hint-placeholder-count="4">
+      <div style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);padding:{{ sec.pad }};margin:{{ sec.margin }};height:{{ sec.labelH }};background:{{ sec.lineBg }};overflow:hidden">{{ sec.title }}</div>
+      <sc-for list="{{ sec.items }}" as="n" hint-placeholder-count="3">
+        <div onClick="{{ n.go }}" style="display:flex;align-items:center;justify-content:{{ n.just }};gap:{{ n.gap }};width:{{ n.w }};height:{{ n.h }};margin:{{ n.margin }};padding:{{ n.pad }};border-radius:8px;cursor:pointer;font-size:13.5px;white-space:nowrap;color:{{ n.fg }};background:{{ n.bg }};" style-hover="background:var(--bg2)" title="{{ n.title }}">
+          <span style="width:17px;flex:none;display:flex;align-items:center;justify-content:center;color:{{ n.ic }};font-size:{{ n.iconSize }}">{{ n.icon }}</span>{{ n.label }}
+          <sc-if value="{{ n.showBadge }}">
+            <span style="flex:1"></span>
+            <span style="font:400 12px var(--mono);color:var(--t3)">{{ n.badge }}</span>
+          </sc-if>
+        </div>
+      </sc-for>
+    </sc-for>
+
+    <div onClick="{{ toggleMore }}" style="display:flex;align-items:center;justify-content:{{ navJust }};gap:{{ navGap }};width:{{ navItemW }};height:{{ navItemH }};margin:{{ moreMargin }};padding:{{ navItemPad }};border-radius:8px;cursor:pointer;font-size:13.5px;white-space:nowrap;color:var(--t3)" style-hover="background:var(--bg2);color:var(--t1)" title="More views">
+      <span style="width:17px;flex:none;display:flex;align-items:center;justify-content:center;font-size:15px">{{ moreGlyph }}</span>{{ moreLabel }}
+    </div>
+    <sc-if value="{{ moreOpen }}">
+      <sc-for list="{{ navMore }}" as="n" hint-placeholder-count="6">
+        <div onClick="{{ n.go }}" style="display:flex;align-items:center;justify-content:{{ n.just }};gap:{{ n.gap }};width:{{ n.w }};height:{{ n.h }};margin:{{ n.margin }};padding:{{ n.pad }};border-radius:8px;cursor:pointer;font-size:13.5px;white-space:nowrap;color:{{ n.fg }};background:{{ n.bg }};" style-hover="background:var(--bg2)" title="{{ n.title }}">
+          <span style="width:17px;flex:none;display:flex;align-items:center;justify-content:center;color:{{ n.ic }};font-size:{{ n.iconSize }}">{{ n.icon }}</span>{{ n.label }}
+          <sc-if value="{{ n.showBadge }}">
+            <span style="flex:1"></span>
+            <span style="font:400 12px var(--mono);color:var(--t3)">{{ n.badge }}</span>
+          </sc-if>
+        </div>
+      </sc-for>
+    </sc-if>
+
+    <div style="flex:1;min-height:16px"></div>
+    <div onClick="{{ toggleSettings }}" style="display:flex;align-items:center;justify-content:{{ navJust }};gap:{{ navGap }};width:{{ navItemW }};height:{{ navItemH }};margin:{{ navItemMargin }};padding:{{ navItemPad }};border-radius:8px;cursor:pointer;font-size:13.5px;white-space:nowrap;color:var(--t2)" style-hover="background:var(--bg2);color:var(--t1)" title="Settings">
+      <span style="width:17px;flex:none;display:flex;justify-content:center"><span style="display:block;width:14px;height:14px;border:1.5px solid currentColor;border-radius:50%;position:relative"><span style="position:absolute;inset:3.4px;border-radius:50%;background:currentColor"></span></span></span>{{ settingsLabel }}
+    </div>
+  </div>
+
+  <!-- main -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative;background:var(--bg1);border-top:1px solid var(--line);border-left:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:10px 0 0 10px;overflow:hidden;">
+    <div style="height:56px;flex:none;display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid var(--line);">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:17px;font-weight:500;letter-spacing:-.01em;">{{ viewTitle }}</span>
+        <sc-if value="{{ viewAlert }}">
+          <span style="height:22px;padding:0 9px;display:flex;align-items:center;gap:6px;border-radius:6px;background:var(--errdim);font-size:12px;color:var(--err);white-space:nowrap"><span style="width:5px;height:5px;border-radius:50%;background:var(--err)"></span>{{ viewAlert }}</span>
+        </sc-if>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;height:32px;padding:3px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);gap:2px">
+        <div style="padding:0 13px;display:flex;align-items:center;font-size:13px;color:var(--t1);background:var(--bg3);border-radius:6px;cursor:pointer">Live</div>
+        <div style="padding:0 13px;display:flex;align-items:center;border-radius:6px;font-size:13px;color:var(--t3);cursor:pointer" style-hover="background:var(--bg3);color:var(--t1)">Paused</div>
+      </div>
+      <div style="display:flex;height:32px;border-radius:8px;background:var(--bg3);border:1px solid var(--line);overflow:visible;position:relative">
+        <div style="padding:0 13px;display:flex;align-items:center;border-radius:6px;color:var(--t1);font-size:13px;cursor:pointer;white-space:nowrap" style-hover="background:#22262c;color:var(--ac2)">{{ action.label }}</div>
+        <div onClick="{{ toggleActions }}" style="width:28px;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--line);cursor:pointer" style-hover="background:var(--bg3)">
+          <span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t2)"></span>
+        </div>
+        <sc-if value="{{ actionsOpen }}">
+        <div style="position:absolute;right:0;top:37px;width:262px;padding:5px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);box-shadow:0 10px 28px -10px rgba(0,0,0,.75);z-index:30">
+          <div style="padding:7px 9px 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">{{ action.group }}</div>
+          <sc-for list="{{ action.items }}" as="a" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:6px;font-size:13px;color:var(--t2);cursor:pointer;white-space:nowrap" style-hover="background:var(--bg3);color:var(--t1)">
+              {{ a.label }}<span style="flex:1"></span><span style="font:400 12px var(--mono);color:var(--t3)">{{ a.key }}</span>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <div style="flex:1;min-height:0;display:flex;">
+      <div style="flex:1;min-width:0;overflow:auto;">
+
+<!-- TOPOLOGY — react-flow canvas -->
+<sc-if value="{{ v.topology }}" hint-placeholder-val="{{ true }}">
+<div style="height:100%;display:flex;flex-direction:column;">
+  <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 24px;border-bottom:1px solid var(--soft);">
+    <sc-if value="{{ drilled }}">
+      <div style="display:flex;align-items:center;gap:2px;flex:none">
+        <sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:2px;position:relative;flex:none" style-hover="--caret:1">
+            <span onClick="{{ c.go }}" style="height:28px;padding:0 8px;display:flex;align-items:center;border-radius:7px;font-size:13px;color:{{ c.fg }};cursor:pointer;white-space:nowrap" style-hover="background:var(--bg2);color:var(--t1)">{{ c.label }}</span>
+            <span onClick="{{ c.menu }}" style="width:20px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;cursor:pointer;opacity:{{ c.caretOp }};background:{{ c.menuBg }}" style-hover="background:var(--bg2)" title="Actions">
+              <span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t3)"></span>
+            </span>
+            <sc-if value="{{ c.open }}">
+              <div style="position:absolute;left:0;top:33px;width:222px;padding:5px;border-radius:9px;background:var(--bg2);border:1px solid var(--line);box-shadow:0 10px 28px -10px rgba(0,0,0,.75);z-index:30">
+                <sc-for list="{{ c.actions }}" as="a" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:10px;height:31px;padding:0 9px;border-radius:6px;font-size:13px;color:var(--t2);cursor:pointer;white-space:nowrap" style-hover="background:var(--bg3);color:var(--t1)">{{ a.label }}<span style="flex:1"></span><span style="font:400 12px var(--mono);color:var(--t3)">{{ a.key }}</span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ c.hasNext }}">
+              <span style="font-size:13px;color:var(--t3);padding:0 2px">/</span>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ notDrilled }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:9px;flex:none">
+        <div style="display:flex;gap:2px;padding:3px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);flex:none">
+          <span style="padding:5px 12px;border-radius:6px;background:var(--bg3);font-size:13px;white-space:nowrap;cursor:pointer">Region</span>
+          <span style="padding:5px 12px;border-radius:6px;font-size:13px;color:var(--t3);white-space:nowrap;cursor:pointer" style-hover="background:var(--bg3);color:var(--t1)">Router</span>
+          <span style="padding:5px 12px;border-radius:6px;font-size:13px;color:var(--t3);white-space:nowrap;cursor:pointer" style-hover="background:var(--bg3);color:var(--t1)">Flat</span>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ notDrilled }}" hint-placeholder-val="{{ true }}">
+    <div onClick="{{ toggleEdgeMenu }}" style="position:relative;height:32px;padding:0 13px;display:flex;align-items:center;gap:10px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);font-size:13px;color:var(--t2);white-space:nowrap;cursor:pointer;flex:none" style-hover="color:var(--t1);background:var(--bg3)">
+      Edges: link-state<span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t3)"></span>
+      <sc-if value="{{ edgeMenu }}">
+      <div style="position:absolute;left:0;top:37px;width:210px;padding:5px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);box-shadow:0 8px 24px -8px rgba(0,0,0,.7);z-index:20">
+        <sc-for list="{{ edgeOpts }}" as="o" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:10px;height:31px;padding:0 10px;border-radius:6px;font-size:13px;color:{{ o.fg }};background:{{ o.bg }}" style-hover="background:var(--bg3)">
+            <span style="width:11px;color:var(--ac)">{{ o.check }}</span>{{ o.label }}
+            <span style="flex:1"></span><span style="font:400 12px var(--mono);color:var(--t3)">{{ o.n }}</span>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+  </div>
+
+  <div style="flex:1;position:relative;overflow:hidden;background-image:radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 0);background-size:22px 22px;">
+    <div style="position:absolute;inset:0;">
+
+      <!-- aggregate level: one card per region, scales to any node count -->
+      <sc-if value="{{ notDrilled }}" hint-placeholder-val="{{ true }}">
+        <svg width="860" height="620" style="position:absolute;left:0;top:0;overflow:visible;pointer-events:none">
+          <sc-for list="{{ regionEdges }}" as="e" hint-placeholder-count="6">
+            <path d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" stroke-dasharray="{{ e.dash }}"></path>
+          </sc-for>
+        </svg>
+        <sc-for list="{{ regionEdgeLabels }}" as="l" hint-placeholder-count="3">
+          <div style="position:absolute;left:{{ l.left }};top:{{ l.top }};padding:2px 7px;border-radius:6px;background:var(--bg1);border:1px solid var(--line);font:400 12px var(--mono);color:{{ l.color }};white-space:nowrap">{{ l.text }}</div>
+        </sc-for>
+        <sc-for list="{{ regionCards }}" as="r" hint-placeholder-count="6">
+          <div onClick="{{ r.select }}" style="position:absolute;left:{{ r.left }};top:{{ r.top }};width:246px;height:152px;border-radius:10px;background:var(--bg2);border:1px solid {{ r.border }};box-shadow:{{ r.glow }};cursor:pointer" style-hover="border-color:var(--t3)">
+            <span style="position:absolute;left:-4px;top:50%;margin-top:-4px;width:8px;height:8px;border-radius:50%;background:var(--bg3);border:1px solid var(--line)"></span>
+            <span style="position:absolute;right:-4px;top:50%;margin-top:-4px;width:8px;height:8px;border-radius:50%;background:var(--bg3);border:1px solid var(--line)"></span>
+            <div style="padding:14px 16px 0;display:flex;align-items:center;gap:10px">
+              <span style="width:8px;height:8px;border-radius:50%;background:{{ r.dot }};flex:none"></span>
+              <span style="font-size:14px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+              <span style="flex:1"></span>
+              <span style="font:500 13px var(--mono);color:var(--t1);white-space:nowrap">{{ r.nodes }}</span>
+            </div>
+            <div style="padding:10px 16px 0;display:flex;align-items:baseline;gap:10px">
+              <span style="font:400 12.5px var(--mono);color:var(--t2)">{{ r.rate }}</span>
+              <span style="flex:1"></span>
+              <span style="font-size:12px;color:var(--t3)">{{ r.mode }}</span>
+            </div>
+            <div style="display:flex;gap:2px;margin:12px 16px 0;height:4px">
+              <sc-for list="{{ r.mix }}" as="m" hint-placeholder-count="3">
+                <span style="width:{{ m.w }};height:100%;border-radius:3px;background:{{ m.c }}"></span>
+              </sc-for>
+            </div>
+            <div style="padding:10px 16px 0;display:flex;align-items:center;gap:12px">
+              <sc-for list="{{ r.mix }}" as="m" hint-placeholder-count="3">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3);white-space:nowrap"><span style="width:7px;height:7px;border-radius:2px;background:{{ m.c }};flex:none"></span>{{ m.label }}</span>
+              </sc-for>
+            </div>
+            <div style="margin-top:13px;padding:10px 16px;border-top:1px solid var(--soft);background:{{ r.footBg }};display:flex;align-items:center;gap:9px">
+              <span style="font-size:12px;color:{{ r.footFg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ r.links }}</span>
+              <span style="flex:1"></span>
+              <span onClick="{{ r.drill }}" style="font-size:12px;color:var(--ac);white-space:nowrap;cursor:pointer" style-hover="color:var(--ac2)">open →</span>
+            </div>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <!-- drilled level: nodes inside one region -->
+      <sc-if value="{{ drilled }}">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:300px;background:var(--bg0);border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:8">
+        <div style="flex:none;padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:9px;height:32px;padding:0 11px;border-radius:8px;background:var(--bg2);border:1px solid var(--line)">
+            <span style="font-size:13px;color:var(--t3);flex:none">⌕</span>
+            <span style="font-size:13px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Filter {{ meshInfo.count }}</span>
+          </div>
+          <div style="height:32px;padding:0 10px;display:flex;align-items:center;gap:7px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);font-size:12.5px;color:var(--t2);cursor:pointer;flex:none" style-hover="color:var(--t1)" title="Sort by traffic, name or health">
+            traffic<span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t3)"></span>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto">
+          <sc-for list="{{ meshList }}" as="m" hint-placeholder-count="14">
+            <div onClick="{{ m.go }}" style="display:flex;align-items:center;gap:10px;height:34px;padding:0 16px;cursor:pointer;background:{{ m.bg }};border-left:2px solid {{ m.mark }}" style-hover="background:var(--bg2)">
+              <span style="width:16px;height:16px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:{{ m.r }};border:1.3px {{ m.style }} {{ m.iconColor }};font:500 11px var(--mono);color:{{ m.iconColor }}">{{ m.glyph }}</span>
+              <span style="font-size:13px;color:{{ m.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</span>
+              <span style="flex:1"></span>
+              <span style="font:400 12px var(--mono);color:{{ m.rateColor }};white-space:nowrap">{{ m.rate }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="position:absolute;left:320px;top:22px;display:flex;align-items:center;gap:10px;z-index:7">
+        <span style="font-size:12px;padding:3px 9px;border-radius:6px;background:var(--acdim);color:var(--ac2);font-family:var(--mono)">{{ meshInfo.mode }}</span>
+        <span style="font-size:12.5px;color:var(--t2);white-space:nowrap">{{ meshInfo.focus }}</span>
+      </div>
+      
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+        <div style="position:absolute;left:{{ g.left }};top:{{ g.top }};width:{{ g.w }};height:{{ g.h }};border-radius:12px;border:1px dashed {{ g.border }};background:{{ g.bg }}">
+          <div style="position:absolute;left:12px;top:-13px;display:flex;align-items:center;gap:10px;padding:0 10px;height:26px;max-width:{{ g.maxw }};overflow:hidden;border-radius:8px;background:var(--bg1);border:1px solid var(--line);white-space:nowrap">
+            <span style="font-size:12.5px;font-weight:500;color:var(--t1)">{{ g.name }}</span>
+            <span style="width:1px;height:12px;background:var(--line)"></span>
+            <span style="font:400 12px var(--mono);color:var(--t3)">{{ g.stats }}</span>
+            <sc-if value="{{ g.alert }}">
+              <span style="display:flex;align-items:center;gap:5px;padding:1px 7px;border-radius:6px;background:var(--warndim);font-size:12px;color:var(--warn)"><span style="width:5px;height:5px;border-radius:50%;background:var(--warn)"></span>{{ g.alert }}</span>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+
+      <!-- edge layer -->
+      <svg width="860" height="620" style="position:absolute;left:0;top:0;overflow:visible;pointer-events:none">
+        <sc-for list="{{ edges }}" as="e" hint-placeholder-count="14">
+          <path d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" stroke-dasharray="{{ e.dash }}" opacity="{{ e.op }}"></path>
+        </sc-for>
+        <sc-for list="{{ flowEdges }}" as="e" hint-placeholder-count="2">
+          <path d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" stroke-dasharray="6 20" style="animation:zdash 1.9s linear infinite"></path>
+        </sc-for>
+      </svg>
+
+      <!-- edge labels -->
+      <sc-for list="{{ edgeLabels }}" as="l" hint-placeholder-count="3">
+        <div style="position:absolute;left:{{ l.left }};top:{{ l.top }};padding:2px 7px;border-radius:6px;background:var(--bg1);border:1px solid var(--line);font:400 12px var(--mono);color:{{ l.color }};white-space:nowrap">{{ l.text }}</div>
+      </sc-for>
+
+      <!-- custom nodes -->
+      <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="13">
+        <div onClick="{{ n.go }}" style="position:absolute;left:{{ n.left }};top:{{ n.top }};width:{{ n.w }};border-radius:10px;background:var(--bg2);border:1px solid {{ n.ring }};box-shadow:{{ n.glow }};cursor:pointer;padding:{{ n.pad }};overflow:hidden" style-hover="border-color:var(--t3)" title="{{ n.title }}">
+          <span style="position:absolute;left:-4px;top:50%;margin-top:-4px;width:8px;height:8px;border-radius:50%;background:var(--bg3);border:1px solid var(--line)"></span>
+          <span style="position:absolute;right:-4px;top:50%;margin-top:-4px;width:8px;height:8px;border-radius:50%;background:var(--bg3);border:1px solid var(--line)"></span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:21px;height:21px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:{{ n.iconR }};border:1.4px {{ n.iconStyle }} {{ n.iconColor }};background:{{ n.iconFill }};font:500 12.5px var(--mono);color:{{ n.iconColor }}">{{ n.glyph }}</span>
+            <span style="flex:1;min-width:0;font-size:13px;font-weight:450;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.name }}</span>
+            <span style="font:400 12px var(--mono);color:{{ n.rateColor }};white-space:nowrap">{{ n.rate }}</span>
+            <sc-if value="{{ n.alert }}">
+              <span style="width:7px;height:7px;flex:none;border-radius:50%;background:{{ n.alertColor }}"></span>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+
+      <!-- selected node expands in place, over the canvas -->
+      <div style="position:absolute;left:{{ selCard.left }};top:{{ selCard.top }};width:{{ selCard.w }};border-radius:10px;background:var(--bg2);border:1px solid var(--ac);box-shadow:0 0 0 3px var(--acdim),0 14px 32px -14px rgba(0,0,0,.7);z-index:6;overflow:hidden;pointer-events:none">
+        <div style="padding:11px 14px 0;display:flex;align-items:center;gap:10px">
+          <span style="width:21px;height:21px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:{{ selCard.iconR }};border:1.4px solid var(--ac);background:var(--acdim);font:500 12.5px var(--mono);color:var(--ac)">{{ selCard.glyph }}</span>
+          <span style="flex:1;min-width:0;font-size:13px;font-weight:450;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ selCard.name }}</span>
+          <span style="font:400 12px var(--mono);color:{{ selCard.rateColor }};white-space:nowrap">{{ selCard.rate }}</span>
+        </div>
+        <div style="padding:11px 14px 0;display:flex;align-items:baseline;gap:10px">
+          <span style="font-size:12.5px;color:var(--t2);white-space:nowrap">{{ selCard.decl }}</span>
+          <span style="flex:1"></span>
+          <span style="font:400 12px var(--mono);color:var(--t3);white-space:nowrap;flex:none">{{ selCard.share }}</span>
+        </div>
+        <div style="margin:9px 14px 0;height:3px;border-radius:3px;background:var(--soft);overflow:hidden">
+          <span style="display:block;width:{{ selCard.share }};height:100%;border-radius:3px;background:{{ selCard.shareColor }}"></span>
+        </div>
+        <div style="margin-top:12px;padding:9px 14px;border-top:1px solid var(--soft);background:var(--bg1);display:flex;align-items:center;gap:10px">
+          <span onClick="{{ go.detail }}" style="font-size:12px;color:var(--ac);white-space:nowrap;cursor:pointer;pointer-events:auto">inspect</span>
+          <span style="width:1px;height:11px;background:var(--line);flex:none"></span>
+          <span onClick="{{ toggleTrace }}" style="font-size:12px;color:var(--ac);white-space:nowrap;cursor:pointer;pointer-events:auto" title="Trace the route from this node  ⇧T">trace route</span>
+        </div>
+      </div>
+
+      </sc-if>
+    </div>
+
+    <!-- react-flow Controls -->
+    <div style="position:absolute;left:{{ chromeLeft }};bottom:16px;display:flex;flex-direction:column;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--bg2);z-index:9">
+      <sc-for list="{{ rfControls }}" as="c" hint-placeholder-count="4">
+        <div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:13px;color:{{ c.fg }};border-bottom:1px solid var(--soft);cursor:pointer" style-hover="background:var(--bg3);color:var(--t1)">{{ c.g }}</div>
+      </sc-for>
+    </div>
+
+    <!-- react-flow MiniMap -->
+    <div style="position:absolute;right:16px;bottom:16px;width:186px;height:126px;border-radius:8px;border:1px solid var(--line);background:var(--bg0);overflow:hidden">
+      <sc-for list="{{ miniNodes }}" as="m" hint-placeholder-count="13">
+        <span style="position:absolute;left:{{ m.left }};top:{{ m.top }};width:{{ m.w }};height:{{ m.h }};border-radius:3px;background:{{ m.c }}"></span>
+      </sc-for>
+      <span style="position:absolute;left:8px;top:10px;width:136px;height:96px;border:1px solid var(--ac);background:var(--acdim);border-radius:3px"></span>
+    </div>
+
+    <!-- route trace panel -->
+    <sc-if value="{{ traceOpen }}">
+    <div style="position:absolute;right:0;top:0;bottom:0;width:364px;z-index:14;background:var(--bg0);border-left:1px solid var(--line);display:flex;flex-direction:column">
+      <div style="flex:none;padding:14px 18px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:13.5px;font-weight:500">Route trace</span>
+          <span style="flex:1"></span>
+          <span onClick="{{ toggleTrace }}" style="font-size:15px;color:var(--t3);cursor:pointer;flex:none">&#215;</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;margin-top:11px">
+          <span style="font-size:13px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ traceTitle }}</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-top:9px">
+          <span style="font:500 12.5px var(--mono);color:var(--t1);white-space:nowrap">{{ traceStat }}</span>
+          <span style="width:1px;height:12px;background:var(--line)"></span>
+          <span style="font-size:12.5px;color:{{ traceVerdictFg }};line-height:1.5">{{ traceVerdict }}</span>
+        </div>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:6px 0">
+        <sc-for list="{{ traceChain }}" as="h" hint-placeholder-count="8">
+          <sc-if value="{{ h.isFold }}">
+            <div onClick="{{ h.go }}" style="display:flex;align-items:center;gap:12px;padding:9px 18px;cursor:pointer" style-hover="background:var(--bg2)">
+              <span style="width:17px;flex:none;display:flex;justify-content:center"><span style="width:1px;height:22px;background:var(--wire);opacity:.6"></span></span>
+              <span style="font-size:12.5px;color:var(--t3)">{{ h.name }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ h.isHop }}" hint-placeholder-val="{{ true }}">
+            <div style="background:{{ h.rowBg }}">
+              <div onClick="{{ h.go }}" style="display:flex;align-items:center;gap:12px;padding:0 18px;height:40px;cursor:pointer" style-hover="background:var(--bg2)">
+                <span style="width:17px;flex:none;display:flex;align-items:center;justify-content:center">
+                  <span style="width:17px;height:17px;display:flex;align-items:center;justify-content:center;border-radius:{{ h.r }};border:1.3px solid {{ h.iconFg }};font:500 12px var(--mono);color:{{ h.iconFg }}">{{ h.glyph }}</span>
+                </span>
+                <span style="font-size:13px;color:{{ h.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:132px">{{ h.name }}</span>
+                <span style="flex:1;min-width:0;height:5px;border-radius:3px;background:var(--soft);overflow:hidden"><span style="display:block;width:{{ h.share }};height:100%;border-radius:3px;background:{{ h.barFg }}"></span></span>
+                <span style="font:400 12px var(--mono);color:{{ h.msFg }};white-space:nowrap;flex:none;width:54px;text-align:right">{{ h.ms }}</span>
+              </div>
+              <sc-if value="{{ h.open }}">
+                <div style="padding:2px 18px 14px 47px">
+                  <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">
+                    <span style="font-size:12px;padding:2px 8px;border-radius:6px;background:var(--bg3);color:var(--t2)">{{ h.proto }}</span>
+                    <span style="font:400 12px var(--mono);color:var(--t3)">{{ h.weight }}</span>
+                  </div>
+                  <div style="font-size:12.5px;color:{{ h.noteFg }};line-height:1.6">{{ h.note }}</div>
+                  <div style="font-size:12.5px;color:var(--ac);cursor:pointer;margin-top:10px">{{ h.action }}</div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+
+    </div>
+    </sc-if>
+
+    <!-- legend, behind a chip -->
+    <div onClick="{{ toggleLegend }}" style="position:absolute;left:{{ legendLeft }};bottom:16px;z-index:9;height:30px;display:flex;align-items:center;gap:9px;padding:0 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);cursor:pointer;font-size:12.5px;color:var(--t2)" style-hover="color:var(--t1)">
+      <span style="width:13px;height:13px;border-radius:50%;border:1.4px solid currentColor;display:flex;align-items:center;justify-content:center;font:500 10px var(--mono);flex:none">?</span>Legend
+    </div>
+    <sc-if value="{{ legendOpen }}">
+    <div style="position:absolute;left:{{ legendLeft }};bottom:54px;z-index:9;display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);box-shadow:0 12px 32px -12px rgba(0,0,0,.7)">
+      <sc-for list="{{ legend }}" as="l" hint-placeholder-count="5">
+        <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--t2);white-space:nowrap"><span style="width:12px;height:12px;flex:none;border-radius:{{ l.r }};border:1.4px {{ l.style }} {{ l.color }};background:{{ l.fill }}"></span>{{ l.label }}</div>
+      </sc-for>
+    </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<!-- PEERS -->
+<sc-if value="{{ v.peers }}">
+<div style="padding:0 0 24px;">
+  <div style="display:flex;padding:0 20px;background:var(--bg0);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2;font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">
+    <div style="width:32px;padding:11px 0"></div>
+    <div style="width:150px;padding:11px 0">Name</div>
+    <div style="width:180px;padding:11px 0">zid</div>
+    <div style="width:84px;padding:11px 0">Mode</div>
+    <div style="width:108px;padding:11px 0">Region</div>
+    <div style="width:126px;padding:11px 0">Transport</div>
+    <div style="width:56px;padding:11px 0;text-align:right">Subs</div>
+    <div style="width:56px;padding:11px 0;text-align:right">Ques</div>
+    <div style="width:88px;padding:11px 0;text-align:right">Tx/s</div>
+    <div style="width:88px;padding:11px 0;text-align:right">Rx/s</div>
+    <div style="flex:1;padding:11px 0 11px 18px">Uptime</div>
+  </div>
+  <sc-for list="{{ peers }}" as="p" hint-placeholder-count="13">
+    <div onClick="{{ p.go }}" style="display:flex;align-items:center;padding:0 20px;height:40px;border-bottom:1px solid var(--soft);cursor:pointer;background:{{ p.rowbg }}" style-hover="background:var(--bg2)">
+      <div style="width:32px"><span style="display:block;width:7px;height:7px;border-radius:50%;background:{{ p.dot }}"></span></div>
+      <div style="width:150px;font-size:13.5px">{{ p.name }}</div>
+      <div style="width:180px;font:400 12.5px var(--mono);color:var(--t2)">{{ p.zidShort }}</div>
+      <div style="width:84px"><span style="font-size:12px;padding:3px 8px;border-radius:6px;background:{{ p.modeBg }};color:{{ p.modeFg }}">{{ p.mode }}</span></div>
+      <div style="width:108px;font-size:13px;color:var(--t2)">{{ p.region }}</div>
+      <div style="width:126px;font:400 12.5px var(--mono);color:var(--t2)">{{ p.transport }}</div>
+      <div style="width:56px;text-align:right;font:400 12.5px var(--mono)">{{ p.subs }}</div>
+      <div style="width:56px;text-align:right;font:400 12.5px var(--mono)">{{ p.ques }}</div>
+      <div style="width:88px;text-align:right;font:400 12.5px var(--mono);color:{{ p.txColor }}">{{ p.tx }}</div>
+      <div style="width:88px;text-align:right;font:400 12.5px var(--mono);color:var(--t2)">{{ p.rx }}</div>
+      <div style="flex:1;padding-left:18px;font:400 12.5px var(--mono);color:var(--t2)">{{ p.uptime }}</div>
+    </div>
+  </sc-for>
+</div>
+</sc-if>
+
+<!-- PEER DETAIL -->
+<sc-if value="{{ v.detail }}">
+<div style="padding:22px 24px 30px;">
+  <div style="display:flex;align-items:flex-start;gap:16px;padding-bottom:20px;border-bottom:1px solid var(--line);">
+    <div style="width:50px;height:50px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;">
+      <div style="width:16px;height:16px;border-radius:50%;background:var(--ac)"></div>
+    </div>
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;font-weight:500;letter-spacing:-.015em">{{ d.name }}</span>
+        <span style="font-size:12px;padding:3px 9px;border-radius:6px;background:var(--acdim);color:var(--ac2)">{{ d.mode }}</span>
+        <span style="font-size:12px;padding:3px 9px;border-radius:6px;background:{{ d.healthBg }};color:{{ d.healthFg }}">{{ d.health }}</span>
+      </div>
+      <div style="font:400 12.5px var(--mono);color:var(--t2);margin-top:7px">{{ d.zid }}</div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;gap:8px">
+      <div style="height:32px;padding:0 13px;display:flex;align-items:center;border-radius:8px;border:1px solid var(--line);background:var(--bg2);font-size:13px;color:var(--t2);cursor:pointer" style-hover="color:var(--t1)">Query admin space</div>
+      <div style="height:32px;padding:0 13px;display:flex;align-items:center;border-radius:8px;border:1px solid var(--line);background:var(--bg2);font-size:13px;color:var(--t2);cursor:pointer" style-hover="color:var(--t1)">Copy zid</div>
+      <div onClick="{{ go.tap }}" style="height:32px;padding:0 13px;display:flex;align-items:center;border-radius:8px;background:var(--ac);color:var(--onac);font-size:13px;font-weight:500;cursor:pointer">Tap this peer</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:2px;margin:18px 0 20px;padding:3px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);width:fit-content">
+    <sc-for list="{{ dtabs }}" as="t" hint-placeholder-count="4">
+      <div onClick="{{ t.go }}" style="padding:7px 15px;border-radius:6px;font-size:13px;cursor:pointer;color:{{ t.fg }};background:{{ t.bg }}">{{ t.label }}</div>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ dt.overview }}" hint-placeholder-val="{{ true }}">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:12.5px;font-weight:500;color:var(--t2)">Identity</div>
+      <div style="padding:4px 18px 12px">
+        <sc-for list="{{ d.identity }}" as="r" hint-placeholder-count="6">
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--soft)"><span style="font-size:13px;color:var(--t2)">{{ r.k }}</span><span style="font:400 12.5px var(--mono);text-align:right">{{ r.v }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:12.5px;font-weight:500;color:var(--t2)">Routing &amp; discovery</div>
+      <div style="padding:4px 18px 12px">
+        <sc-for list="{{ d.routing }}" as="r" hint-placeholder-count="6">
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--soft)"><span style="font-size:13px;color:var(--t2)">{{ r.k }}</span><span style="font:400 12.5px var(--mono);text-align:right">{{ r.v }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:12.5px;font-weight:500;color:var(--t2)">Counters · last 60 s</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--soft)">
+        <sc-for list="{{ d.counters }}" as="c" hint-placeholder-count="4">
+          <div style="background:var(--bg2);padding:16px"><div style="font-size:12.5px;color:var(--t3);margin-bottom:6px">{{ c.k }}</div><div style="font:500 24px var(--mono);color:{{ c.color }};letter-spacing:-.02em">{{ c.v }}</div></div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:12.5px;font-weight:500;color:var(--t2)">Priority queues</div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ d.prio }}" as="q" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:12px"><span style="width:106px;font-size:12.5px;color:var(--t2)">{{ q.k }}</span><span style="flex:1;height:6px;border-radius:3px;background:var(--soft);overflow:hidden"><span style="display:block;width:{{ q.pct }};height:100%;border-radius:3px;background:{{ q.color }}"></span></span><span style="font:400 12px var(--mono);color:var(--t3);width:40px;text-align:right">{{ q.pct }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ dt.links }}">
+  <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+    <div style="display:flex;padding:0 20px;border-bottom:1px solid var(--line);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">
+      <div style="width:228px;padding:11px 0">Locator</div>
+      <div style="width:88px;padding:11px 0">Protocol</div>
+      <div style="width:108px;padding:11px 0">Peer</div>
+      <div style="width:80px;padding:11px 0;text-align:right">MTU</div>
+      <div style="width:90px;padding:11px 0;text-align:right">RTT</div>
+      <div style="width:106px;padding:11px 0;text-align:right">Reliability</div>
+      <div style="flex:1;padding:11px 0 12px 18px">Priorities</div>
+    </div>
+    <sc-for list="{{ d.links }}" as="l" hint-placeholder-count="3">
+      <div style="display:flex;align-items:center;padding:0 20px;height:40px;border-bottom:1px solid var(--soft)">
+        <div style="width:228px;font:400 12.5px var(--mono)">{{ l.locator }}</div>
+        <div style="width:88px"><span style="font-size:12px;padding:3px 8px;border-radius:6px;background:var(--bg3);color:var(--t1)">{{ l.proto }}</span></div>
+        <div style="width:108px;font-size:13px;color:var(--t2)">{{ l.peer }}</div>
+        <div style="width:80px;text-align:right;font:400 12.5px var(--mono)">{{ l.mtu }}</div>
+        <div style="width:90px;text-align:right;font:400 12.5px var(--mono);color:{{ l.rttColor }}">{{ l.rtt }}</div>
+        <div style="width:106px;text-align:right;font:400 12.5px var(--mono);color:var(--t2)">{{ l.rel }}</div>
+        <div style="flex:1;padding-left:18px;font:400 12.5px var(--mono);color:var(--t2)">{{ l.prio }}</div>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ dt.decl }}">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--soft);display:flex;justify-content:space-between"><span style="font-size:12.5px;font-weight:500;color:var(--t2)">Subscribers</span><span style="font-size:12.5px;color:var(--t3)">{{ d.subCount }}</span></div>
+      <sc-for list="{{ d.subs }}" as="s" hint-placeholder-count="6">
+        <div style="padding:12px 18px;border-bottom:1px solid var(--soft);display:flex;justify-content:space-between;gap:12px"><span style="font:400 12.5px var(--mono);color:var(--t1)">{{ s.key }}</span><span style="font-size:12px;color:var(--t3);white-space:nowrap">{{ s.meta }}</span></div>
+      </sc-for>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--soft);display:flex;justify-content:space-between"><span style="font-size:12.5px;font-weight:500;color:var(--t2)">Queryables</span><span style="font-size:12.5px;color:var(--t3)">{{ d.queCount }}</span></div>
+      <sc-for list="{{ d.ques }}" as="s" hint-placeholder-count="3">
+        <div style="padding:12px 18px;border-bottom:1px solid var(--soft);display:flex;justify-content:space-between;gap:12px"><span style="font:400 12.5px var(--mono);color:var(--t1)">{{ s.key }}</span><span style="font-size:12px;color:var(--t3);white-space:nowrap">{{ s.meta }}</span></div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ dt.raw }}">
+  <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--soft);display:flex;align-items:center;gap:12px">
+      <span style="font:400 12.5px var(--mono);color:var(--ac2)">{{ d.adminKey }}</span>
+      <span style="flex:1"></span>
+      <span style="font-size:12.5px;color:var(--t3)">GET · 4 ms · 1 reply</span>
+    </div>
+    <pre style="margin:0;padding:18px;font:400 12.5px/1.75 var(--mono);color:var(--t2);white-space:pre-wrap">{{ d.raw }}</pre>
+  </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<!-- REGIONS -->
+<sc-if value="{{ v.regions }}">
+<div style="padding:22px 24px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+  <sc-for list="{{ regions }}" as="r" hint-placeholder-count="3">
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <div style="padding:16px 18px;border-bottom:1px solid var(--soft)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:9px;height:9px;border-radius:50%;background:{{ r.dot }}"></span>
+          <span style="font-size:16px;font-weight:500;letter-spacing:-.01em">{{ r.name }}</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--t3);margin-top:7px">{{ r.desc }}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--soft)">
+        <sc-for list="{{ r.stats }}" as="s" hint-placeholder-count="4">
+          <div style="background:var(--bg2);padding:14px 18px"><div style="font-size:12px;color:var(--t3);margin-bottom:5px">{{ s.k }}</div><div style="font:500 19px var(--mono);letter-spacing:-.02em;color:{{ s.color }}">{{ s.v }}</div></div>
+        </sc-for>
+      </div>
+      <div style="padding:18px">
+        <div style="font-size:12px;color:var(--t3);margin-bottom:9px">Members</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <sc-for list="{{ r.members }}" as="m" hint-placeholder-count="5">
+            <span style="font-size:12px;padding:4px 10px;border-radius:6px;background:var(--bg3);color:var(--t2)">{{ m.name }}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</sc-if>
+
+<!-- SCOUTING -->
+<sc-if value="{{ v.scouting }}">
+<div style="padding:22px 24px;">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">
+    <sc-for list="{{ scoutStats }}" as="s" hint-placeholder-count="4">
+      <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);padding:18px">
+        <div style="font-size:12.5px;color:var(--t3);margin-bottom:8px">{{ s.k }}</div>
+        <div style="font:500 22px var(--mono);letter-spacing:-.02em;color:{{ s.color }}">{{ s.v }}</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:6px">{{ s.sub }}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--soft);display:flex;align-items:center;gap:12px">
+      <span style="font-size:13.5px;font-weight:500">Discovery log</span>
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--ac);animation:zblink 1.8s ease-in-out infinite"></span>
+      <span style="flex:1"></span>
+      <div style="display:flex;gap:2px;padding:3px;border-radius:8px;background:var(--bg1);border:1px solid var(--line)">
+        <span style="padding:5px 12px;border-radius:6px;background:var(--bg3);font-size:12.5px;cursor:pointer">All</span>
+        <span style="padding:5px 12px;border-radius:6px;font-size:12.5px;color:var(--t3);cursor:pointer">Multicast</span>
+        <span style="padding:5px 12px;border-radius:6px;font-size:12.5px;color:var(--t3);cursor:pointer">Gossip</span>
+      </div>
+    </div>
+    <sc-for list="{{ scoutLog }}" as="l" hint-placeholder-count="12">
+      <div style="display:flex;align-items:center;gap:12px;padding:0 20px;height:36px;border-bottom:1px solid var(--soft)">
+        <span style="font:400 12.5px var(--mono);color:var(--t3);width:92px">{{ l.time }}</span>
+        <span style="font-size:12px;padding:3px 8px;border-radius:6px;background:{{ l.kindBg }};color:{{ l.kindFg }};width:74px;text-align:center">{{ l.kind }}</span>
+        <span style="font:400 12.5px var(--mono);color:var(--t1);width:142px">{{ l.zid }}</span>
+        <span style="font-size:13px;color:var(--t2);flex:1">{{ l.msg }}</span>
+        <span style="font:400 12px var(--mono);color:var(--t3)">{{ l.locator }}</span>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- TIMELINE -->
+<sc-if value="{{ v.timeline }}">
+<div style="padding:22px 24px;">
+  <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--soft);display:flex;align-items:center;gap:12px">
+      <span style="font-size:13.5px;font-weight:500">Last 30 minutes</span>
+      <span style="flex:1"></span>
+      <div style="display:flex;gap:2px;padding:3px;border-radius:8px;background:var(--bg1);border:1px solid var(--line)">
+        <span style="padding:5px 12px;border-radius:6px;background:var(--bg3);font-size:12.5px;cursor:pointer">30 m</span>
+        <span style="padding:5px 12px;border-radius:6px;font-size:12.5px;color:var(--t3);cursor:pointer">6 h</span>
+        <span style="padding:5px 12px;border-radius:6px;font-size:12.5px;color:var(--t3);cursor:pointer">24 h</span>
+      </div>
+    </div>
+    <div style="padding:18px">
+      <sc-for list="{{ lanes }}" as="ln" hint-placeholder-count="5">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+          <span style="width:128px;font-size:13px;color:var(--t2);text-align:right">{{ ln.label }}</span>
+          <div style="flex:1;height:28px;border-radius:8px;background:var(--bg1);border:1px solid var(--soft);position:relative;overflow:hidden">
+            <sc-for list="{{ ln.marks }}" as="m" hint-placeholder-count="4">
+              <span style="position:absolute;top:5px;bottom:5px;left:{{ m.left }};width:{{ m.width }};border-radius:6px;background:{{ m.color }}"></span>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+      <div style="display:flex;gap:16px;margin-top:2px">
+        <span style="width:128px"></span>
+        <div style="flex:1;display:flex;justify-content:space-between;font:400 12px var(--mono);color:var(--t3)">
+          <span>−30 m</span><span>−20 m</span><span>−10 m</span><span>now</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:14px;font-weight:500">Notable events</div>
+    <sc-for list="{{ events }}" as="e" hint-placeholder-count="6">
+      <div style="display:flex;align-items:center;gap:12px;padding:0 20px;height:40px;border-bottom:1px solid var(--soft)">
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ e.color }};flex:none"></span>
+        <span style="font:400 12.5px var(--mono);color:var(--t3);width:74px">{{ e.time }}</span>
+        <span style="font-size:13px;width:142px">{{ e.who }}</span>
+        <span style="font-size:13px;color:var(--t2);flex:1">{{ e.what }}</span>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- KEY EXPRESSIONS -->
+<sc-if value="{{ v.keys }}">
+<div style="display:flex;height:100%">
+  <div style="width:328px;flex:none;border-right:1px solid var(--line);overflow-y:auto;padding:14px 8px">
+    <sc-for list="{{ keyTree }}" as="k" hint-placeholder-count="14">
+      <div style="display:flex;align-items:center;gap:10px;height:32px;padding-left:{{ k.indent }};padding-right:10px;border-radius:8px;cursor:pointer;background:{{ k.bg }}" style-hover="background:var(--bg2)">
+        <span style="font-size:12px;color:var(--t3);width:9px;text-align:center">{{ k.caret }}</span>
+        <span style="font:400 12.5px var(--mono);color:{{ k.fg }}">{{ k.name }}</span>
+        <span style="flex:1"></span>
+        <span style="font-size:12px;color:var(--t3)">{{ k.count }}</span>
+      </div>
+    </sc-for>
+  </div>
+  <div style="flex:1;min-width:0;overflow-y:auto;padding:22px 24px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+      <span style="font:400 14px var(--mono);color:var(--ac2)">fleet/agv/07/telemetry/**</span>
+      <span style="font-size:12px;padding:3px 9px;border-radius:6px;background:var(--bg3);color:var(--t2)">4 publishers</span>
+      <span style="font-size:12px;padding:3px 9px;border-radius:6px;background:var(--bg3);color:var(--t2)">1 storage</span>
+      <span style="flex:1"></span>
+      <span onClick="{{ toggleTester }}" style="height:30px;padding:0 12px;display:flex;align-items:center;gap:8px;border-radius:8px;background:{{ tester.btnBg }};border:1px solid {{ tester.btnBorder }};font-size:12.5px;color:{{ tester.btnFg }};cursor:pointer;white-space:nowrap" style-hover="color:var(--t1)">Test matching</span>
+    </div>
+
+    <sc-if value="{{ testerOpen }}">
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--soft)">
+        <span style="font-size:13px;font-weight:500">Does this match?</span>
+        <span style="flex:1"></span>
+        <span onClick="{{ toggleTester }}" style="font-size:15px;color:var(--t3);cursor:pointer">×</span>
+      </div>
+      <div style="padding:16px 18px;border-bottom:1px solid var(--soft)">
+        <div style="display:flex;align-items:center;gap:12px;height:40px;padding:0 14px;border-radius:8px;background:var(--bg1);border:1px solid var(--ac)">
+          <span style="font-size:12px;color:var(--t3);flex:none">key expr</span>
+          <span style="font:400 14px var(--mono);color:var(--t1)">fleet/*/07/telemetry/pose<span style="opacity:.5">|</span></span>
+          <span style="flex:1"></span>
+          <span style="font-size:12.5px;color:var(--ok);white-space:nowrap">canonical</span>
+        </div>
+        <div style="display:flex;gap:20px;margin-top:14px">
+          <sc-for list="{{ testerStats }}" as="t" hint-placeholder-count="3">
+            <div>
+              <div style="font-size:12px;color:var(--t3);margin-bottom:5px">{{ t.k }}</div>
+              <div style="font:500 17px var(--mono);color:{{ t.color }}">{{ t.v }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <sc-for list="{{ testerRows }}" as="r" hint-placeholder-count="6">
+        <div style="display:flex;align-items:center;gap:14px;padding:0 18px;height:40px;border-bottom:1px solid var(--soft)">
+          <span style="width:18px;height:18px;flex:none;border-radius:6px;background:{{ r.badgeBg }};color:{{ r.badgeFg }};display:flex;align-items:center;justify-content:center;font:500 12px var(--mono)">{{ r.badge }}</span>
+          <span style="width:290px;font:400 12.5px var(--mono);color:var(--t1)">{{ r.key }}</span>
+          <span style="width:132px;font-size:12.5px;color:var(--t2)">{{ r.who }}</span>
+          <span style="flex:1;font-size:12.5px;color:{{ r.reasonColor }}">{{ r.reason }}</span>
+        </div>
+      </sc-for>
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;background:var(--bg1)">
+        <span style="font-size:12.5px;color:var(--t3)">A single <span style="font-family:var(--mono);color:var(--t2)">*</span> matches exactly one chunk; <span style="font-family:var(--mono);color:var(--t2)">**</span> matches zero or more. <span style="font-family:var(--mono);color:var(--t2)">$*</span> matches within a chunk and is slower.</span>
+      </div>
+    </div>
+    </sc-if>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:12.5px;font-weight:500;color:var(--t2)">Resource</div>
+        <div style="padding:4px 18px 12px">
+          <sc-for list="{{ keyMeta }}" as="r" hint-placeholder-count="6">
+            <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--soft)"><span style="font-size:13px;color:var(--t2)">{{ r.k }}</span><span style="font:400 12.5px var(--mono);text-align:right">{{ r.v }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:12.5px;font-weight:500;color:var(--t2)">Matching declarations</div>
+        <sc-for list="{{ keyDecls }}" as="r" hint-placeholder-count="5">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--soft);display:flex;align-items:center;gap:12px">
+            <span style="font-size:12px;padding:3px 8px;border-radius:6px;background:{{ r.tagBg }};color:{{ r.tagFg }}">{{ r.tag }}</span>
+            <span style="font-size:13px">{{ r.who }}</span>
+            <span style="flex:1"></span>
+            <span style="font:400 12px var(--mono);color:var(--t3)">{{ r.meta }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- LIVE TAP -->
+<sc-if value="{{ v.tap }}">
+<div style="height:100%;display:flex;flex-direction:column">
+  <div style="flex:none;padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px">
+    <div style="flex:1;display:flex;align-items:center;gap:12px;height:38px;padding:0 14px;border-radius:8px;background:var(--bg2);border:1px solid var(--ac)">
+      <span style="font-size:12.5px;color:var(--t3)">key expr</span>
+      <span style="font:400 13.5px var(--mono);color:var(--t1)">fleet/**/telemetry/*</span>
+      <span style="flex:1"></span>
+      <span style="font-size:12.5px;color:var(--t3)">matched 47 resources</span>
+    </div>
+    <div style="height:38px;padding:0 13px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--ac);color:var(--onac);font-size:13px;font-weight:500;cursor:pointer">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--onac);animation:zblink 1.4s ease-in-out infinite"></span>Streaming
+    </div>
+    <div style="height:38px;padding:0 13px;display:flex;align-items:center;border-radius:8px;border:1px solid var(--line);background:var(--bg2);font-size:13px;color:var(--t2);cursor:pointer">Clear</div>
+  </div>
+  <div style="flex:none;display:flex;padding:0 20px;background:var(--bg0);border-bottom:1px solid var(--line);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">
+    <div style="width:112px;padding:10px 0">Time</div>
+    <div style="width:282px;padding:10px 0">Key</div>
+    <div style="width:104px;padding:10px 0">Kind</div>
+    <div style="width:142px;padding:10px 0">Encoding</div>
+    <div style="width:78px;padding:10px 0;text-align:right">Bytes</div>
+    <div style="flex:1;padding:10px 0 10px 18px">Payload</div>
+  </div>
+  <div style="flex:1;overflow-y:auto">
+    <sc-for list="{{ samples }}" as="s" hint-placeholder-count="16">
+      <div style="display:flex;align-items:center;padding:0 20px;height:36px;border-bottom:1px solid var(--soft)" style-hover="background:var(--bg2)">
+        <div style="width:112px;font:400 12px var(--mono);color:var(--t3)">{{ s.time }}</div>
+        <div style="width:282px;font:400 12.5px var(--mono);color:var(--t1)">{{ s.key }}</div>
+        <div style="width:104px"><span style="font-size:12px;padding:3px 8px;border-radius:6px;background:{{ s.kindBg }};color:{{ s.kindFg }}">{{ s.kind }}</span></div>
+        <div style="width:142px;font:400 12px var(--mono);color:var(--t2)">{{ s.encoding }}</div>
+        <div style="width:78px;text-align:right;font:400 12px var(--mono);color:var(--t2)">{{ s.bytes }}</div>
+        <div style="flex:1;padding-left:18px;font:400 12px var(--mono);color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.payload }}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- ADMIN SPACE -->
+<sc-if value="{{ v.admin }}">
+<div style="display:flex;height:100%">
+  <div style="width:344px;flex:none;border-right:1px solid var(--line);overflow-y:auto;padding:14px 8px">
+    <div style="display:flex;align-items:center;gap:10px;height:34px;padding:0 13px;margin-bottom:10px;border-radius:8px;background:var(--bg2);border:1px solid var(--line)">
+      <span style="font:400 12.5px var(--mono);color:var(--ac2)">@/**</span>
+      <span style="flex:1"></span>
+      <span style="font-size:12px;color:var(--t3)">GET</span>
+    </div>
+    <sc-for list="{{ adminTree }}" as="k" hint-placeholder-count="16">
+      <div style="display:flex;align-items:center;gap:10px;height:32px;padding-left:{{ k.indent }};padding-right:10px;border-radius:8px;cursor:pointer;background:{{ k.bg }}" style-hover="background:var(--bg2)">
+        <span style="font-size:12px;color:var(--t3);width:9px;text-align:center">{{ k.caret }}</span>
+        <span style="font:400 12px var(--mono);color:{{ k.fg }}">{{ k.name }}</span>
+      </div>
+    </sc-for>
+  </div>
+  <div style="flex:1;min-width:0;overflow-y:auto;padding:22px 24px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <span style="font:400 13px var(--mono);color:var(--ac2)">@/34f797e3…/router/linkstate/routers</span>
+      <span style="flex:1"></span>
+      <span style="font-size:12.5px;color:var(--t3)">1 reply · 6 ms · 2.1 kB</span>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <pre style="margin:0;padding:20px;font:400 12.5px/1.8 var(--mono);color:var(--t2);white-space:pre-wrap">{{ adminJson }}</pre>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- PLUGINS -->
+<sc-if value="{{ v.plugins }}">
+<div style="padding:22px 24px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+    <sc-for list="{{ plugins }}" as="p" hint-placeholder-count="2">
+      <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+        <div style="padding:16px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--soft)">
+          <div style="width:38px;height:38px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font:500 14px var(--mono);color:var(--ac2)">{{ p.glyph }}</div>
+          <div>
+            <div style="font-size:16px;font-weight:500">{{ p.name }}</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:3px">{{ p.path }}</div>
+          </div>
+          <div style="flex:1"></div>
+          <span style="font-size:12px;padding:3px 9px;border-radius:6px;background:var(--okdim);color:var(--ok)">{{ p.status }}</span>
+        </div>
+        <div style="padding:4px 18px 12px">
+          <sc-for list="{{ p.rows }}" as="r" hint-placeholder-count="3">
+            <div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--soft)"><span style="font-size:13px;color:var(--t2)">{{ r.k }}</span><span style="font:400 12.5px var(--mono);text-align:right">{{ r.v }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:14px;font-weight:500">Storages</div>
+    <div style="display:flex;padding:0 20px;border-bottom:1px solid var(--soft);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">
+      <div style="width:144px;padding:10px 0">Name</div>
+      <div style="width:258px;padding:10px 0">Key expression</div>
+      <div style="width:114px;padding:10px 0">Volume</div>
+      <div style="width:112px;padding:10px 0">Replication</div>
+      <div style="width:92px;padding:10px 0;text-align:right">Entries</div>
+      <div style="flex:1;padding:10px 0 10px 18px">Size</div>
+    </div>
+    <sc-for list="{{ storages }}" as="s" hint-placeholder-count="4">
+      <div style="display:flex;align-items:center;padding:0 20px;height:40px;border-bottom:1px solid var(--soft)">
+        <div style="width:144px;font-size:13px">{{ s.name }}</div>
+        <div style="width:258px;font:400 12.5px var(--mono);color:var(--ac2)">{{ s.key }}</div>
+        <div style="width:114px"><span style="font-size:12px;padding:3px 8px;border-radius:6px;background:var(--bg3);color:var(--t1)">{{ s.volume }}</span></div>
+        <div style="width:112px;font-size:12.5px;color:var(--t2)">{{ s.repl }}</div>
+        <div style="width:92px;text-align:right;font:400 12.5px var(--mono)">{{ s.entries }}</div>
+        <div style="flex:1;padding-left:18px;font:400 12.5px var(--mono);color:var(--t2)">{{ s.size }}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- TRANSPORT -->
+<sc-if value="{{ v.transport }}">
+<div style="padding:22px 24px">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">
+    <sc-for list="{{ transportStats }}" as="s" hint-placeholder-count="4">
+      <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);padding:18px">
+        <div style="font-size:12.5px;color:var(--t3);margin-bottom:9px">{{ s.k }}</div>
+        <div style="font:500 25px var(--mono);letter-spacing:-.02em;color:{{ s.color }}">{{ s.v }}</div>
+        <div style="display:flex;align-items:flex-end;gap:2px;height:24px;margin-top:13px">
+          <sc-for list="{{ s.spark }}" as="b" hint-placeholder-count="10">
+            <span style="flex:1;height:{{ b.h }};background:{{ b.c }};border-radius:3px"></span>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--soft);display:flex;align-items:center;gap:12px">
+      <span style="font-size:13.5px;font-weight:500">Links</span>
+      <span style="font-size:12.5px;color:var(--t3)">19 active · 1 retrying</span>
+    </div>
+    <div style="display:flex;padding:0 20px;border-bottom:1px solid var(--soft);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">
+      <div style="width:206px;padding:10px 0">Endpoint</div>
+      <div style="width:84px;padding:10px 0">Proto</div>
+      <div style="width:126px;padding:10px 0">Peers</div>
+      <div style="width:84px;padding:10px 0;text-align:right">RTT</div>
+      <div style="width:100px;padding:10px 0;text-align:right">Tx</div>
+      <div style="width:100px;padding:10px 0;text-align:right">Rx</div>
+      <div style="width:84px;padding:10px 0;text-align:right">Drops</div>
+      <div style="flex:1;padding:10px 0 10px 18px">Congestion</div>
+    </div>
+    <sc-for list="{{ links }}" as="l" hint-placeholder-count="8">
+      <div style="display:flex;align-items:center;padding:0 20px;height:40px;border-bottom:1px solid var(--soft)" style-hover="background:var(--bg1)">
+        <div style="width:206px;font:400 12.5px var(--mono)">{{ l.endpoint }}</div>
+        <div style="width:84px"><span style="font-size:12px;padding:3px 8px;border-radius:6px;background:var(--bg3);color:var(--t1)">{{ l.proto }}</span></div>
+        <div style="width:126px;font-size:13px;color:var(--t2)">{{ l.peers }}</div>
+        <div style="width:84px;text-align:right;font:400 12.5px var(--mono);color:{{ l.rttColor }}">{{ l.rtt }}</div>
+        <div style="width:100px;text-align:right;font:400 12.5px var(--mono)">{{ l.tx }}</div>
+        <div style="width:100px;text-align:right;font:400 12.5px var(--mono);color:var(--t2)">{{ l.rx }}</div>
+        <div style="width:84px;text-align:right;font:400 12.5px var(--mono);color:{{ l.dropColor }}">{{ l.drops }}</div>
+        <div style="flex:1;padding-left:18px;display:flex;align-items:center;gap:10px">
+          <span style="flex:1;max-width:112px;height:5px;border-radius:3px;background:var(--soft);overflow:hidden"><span style="display:block;width:{{ l.cong }};height:100%;border-radius:3px;background:{{ l.congColor }}"></span></span>
+          <span style="font:400 12px var(--mono);color:var(--t3)">{{ l.cong }}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- CONFIG -->
+<sc-if value="{{ v.config }}">
+<div style="padding:22px 24px;display:flex;gap:16px;height:100%">
+  <div style="flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--soft);display:flex;align-items:center;gap:12px">
+      <span style="font:400 13px var(--mono);color:var(--t1)">rtr-core-a · config.json5</span>
+      <span style="font-size:12px;padding:3px 8px;border-radius:6px;background:var(--warndim);color:var(--warn)">2 unsaved edits</span>
+      <span style="flex:1"></span>
+      <span style="font-size:12.5px;color:var(--t3);cursor:pointer">Revert</span>
+      <span style="height:30px;padding:0 13px;display:flex;align-items:center;border-radius:8px;background:var(--ac);color:var(--onac);font-size:12.5px;font-weight:500;cursor:pointer">PUT to admin space</span>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:14px 0">
+      <sc-for list="{{ configLines }}" as="c" hint-placeholder-count="26">
+        <div style="display:flex;background:{{ c.bg }}">
+          <span style="width:52px;flex:none;text-align:right;padding-right:14px;font:400 12.5px/1.95 var(--mono);color:var(--t3)">{{ c.n }}</span>
+          <span style="font:400 12.5px/1.95 var(--mono);color:{{ c.fg }};white-space:pre">{{ c.text }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="width:288px;flex:none;display:flex;flex-direction:column;gap:16px">
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:12.5px;font-weight:500;color:var(--t2)">Pending changes</div>
+      <sc-for list="{{ configDiff }}" as="c" hint-placeholder-count="2">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--soft)">
+          <div style="font:400 12px var(--mono);color:var(--ac2);margin-bottom:7px">{{ c.path }}</div>
+          <div style="display:flex;align-items:center;gap:10px;font:400 12.5px var(--mono)"><span style="color:var(--err);text-decoration:line-through">{{ c.from }}</span><span style="color:var(--t3)">→</span><span style="color:var(--ok)">{{ c.to }}</span></div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--soft);font-size:12.5px;font-weight:500;color:var(--t2)">Adminspace permissions</div>
+      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;color:var(--t2)">read</span><span style="width:34px;height:20px;border-radius:999px;background:var(--ac);position:relative"><span style="position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:50%;background:var(--onac)"></span></span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;color:var(--t2)">write</span><span style="width:34px;height:20px;border-radius:999px;background:var(--bg3);position:relative"><span style="position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--t3)"></span></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+      </div>
+
+      <!-- query drawer: collapsed to one line until you need it -->
+      <sc-if value="{{ showQuery }}">
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:15">
+        <div style="border-top:1px solid var(--line);background:var(--bg0)">
+          <div onClick="{{ toggleQuery }}" style="display:flex;align-items:center;gap:12px;height:42px;padding:0 20px;cursor:pointer" style-hover="background:var(--bg2)">
+            <span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;{{ drawer.caret }}:5px solid var(--t2);flex:none"></span>
+            <span style="font-size:13px;font-weight:500;color:var(--t1)">Query</span>
+            <span style="font:500 12px var(--mono);color:var(--ac2)">GET</span>
+            <span style="font:400 12.5px var(--mono);color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">fleet/agv/07/telemetry/**?_time=[now-1h..]</span>
+            <span style="flex:1"></span>
+            <span style="font-size:12.5px;color:var(--t3);white-space:nowrap">4 replies · 12 ms</span>
+            <span style="font:400 12px var(--mono);color:var(--t3);border:1px solid var(--line);border-radius:6px;padding:2px 6px;white-space:nowrap">⌘↵</span>
+          </div>
+
+          <sc-if value="{{ queryOpen }}">
+          <div style="border-top:1px solid var(--line);height:322px;display:flex">
+            <div style="width:300px;flex:none;border-right:1px solid var(--line);padding:16px 18px;overflow-y:auto">
+              <div style="display:flex;gap:2px;padding:3px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);margin-bottom:16px">
+                <sc-for list="{{ queryMethods }}" as="m" hint-placeholder-count="3">
+                  <span onClick="{{ m.go }}" style="flex:1;text-align:center;padding:5px 12px;border-radius:6px;font:500 12.5px var(--mono);cursor:pointer;color:{{ m.fg }};background:{{ m.bg }}">{{ m.label }}</span>
+                </sc-for>
+              </div>
+              <sc-for list="{{ queryParams }}" as="p" hint-placeholder-count="5">
+                <div style="margin-bottom:14px">
+                  <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:7px">
+                    <span style="font-size:12.5px;color:var(--t2)">{{ p.label }}</span>
+                    <span style="font:400 12px var(--mono);color:var(--t3)">{{ p.hint }}</span>
+                  </div>
+                  <sc-if value="{{ p.isSeg }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;gap:2px;padding:3px;border-radius:8px;background:var(--bg2);border:1px solid var(--line)">
+                      <sc-for list="{{ p.opts }}" as="o" hint-placeholder-count="3">
+                        <span style="flex:1;text-align:center;padding:5px 8px;border-radius:6px;font-size:12.5px;cursor:pointer;white-space:nowrap;color:{{ o.fg }};background:{{ o.bg }}">{{ o.label }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ p.isField }}">
+                    <div style="height:34px;padding:0 12px;display:flex;align-items:center;border-radius:8px;background:var(--bg2);border:1px solid var(--line);font:400 12.5px var(--mono);color:var(--t1)">{{ p.value }}</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+              <div style="flex:none;display:flex;padding:0 20px;background:var(--bg0);border-bottom:1px solid var(--line);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">
+                <div style="width:150px;padding:11px 0">Replier</div>
+                <div style="width:258px;padding:11px 0">Key</div>
+                <div style="width:132px;padding:11px 0">Encoding</div>
+                <div style="width:86px;padding:11px 0;text-align:right">Bytes</div>
+                <div style="flex:1;padding:11px 0 11px 18px">Value</div>
+              </div>
+              <div style="flex:1;overflow-y:auto">
+                <sc-for list="{{ queryReplies }}" as="r" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;padding:0 20px;height:40px;border-bottom:1px solid var(--soft)" style-hover="background:var(--bg2)">
+                    <div style="width:150px;display:flex;align-items:center;gap:9px">
+                      <span style="width:16px;height:16px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:{{ r.r }};border:1.3px solid var(--t3);font:500 11px var(--mono);color:var(--t3)">{{ r.glyph }}</span>
+                      <span style="font-size:13px">{{ r.who }}</span>
+                    </div>
+                    <div style="width:258px;font:400 12.5px var(--mono);color:var(--t1)">{{ r.key }}</div>
+                    <div style="width:132px;font:400 12px var(--mono);color:var(--t2)">{{ r.encoding }}</div>
+                    <div style="width:86px;text-align:right;font:400 12px var(--mono);color:var(--t2)">{{ r.bytes }}</div>
+                    <div style="flex:1;padding-left:18px;font:400 12px var(--mono);color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="flex:none;display:flex;align-items:center;gap:12px;height:40px;padding:0 20px;border-top:1px solid var(--line);background:var(--bg1);font-size:12.5px;color:var(--t3)">
+                <span>4 replies from 3 nodes · 12 ms · consolidation latest</span>
+                <span style="flex:1"></span>
+                <span style="color:var(--ac);cursor:pointer">Copy as zenoh CLI</span>
+              </div>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- inspector rail -->
+      <sc-if value="{{ showRegionRail }}">
+      <div style="width:314px;flex:none;border-left:1px solid var(--line);background:var(--bg0);overflow-y:auto;padding:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">Selected region</span>
+          <span style="font:400 12px var(--mono);color:var(--t3)">{{ rr.index }}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
+          <span style="width:10px;height:10px;border-radius:50%;background:{{ rr.dot }};flex:none"></span>
+          <div>
+            <div style="font-size:16px;font-weight:500;letter-spacing:-.01em">{{ rr.name }}</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:2px">{{ rr.mode }}</div>
+          </div>
+        </div>
+        <div onClick="{{ rr.drill }}" style="height:32px;margin-bottom:18px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);background:var(--bg2);font-size:12.5px;color:var(--t2);cursor:pointer" style-hover="color:var(--t1)">Open region →</div>
+        <div style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:9px">Composition</div>
+        <sc-for list="{{ rr.rows }}" as="x" hint-placeholder-count="6">
+          <div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--soft)"><span style="font-size:12.5px;color:var(--t2)">{{ x.k }}</span><span style="font:400 12px var(--mono);color:{{ x.color }};text-align:right">{{ x.v }}</span></div>
+        </sc-for>
+        <div style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin:20px 0 9px">Trunks</div>
+        <sc-for list="{{ rr.trunks }}" as="t" hint-placeholder-count="3">
+          <div style="padding:10px 0;border-bottom:1px solid var(--soft)">
+            <div style="display:flex;align-items:center;gap:9px">
+              <span style="font-size:12px;padding:2px 7px;border-radius:6px;background:var(--bg3);color:var(--t1)">{{ t.proto }}</span>
+              <span style="font-size:12.5px;color:var(--t2)">{{ t.to }}</span>
+              <span style="flex:1"></span>
+              <span style="font-size:12px;color:{{ t.stateFg }}">{{ t.state }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ showInspector }}" hint-placeholder-val="{{ true }}">
+      <div style="width:314px;flex:none;border-left:1px solid var(--line);background:var(--bg0);overflow-y:auto;padding:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <span style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">Selected node</span>
+          <span style="font:400 12px var(--mono);color:var(--t3)">1 of 13</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="width:34px;height:34px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center"><span style="width:11px;height:11px;border-radius:50%;background:var(--ac)"></span></div>
+          <div>
+            <div style="font-size:16px;font-weight:500;letter-spacing:-.01em">{{ d.name }}</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:2px">{{ d.mode }} · {{ d.region }}</div>
+          </div>
+        </div>
+        <div onClick="{{ go.detail }}" style="height:32px;margin-bottom:18px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--line);background:var(--bg2);font-size:12.5px;color:var(--t2);cursor:pointer" style-hover="color:var(--t1)">Open full inspector →</div>
+        <div onClick="{{ insProps.go }}" style="display:flex;align-items:center;gap:9px;padding:10px 0;cursor:pointer;border-bottom:1px solid var(--soft)" style-hover="color:var(--t1)">
+          <span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;{{ insProps.caret }}:5px solid var(--t3);flex:none"></span>
+          <span style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">Properties</span>
+          <span style="flex:1"></span>
+          <span style="font:400 12px var(--mono);color:var(--t3)">{{ insProps.hint }}</span>
+        </div>
+        <sc-if value="{{ insProps.open }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:2px 0 10px">
+            <sc-for list="{{ d.identity }}" as="r" hint-placeholder-count="6">
+              <div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--soft)"><span style="font-size:12.5px;color:var(--t2)">{{ r.k }}</span><span style="font:400 12px var(--mono);text-align:right">{{ r.v }}</span></div>
+            </sc-for>
+            <div onClick="{{ go.detail }}" style="font-size:12.5px;color:var(--ac);cursor:pointer;padding-top:12px">Show all 24 admin fields →</div>
+          </div>
+        </sc-if>
+
+        <div onClick="{{ insCounters.go }}" style="display:flex;align-items:center;gap:9px;padding:10px 0;cursor:pointer;border-bottom:1px solid var(--soft)">
+          <span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;{{ insCounters.caret }}:5px solid var(--t3);flex:none"></span>
+          <span style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">Live counters</span>
+          <span style="flex:1"></span>
+          <span style="font:400 12px var(--mono);color:{{ insCounters.hintFg }}">{{ insCounters.hint }}</span>
+        </div>
+        <sc-if value="{{ insCounters.open }}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-radius:10px;overflow:hidden;border:1px solid var(--line);margin:12px 0 6px">
+            <sc-for list="{{ d.counters }}" as="c" hint-placeholder-count="4">
+              <div style="background:var(--bg2);padding:14px"><div style="font-size:12px;color:var(--t3);margin-bottom:5px">{{ c.k }}</div><div style="font:500 16px var(--mono);color:{{ c.color }}">{{ c.v }}</div></div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div onClick="{{ insLinks.go }}" style="display:flex;align-items:center;gap:9px;padding:10px 0;cursor:pointer;border-bottom:1px solid var(--soft)">
+          <span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;{{ insLinks.caret }}:5px solid var(--t3);flex:none"></span>
+          <span style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">Links</span>
+          <span style="flex:1"></span>
+          <span style="font:400 12px var(--mono);color:var(--t3)">{{ insLinks.hint }}</span>
+        </div>
+        <sc-if value="{{ insLinks.open }}">
+          <div style="padding:2px 0 10px">
+            <sc-for list="{{ d.links }}" as="l" hint-placeholder-count="3">
+              <div style="padding:10px 0;border-bottom:1px solid var(--soft)">
+                <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;padding:2px 7px;border-radius:6px;background:var(--bg3);color:var(--t1)">{{ l.proto }}</span><span style="font:400 12px var(--mono);color:var(--t2)">{{ l.rtt }}</span></div>
+                <div style="font:400 12px var(--mono);color:var(--t3);margin-top:6px">{{ l.locator }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      </sc-if>
+    </div>
+
+  </div>
+</div>
+
+<!-- status bar: spans the full width, chrome wraps the content pane -->
+<div style="height:32px;flex:none;display:flex;align-items:center;gap:12px;padding:0 18px;background:var(--bg0);font-size:12px;color:var(--t3)">
+  <span style="display:flex;align-items:center;gap:7px;width:{{ statusW }};flex:none"><span style="width:6px;height:6px;border-radius:50%;background:var(--ok)"></span><span style="font-family:var(--mono)">{{ statusEndpoint }}</span></span>
+  <span>2 184 nodes</span>
+  <sc-if value="{{ statusOpen }}">
+    <span style="width:1px;height:12px;background:var(--line)"></span>
+    <span>rtt 1.8 ms</span>
+    <span style="width:1px;height:12px;background:var(--line)"></span>
+    <span>34 routers · 2 037 peers · 113 clients</span>
+    <span style="width:1px;height:12px;background:var(--line)"></span>
+    <span>48 210 resources</span>
+    <span style="width:1px;height:12px;background:var(--line)"></span>
+    <span>gossip <span style="color:var(--ok)">on</span> · multicast <span style="color:var(--ok)">on</span> · multihop off</span>
+    <span style="width:1px;height:12px;background:var(--line)"></span>
+    <span>zenoh 1.5.1 · proto v9</span>
+  </sc-if>
+  <span onClick="{{ toggleStatus }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--t3)" style-hover="color:var(--t1)">
+    <span style="width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;{{ statusCaret }}:5px solid currentColor"></span>{{ statusLabel }}
+  </span>
+  <span style="flex:1"></span>
+  <span style="display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:var(--ok)"></span>Live</span>
+  <span style="width:1px;height:12px;background:var(--line)"></span>
+  <span style="font-family:var(--mono)">{{ clock }}</span>
+</div>
+
+<!-- command palette -->
+<sc-if value="{{ paletteOpen }}">
+<div onClick="{{ closeOverlays }}" style="position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;padding-top:120px;z-index:60">
+  <div style="width:620px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);box-shadow:0 24px 60px -20px rgba(0,0,0,.8);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:12px;padding:0 18px;height:52px;border-bottom:1px solid var(--line)">
+      <span style="font-size:15px;color:var(--t3)">⌕</span>
+      <span style="flex:1;font-size:15px;color:var(--t1)">agv<span style="opacity:.5">|</span></span>
+      <span style="font:400 12px var(--mono);color:var(--t3)">esc</span>
+    </div>
+    <div style="max-height:388px;overflow-y:auto;padding:6px">
+      <sc-for list="{{ paletteGroups }}" as="g" hint-placeholder-count="3">
+        <div style="padding:9px 12px 7px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">{{ g.title }}</div>
+        <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="3">
+          <div onClick="{{ i.go }}" style="display:flex;align-items:center;gap:12px;height:38px;padding:0 12px;border-radius:8px;cursor:pointer;background:{{ i.bg }}" style-hover="background:var(--bg3)">
+            <span style="width:20px;flex:none;text-align:center;font-size:13px;color:{{ i.iconColor }}">{{ i.icon }}</span>
+            <span style="font-size:13.5px;color:var(--t1);white-space:nowrap">{{ i.label }}</span>
+            <span style="font:400 12.5px var(--mono);color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.meta }}</span>
+            <span style="flex:1"></span>
+            <span style="font:400 12px var(--mono);color:var(--t3);white-space:nowrap">{{ i.hint }}</span>
+          </div>
+        </sc-for>
+      </sc-for>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:0 18px;height:38px;border-top:1px solid var(--line);background:var(--bg1);font-size:12px;color:var(--t3)">
+      <span>↑↓ navigate</span><span>↵ open</span><span>⌘↵ open in split</span><span style="flex:1"></span><span>Type <span style="font-family:var(--mono);color:var(--t2)">&gt;</span> for commands, <span style="font-family:var(--mono);color:var(--t2)">@</span> for admin keys</span>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- connect dialog -->
+<sc-if value="{{ connectOpen }}">
+<div onClick="{{ closeOverlays }}" style="position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:70">
+  <div style="width:660px;border-radius:12px;background:var(--bg1);border:1px solid var(--line);box-shadow:0 24px 60px -20px rgba(0,0,0,.8);overflow:hidden">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center">
+      <div>
+        <div style="font-size:16px;font-weight:500">Connect to a Zenoh network</div>
+        <div style="font-size:13px;color:var(--t3);margin-top:3px">Opens a new session tab. Nothing is written to the network.</div>
+      </div>
+      <span style="flex:1"></span>
+      <span onClick="{{ closeOverlays }}" style="font-size:16px;color:var(--t3);cursor:pointer">×</span>
+    </div>
+
+    <div style="padding:20px 22px">
+      <div style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Session name</div>
+      <div style="height:38px;padding:0 13px;display:flex;align-items:center;border-radius:8px;background:var(--bg2);border:1px solid var(--line);font-size:13.5px;color:var(--t1);margin-bottom:20px">core-dc-prod</div>
+
+      <div style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">This explorer joins as</div>
+      <div style="display:flex;gap:10px;margin-bottom:20px">
+        <sc-for list="{{ connectModes }}" as="m" hint-placeholder-count="3">
+          <div style="flex:1;padding:13px 14px;border-radius:10px;cursor:pointer;background:{{ m.bg }};border:1px solid {{ m.border }}">
+            <div style="display:flex;align-items:center;gap:9px">
+              <span style="width:14px;height:14px;border-radius:50%;border:1.5px solid {{ m.dot }};background:{{ m.dotFill }};flex:none"></span>
+              <span style="font-size:13.5px;color:var(--t1)">{{ m.label }}</span>
+            </div>
+            <div style="font-size:12px;color:var(--t3);margin-top:7px;line-height:1.5">{{ m.desc }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Discovery</div>
+      <div style="border:1px solid var(--line);border-radius:10px;background:var(--bg2);overflow:hidden;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--soft)">
+          <span style="width:34px;height:20px;border-radius:999px;background:var(--ac);position:relative;flex:none"><span style="position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:50%;background:var(--onac)"></span></span>
+          <div>
+            <div style="font-size:13.5px">Multicast scouting</div>
+            <div style="font:400 12px var(--mono);color:var(--t3);margin-top:3px">udp/224.0.0.224:7446 · iface auto</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:13px 16px">
+          <span style="width:34px;height:20px;border-radius:999px;background:var(--ac);position:relative;flex:none"><span style="position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:50%;background:var(--onac)"></span></span>
+          <div>
+            <div style="font-size:13.5px">Gossip</div>
+            <div style="font-size:12px;color:var(--t3);margin-top:3px">multihop off · autoconnect router, peer</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+        <span style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">Connect endpoints</span>
+        <span style="font-size:12px;color:var(--t3)">tried in order</span>
+      </div>
+      <sc-for list="{{ connectEndpoints }}" as="e" hint-placeholder-count="2">
+        <div style="display:flex;align-items:center;gap:12px;height:38px;padding:0 13px;margin-bottom:8px;border-radius:8px;background:var(--bg2);border:1px solid var(--line)">
+          <span style="font:400 13px var(--mono);color:var(--t1)">{{ e.locator }}</span>
+          <span style="flex:1"></span>
+          <span style="font-size:12px;color:{{ e.color }}">{{ e.state }}</span>
+          <span style="font-size:14px;color:var(--t3);cursor:pointer">×</span>
+        </div>
+      </sc-for>
+      <div style="height:38px;display:flex;align-items:center;gap:9px;padding:0 13px;border-radius:8px;border:1px dashed var(--line);font-size:13px;color:var(--t3);cursor:pointer" style-hover="color:var(--t1)">+ Add endpoint or load a config.json5</div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 22px;border-top:1px solid var(--line);background:var(--bg0)">
+      <span style="font-size:12px;color:var(--t3)">Adminspace access will be requested read-only.</span>
+      <span style="flex:1"></span>
+      <span onClick="{{ closeOverlays }}" style="height:34px;padding:0 14px;display:flex;align-items:center;border-radius:8px;border:1px solid var(--line);background:var(--bg2);font-size:13px;color:var(--t2);cursor:pointer">Cancel</span>
+      <span onClick="{{ closeOverlays }}" style="height:34px;padding:0 16px;display:flex;align-items:center;gap:9px;border-radius:8px;background:var(--ac);color:var(--onac);font-size:13px;font-weight:500;cursor:pointer">Connect<span style="font:400 12px var(--mono);opacity:.7">⌘↵</span></span>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- shortcut cheatsheet -->
+<sc-if value="{{ shortcutsOpen }}">
+<div onClick="{{ closeOverlays }}" style="position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:65">
+  <div style="width:720px;border-radius:12px;background:var(--bg1);border:1px solid var(--line);box-shadow:0 24px 60px -20px rgba(0,0,0,.8);overflow:hidden">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center">
+      <span style="font-size:16px;font-weight:500">Keyboard shortcuts</span>
+      <span style="flex:1"></span>
+      <span onClick="{{ closeOverlays }}" style="font-size:16px;color:var(--t3);cursor:pointer">×</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;padding:20px 22px">
+      <sc-for list="{{ shortcutGroups }}" as="g" hint-placeholder-count="4">
+        <div style="margin-bottom:18px">
+          <div style="font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">{{ g.title }}</div>
+          <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--soft)">
+              <span style="font-size:13px;color:var(--t2)">{{ i.label }}</span>
+              <span style="flex:1"></span>
+              <span style="font:400 12px var(--mono);color:var(--t1);padding:2px 7px;border-radius:6px;background:var(--bg3);border:1px solid var(--line);white-space:nowrap">{{ i.keys }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- settings dialog -->
+<sc-if value="{{ settingsOpen }}">
+<div onClick="{{ closeSettings }}" style="position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:40">
+  <div style="width:600px;border-radius:12px;background:var(--bg1);border:1px solid var(--line);overflow:hidden">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center">
+      <span style="font-size:16px;font-weight:500">Settings</span>
+      <span style="flex:1"></span>
+      <span onClick="{{ closeSettings }}" style="font-size:16px;color:var(--t3);cursor:pointer">×</span>
+    </div>
+    <div style="display:flex">
+      <div style="width:164px;flex:none;border-right:1px solid var(--line);padding:12px 14px">
+        <sc-for list="{{ settingsNav }}" as="s" hint-placeholder-count="4">
+          <div style="height:32px;display:flex;align-items:center;padding:0 11px;border-radius:8px;font-size:13px;color:{{ s.fg }};background:{{ s.bg }};cursor:pointer">{{ s.label }}</div>
+        </sc-for>
+      </div>
+      <div style="flex:1;padding:18px">
+        <div style="font-size:12.5px;font-weight:500;color:var(--t2);margin-bottom:12px">Theme</div>
+        <div style="display:flex;gap:2px;padding:3px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);width:fit-content;margin-bottom:22px">
+          <sc-for list="{{ themeOpts }}" as="t" hint-placeholder-count="3">
+            <div onClick="{{ t.go }}" style="padding:7px 15px;border-radius:6px;font-size:13px;cursor:pointer;color:{{ t.fg }};background:{{ t.bg }}">{{ t.label }}</div>
+          </sc-for>
+        </div>
+        <div style="font-size:12.5px;font-weight:500;color:var(--t2);margin-bottom:12px">Interface</div>
+        <sc-for list="{{ settingsRows }}" as="r" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--soft)">
+            <div>
+              <div style="font-size:13.5px">{{ r.k }}</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:3px">{{ r.sub }}</div>
+            </div>
+            <span style="width:34px;height:20px;border-radius:999px;background:{{ r.tBg }};position:relative;flex:none"><span style="position:absolute;top:3px;{{ r.side }}:3px;width:14px;height:14px;border-radius:50%;background:{{ r.knob }}"></span></span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:940}}">
+const T1='var(--t1)',T2='var(--t2)',T3='var(--t3)',AC='var(--ac)',AC2='var(--ac2)',OK='var(--ok)',WARN='var(--warn)',ERR='var(--err)',BG2='var(--bg2)',BG3='var(--bg3)',ACDIM='var(--acdim)',LINE='var(--line)';
+
+const NODES=[
+ {id:'agv07',name:'agv-07',kind:'peer',zid:'690fd749',full:'690fd74942bab8e8d68bddb6f9173ac1',region:'edge-fleet',rate:'4.2k/s',decl:'14 sub · 3 qry',share:23,left:34,top:92},
+ {id:'agv11',name:'agv-11',kind:'peer',zid:'38a7f630',full:'38a7f63005e4135416ba1b76ca4e1f68',region:'edge-fleet',rate:'3.9k/s',decl:'14 sub · 3 qry',share:21,left:34,top:168},
+ {id:'rtredge',name:'rtr-edge-1',kind:'router',zid:'ca78bafc',full:'ca78bafc5425e05420229ab552f7de5a',region:'edge-fleet',rate:'24.1k/s',decl:'7 links · 4 qry',share:58,left:58,top:272},
+ {id:'vision',name:'vision-01',kind:'peer',zid:'a1c94f22',full:'a1c94f2210ce4b7d88a37be03d51ff02',region:'edge-fleet',rate:'11.6k/s',decl:'2 sub · 0 qry',share:63,left:34,top:376},
+ {id:'bridge',name:'ros2-bridge',kind:'peer',zid:'c7d1a04b',full:'c7d1a04b9e17d3ca55b84f0e2288a13c',region:'edge-fleet',rate:'7.3k/s',decl:'61 sub · 12 qry',share:40,left:34,top:452},
+ {id:'logger',name:'logger',kind:'client',zid:'0b53ee71',full:'0b53ee7188c4a1fe37d0d9114a2075bb',region:'edge-fleet',rate:'',decl:'',share:0,left:50,top:520},
+ {id:'rtrcorea',name:'rtr-core-a',kind:'router',zid:'34f797e3',full:'34f797e35493b213cf629378cbf75cc9',region:'core-dc',rate:'41.9k/s',decl:'9 links · 6 qry',share:100,left:326,top:132},
+ {id:'rtrcoreb',name:'rtr-core-b',kind:'router',zid:'583d4db6',full:'583d4db6462765ec8ced600c98defb85',region:'core-dc',rate:'33.5k/s',decl:'6 links · 6 qry',share:80,left:326,top:308},
+ {id:'fleetmgr',name:'fleet-mgr',kind:'peer',zid:'1f6b0cd8',full:'1f6b0cd8ba24907e55c133a8e470dd19',region:'core-dc',rate:'1.2k/s',decl:'38 sub · 9 qry',share:7,left:314,top:412},
+ {id:'cli',name:'cli-probe',kind:'client',zid:'7a3f2ee9',full:'7a3f2ee9c0184ba7d6e26b0ec19dfe44',region:'core-dc',rate:'',decl:'',share:0,left:352,top:500},
+ {id:'rtrcloud',name:'rtr-cloud',kind:'router',zid:'38a7f631',full:'38a7f631aa9c4e0d8816ba1b76004411',region:'cloud',rate:'9.0k/s',decl:'3 links · 3 qry',share:22,warn:'1 link down',left:606,top:196},
+ {id:'influx',name:'influx-sink',kind:'peer',zid:'e2905ab1',full:'e2905ab1cc3f48d0a1b27c4d11080f6a',region:'cloud',rate:'17.4k/s',decl:'92 sub · 1 qry',share:95,left:594,top:344},
+ {id:'dash',name:'dashboard',kind:'client',zid:'b8477fa0',full:'b8477fa0d1e94c2ab7f420ce9d63aa07',region:'cloud',rate:'',decl:'',share:0,left:634,top:444},
+];
+const W={peer:190,router:200,client:170};
+const H={peer:46,router:46,client:38};
+const GLYPH={router:'R',peer:'P',client:'C'};
+const c=n=>({x:n.left+W[n.kind]/2,y:n.top+H[n.kind]/2});
+const N=Object.fromEntries(NODES.map(n=>[n.id,n]));
+// edges leave a source handle and land on a target handle, react-flow style
+const hpath=(a,b)=>{
+  const toRight=(a.left+a.w/2)<(b.left+b.w/2);
+  const p={x:toRight?a.left+a.w:a.left,y:a.top+a.h/2};
+  const q={x:toRight?b.left:b.left+b.w,y:b.top+b.h/2};
+  const dx=Math.max(34,Math.abs(q.x-p.x)*0.5);
+  return `M${p.x},${p.y} C${toRight?p.x+dx:p.x-dx},${p.y} ${toRight?q.x-dx:q.x+dx},${q.y} ${q.x},${q.y}`;
+};
+const box=n=>({left:n.left,top:n.top,w:W[n.kind],h:H[n.kind]});
+const curve=(a,b)=>hpath(box(a),box(b));
+
+const EDGES=[
+ ['agv07','rtredge',{}],['agv11','rtredge',{}],['vision','rtredge',{w:2.4,stroke:'var(--warn)'}],
+ ['bridge','rtredge',{}],['logger','rtredge',{}],
+ ['agv07','agv11',{dash:'2 5',op:.5}],
+ ['rtrcorea','rtrcoreb',{w:2.6,stroke:'var(--wire2)'}],
+ ['rtrcoreb','fleetmgr',{}],['rtrcoreb','cli',{}],
+ ['rtredge','rtrcorea',{w:2.6,stroke:AC,op:.45}],
+ ['rtrcoreb','rtrcloud',{w:2.6,stroke:'var(--wire2)'}],
+ ['rtrcorea','rtrcloud',{w:1.8,stroke:ERR,dash:'4 7',op:.75}],
+ ['rtrcloud','influx',{}],['rtrcloud','dash',{}],
+];
+
+const PEERROWS=[
+ ['agv07','peer','edge-fleet','quic · 2 links',14,3,'4 210','1 902','6d 04:12',OK],
+ ['agv11','peer','edge-fleet','quic · 2 links',14,3,'3 984','1 774','6d 04:10',OK],
+ ['vision','peer','edge-fleet','tcp · 1 link',2,0,'11 640','86','02:31',WARN],
+ ['bridge','peer','edge-fleet','tcp · 3 links',61,12,'7 320','6 908','21d 09:44',OK],
+ ['rtredge','router','edge-fleet','quic · 7 links','—',4,'24 118','25 002','44d 11:02',OK],
+ ['logger','client','edge-fleet','tcp · 1 link',1,0,'0','18 440','3d 22:07',OK],
+ ['rtrcorea','router','core-dc','tls · 9 links','—',6,'41 907','40 331','89d 02:55',OK],
+ ['rtrcoreb','router','core-dc','tls · 6 links','—',6,'33 480','34 002','89d 02:55',OK],
+ ['fleetmgr','peer','core-dc','tls · 2 links',38,9,'1 204','12 880','14d 06:19',OK],
+ ['cli','client','core-dc','tcp · 1 link',0,0,'12','46','00:04',OK],
+ ['rtrcloud','router','cloud','tls · 3 links','—',3,'9 006','9 214','31d 18:40',WARN],
+ ['influx','peer','cloud','tls · 1 link',92,1,'8','17 350','31d 18:38',OK],
+ ['dash','client','cloud','ws · 1 link',7,0,'3','2 118','01:22',OK],
+];
+
+const VIEWS={
+ topology:['Topology','6 regions · 2 184 nodes · 41 trunks'],
+ peers:['Peers & sessions','2 184 sessions · filtered to 13'],
+ detail:['Peer inspector','Full admin-space properties for one node'],
+ regions:['Regions','6 zones · grouped by metadata.location'],
+ scouting:['Scouting','Multicast 224.0.0.224:7446 · gossip enabled'],
+ timeline:['Event timeline','Session, link and declaration events'],
+ keys:['Key expressions','48 210 resources across 2 184 nodes'],
+ tap:['Live tap','Subscribed sample stream'],
+ admin:['Admin space','Browse and GET @/** on any node'],
+ plugins:['Plugins & storages','2 plugins loaded · 4 storages'],
+ transport:['Transport stats','Per-link counters and congestion'],
+ config:['Configuration','Runtime config via admin space PUT'],
+};
+
+const bars=(a,hot)=>a.map((h,i)=>({h:h+'%',c:i>=a.length-hot?AC:'rgba(74,158,255,.28)'}));
+
+const REGIONS=[
+ {id:'edge-fleet',name:'edge-fleet',x:26,y:82,nodes:412,rate:'27.1k/s',links:'8 links up',mode:'linkstate',routers:6,peers:388,clients:18},
+ {id:'plant-b',name:'plant-b',x:306,y:82,nodes:604,rate:'41.7k/s',links:'11 links up',mode:'linkstate',routers:8,peers:562,clients:34},
+ {id:'plant-c',name:'plant-c',x:586,y:82,nodes:588,rate:'39.2k/s',links:'11 links up',mode:'linkstate',routers:8,peers:544,clients:36},
+ {id:'lab',name:'lab',x:26,y:330,nodes:518,rate:'4.2k/s',links:'4 links up',mode:'peer_to_peer',routers:2,peers:502,clients:14},
+ {id:'core-dc',name:'core-dc',x:306,y:330,nodes:38,rate:'75.4k/s',links:'19 links up',mode:'linkstate',routers:6,peers:26,clients:6},
+ {id:'cloud',name:'cloud',x:586,y:330,nodes:24,rate:'18.2k/s',links:'1 of 4 links down',mode:'peer_to_peer',routers:3,peers:15,clients:6,err:1},
+];
+const RW=246,RH=152;
+const rcurve=(a,b)=>hpath({left:a.x,top:a.y,w:RW,h:RH},{left:b.x,top:b.y,w:RW,h:RH});
+
+const NAMES={
+ 'edge-fleet':['agv-07','agv-11','agv-14','agv-19','vision-01','vision-02','ros2-bridge','dock-03','dock-05','scale-01','picker-08','picker-12','agv-22','agv-27','vision-04','conveyor-2','conveyor-3','wms-sync'],
+ 'plant-b':['weld-01','weld-02','weld-04','press-01','press-02','oven-01','oven-02','agv-b03','agv-b07','vision-b1','vision-b2','plc-gw-1','plc-gw-2','torque-11','torque-14','paint-01','paint-02','qa-cam-1'],
+ 'plant-c':['mill-01','mill-02','mill-05','lathe-03','lathe-07','agv-c02','agv-c09','vision-c1','plc-gw-c1','plc-gw-c2','coolant-1','coolant-2','qa-cam-c1','torque-c3','press-c1','press-c2','oven-c1','wms-c'],
+ 'lab':['bench-01','bench-02','bench-03','rig-alpha','rig-beta','sim-01','sim-02','sim-03','recorder-1','recorder-2','probe-01','probe-02','bench-07','bench-09','rig-gamma','sim-07','sim-09','archive-1'],
+ 'core-dc':['fleet-mgr','scheduler','wms-api','alert-svc','influx-relay','grafana','audit-log','backup-1','mqtt-bridge','ros2-dds','k8s-probe','cost-agg','trace-coll','sso-gw','cfg-svc','metrics-1','metrics-2','api-gw'],
+ 'cloud':['influx-sink','s3-archive','dashboard','alert-fanout','ml-infer','ml-train','api-edge','cdn-log','billing','audit-cloud','replica-1','replica-2','ingest-1','ingest-2','ingest-3','notify','export','bi-sync'],
+};
+const RTRNAMES={'edge-fleet':['rtr-edge-1','rtr-edge-2','rtr-edge-3'],'plant-b':['rtr-b-1','rtr-b-2','rtr-b-3'],'plant-c':['rtr-c-1','rtr-c-2','rtr-c-3'],'lab':['rtr-lab-1','rtr-lab-2'],'core-dc':['rtr-core-a','rtr-core-b','rtr-core-c'],'cloud':['rtr-cloud','rtr-cloud-b','rtr-cloud-c']};
+
+const ACTIONS={
+ topology:['Fit view','Graph',[['Re-scout network','⇧R'],['Export as DOT',''],['Export as PNG','⇧E'],['Copy link-state JSON','']]],
+ peers:['Export CSV','Table',[['Copy all zids',''],['Choose columns',''],['Group by region',''],['Export CSV','⌘E']]],
+ detail:['Tap this peer','Node',[['Query admin space','⌘↵'],['Copy zid',''],['Export node JSON',''],['Close session','']]],
+ regions:['Edit grouping','Regions',[['Edit grouping rule',''],['Export regions CSV',''],['Collapse all','']]],
+ scouting:['Pause log','Discovery log',[['Pause log','space'],['Clear log','⌘⌫'],['Export log as NDJSON',''],['Filter by kind','']]],
+ timeline:['Export events','Timeline',[['Change time range',''],['Export events CSV',''],['Show only errors','']]],
+ keys:['New tap on selection','Key space',[['New tap on selection','⌘T'],['GET this selector','⌘↵'],['Export key tree','']]],
+ tap:['Pause stream','Sample stream',[['Pause stream','space'],['Clear samples','⌘⌫'],['Export as NDJSON','⌘E'],['Decode payloads as CBOR','']]],
+ admin:['Re-run GET','Admin space',[['Re-run GET','⌘R'],['Copy reply JSON','⌘C'],['PUT to this key',''],['Save reply to file','']]],
+ plugins:['Reload plugins','Plugins',[['Reload plugin config',''],['Add storage',''],['Export storages CSV','']]],
+ transport:['Export links CSV','Links',[['Reset counters',''],['Export links CSV','⌘E'],['Show only degraded','']]],
+ config:['PUT to admin space','Configuration',[['PUT to admin space','⌘S'],['Revert local edits',''],['Download config.json5',''],['Diff against running','']]],
+};
+
+class Component extends DCLogic {
+  state={view:'topology',sel:'agv07',dtab:'overview',theme:'dark',settings:false,session:0,clock:'',navCollapsed:false,edgeMenu:false,actionsOpen:false,palette:false,connect:false,shortcuts:false,firstRun:false,trace:false,query:false,tester:false,navMore:false,legend:false,status:false,ins:'props',drill:'',dsel:0,hop:3,region:'core-dc',crumb:-1};
+  componentDidMount(){this.tick();this.t=setInterval(()=>this.tick(),1000);}
+  componentWillUnmount(){clearInterval(this.t);}
+  tick(){const d=new Date();this.setState({clock:[d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':')});}
+
+  nav(items){const col=this.state.navCollapsed;return items.map(([id,label,icon,badge,title])=>{const on=this.state.view===id;return{
+    label:col?'':label,badge,icon,title:title||label,
+    w:col?'36px':'auto',h:col?'34px':'34px',pad:col?'0':'0 10px',
+    margin:col?'0 auto 2px':'0 0 2px',gap:col?'0':'10px',
+    just:col?'center':'flex-start',iconSize:col?'17px':'15px',
+    showBadge:!col&&!!badge,
+    fg:on?T1:T2,bg:on?BG3:'transparent',ic:on?AC:T3,
+    go:()=>this.setState({view:id})};});}
+
+  renderVals(){
+    const s=this.state, sel=N[s.sel]||N.agv07, light=s.theme==='light', col=s.navCollapsed;
+if(typeof document!=='undefined'){const want=light?'light':'dark';if(document.body.dataset.theme!==want)document.body.dataset.theme=want;}
+
+    const go={};Object.keys(VIEWS).forEach(k=>go[k]=()=>this.setState({view:k}));
+    const v={};Object.keys(VIEWS).forEach(k=>v[k]=s.view===k);
+    const [viewTitle,viewSub]=VIEWS[s.view];
+
+    const nodes=NODES.map(n=>{
+      const on=n.id===s.sel, kr=n.kind==='router';
+      return {...n,
+        w:W[n.kind]+'px',left:n.left+'px',top:n.top+'px',
+        pad:n.kind==='client'?'9px 12px':'12px 13px',
+        rate:n.kind==='client'?'':n.rate,
+        title:n.name+' · '+n.kind+' · zid '+n.full+(n.warn?' · '+n.warn:''),
+        glyph:GLYPH[n.kind],
+        ring:on?AC:(n.warn?'var(--warn)':LINE),
+        glow:on?'0 0 0 3px rgba(74,158,255,.16)':'none',
+        iconR:kr?'5px':'50%',iconStyle:n.kind==='client'?'dashed':'solid',
+        iconColor:n.warn?WARN:(on?AC:T3),iconFill:on?'var(--acdim)':'transparent',
+        alert:!!n.warn,alertColor:WARN,
+        rateColor:n.warn?WARN:T2,
+        share:n.share+'%',shareColor:n.warn?WARN:(on?AC:'var(--track)'),
+        go:()=>this.setState({sel:n.id}),
+      };});
+
+    const PW=214,PH=122;
+    const obstacles=NODES.filter(n=>n.id!==sel.id).map(n=>({x:n.left,y:n.top,w:W[n.kind],h:H[n.kind]}))
+      .concat([{x:16,y:30,w:266,h:28},{x:296,y:30,w:266,h:28},{x:576,y:30,w:268,h:28}]);
+    const hits=r=>r.x<0||r.y<0||r.x+r.w>860||r.y+r.h>620||
+      obstacles.some(o=>r.x<o.x+o.w+6&&r.x+r.w+6>o.x&&r.y<o.y+o.h+6&&r.y+r.h+6>o.y);
+    const cands=[
+      {x:sel.left+W[sel.kind]+10,y:sel.top-6},
+      {x:sel.left-PW-10,y:sel.top-6},
+      {x:sel.left+W[sel.kind]+10,y:sel.top+H[sel.kind]-PH+6},
+      {x:sel.left-PW-10,y:sel.top+H[sel.kind]-PH+6},
+      {x:sel.left,y:sel.top+H[sel.kind]+10},
+      {x:sel.left,y:sel.top-PH-10},
+    ];
+    const spot=cands.find(c=>!hits({...c,w:PW,h:PH}))||cands[0];
+    const selCard={...sel,
+      left:spot.x+'px',top:spot.y+'px',w:PW+'px',
+      glyph:GLYPH[sel.kind],iconR:sel.kind==='router'?'5px':'50%',
+      rate:sel.rate||'—',rateColor:sel.warn?WARN:T2,
+      decl:sel.decl||'client session · 1 link',
+      regionLabel:sel.region+' · '+sel.kind,
+      uptime:(PEERROWS.find(r=>r[0]===sel.id)||[])[8]||'—',
+      share:(sel.share||2)+'%',shareColor:sel.warn?WARN:AC};
+
+    const mkEdge=([a,b,o])=>({d:curve(N[a],N[b]),stroke:o.stroke||'var(--wire)',w:o.w||1.6,dash:o.dash||'none',op:o.op??1});
+    let edges=EDGES.map(mkEdge);
+    let flowEdges=[{d:curve(N.rtredge,N.rtrcorea),stroke:AC2,w:2.6}];
+
+    // ── drilled region: hub-and-spoke graph of that region's busiest nodes ──
+    let ringNodes=null,ringSel=null,meshList=null,meshMeta=null;
+    if(s.drill){
+      const reg=REGIONS.find(r=>r.id===s.drill)||REGIONS[0];
+      // a region is a MESH, not a tree: peers hold direct sessions with peers.
+      // At rest draw only the router backbone; a node's own sessions appear on selection.
+      const rtrs=(RTRNAMES[reg.id]||[]).slice(0,Math.min(3,reg.routers));
+      const RATES=[11.6,9.4,7.3,5.1,4.2,3.9,3.3,2.4,2.2,1.8,1.2,1.1,0.98,0.62,0.41,0.34,0.088,0.076];
+      // region members, sorted by traffic — the list is the scalable primary
+      const members=rtrs.map((name,i)=>({id:'r'+i,name,kind:'router',
+        rate:reg.id==='core-dc'?'41.9k/s':'24.1k/s',rateNum:99,sessions:34,
+        warn:reg.err&&i===0?'1 link down':0}))
+        .concat((NAMES[reg.id]||[]).slice(0,15).map((name,i)=>({
+          id:'p'+i,name,kind:i%7===6?'client':'peer',
+          rate:(RATES[i]>=1?RATES[i].toFixed(1)+'k/s':Math.round(RATES[i]*1000)+'/s'),
+          rateNum:RATES[i],sessions:i%7===6?1:6+(i%5),
+          warn:0})));
+      const dsel0=Math.min(s.dsel||0,members.length-1);
+      const focus=members[dsel0];
+
+      // graph = the focused node's own sessions. hop distance is the only thing position means.
+      const CW=160,CH=35,cx=580,cy=300;
+      const partners=focus.kind==='client'
+        ? [members.find(m=>m.kind==='router')||members[0]]
+        : Array.from({length:Math.min(focus.sessions,7)},(_,k)=>members[(dsel0+1+k*2)%members.length]).filter(m=>m!==focus);
+      const CCW=190;
+      const centre={...focus,left:cx-CCW/2,top:cy-CH/2,w:CCW,h:CH,hop:0};
+      const ring=partners.map((m,i)=>{
+        const a=-Math.PI/2+i*(2*Math.PI/Math.max(1,partners.length));
+        return {...m,id:'n'+i,hop:1,w:CW,h:CH,rate:'',
+          left:Math.round(cx+Math.cos(a)*194-CW/2),
+          top:Math.round(cy+Math.sin(a)*178-CH/2)};
+      });
+      const all=ring;
+      edges=ring.map(n=>({d:hpath(centre,n),
+        stroke:n.warn?WARN:AC,w:n.warn?2.4:2,dash:n.kind==='client'?'2 5':'none',op:.85}));
+      for(let i=0;i<ring.length;i+=2){
+        const b=ring[(i+2)%ring.length];
+        if(b&&b!==ring[i])edges.push({d:hpath(ring[i],b),stroke:'var(--wire)',w:1.3,dash:'none',op:.9});
+      }
+      flowEdges=[];
+      flowEdges=[];
+      ringNodes=all.map(n=>{
+        const on=n.hop===0,kr=n.kind==='router';
+        const idx=members.findIndex(m=>m.name===n.name);
+        return {...n,left:n.left+'px',top:n.top+'px',w:n.w+'px',pad:'6px 10px',
+          title:n.name+' · '+n.kind+' · '+n.rate+(n.warn?' · '+n.warn:''),
+          glyph:GLYPH[n.kind],
+          ring:on?AC:(n.warn?'rgba(217,164,65,.45)':LINE),
+          glow:on?'0 0 0 3px var(--acdim)':'none',
+          iconR:kr?'5px':'50%',iconStyle:n.kind==='client'?'dashed':'solid',
+          iconColor:n.warn?WARN:(on?AC:T3),iconFill:on?'var(--acdim)':'transparent',
+          alert:!!n.warn,alertColor:WARN,rateColor:n.warn?WARN:T2,
+          go:()=>this.setState({dsel:idx<0?0:idx})};
+      });
+      meshList=members.map((m,i)=>{
+        const on=i===dsel0;
+        return {...m,bg:on?'var(--bg3)':'transparent',mark:on?AC:'transparent',
+          fg:on?T1:T2,rateColor:m.warn?WARN:T3,
+          glyph:GLYPH[m.kind],r:m.kind==='router'?'4px':'50%',
+          style:m.kind==='client'?'dashed':'solid',
+          iconColor:m.warn?WARN:(on?AC:T3),
+          go:()=>this.setState({dsel:i})};
+      });
+      meshMeta={count:reg.nodes.toLocaleString('en-US').replace(',',' '),
+        mode:reg.mode,
+        focus:focus.name+' · '+partners.length+' of '+focus.sessions+' sessions drawn',
+        more:(reg.nodes-members.length).toLocaleString('en-US').replace(',',' ')+' more nodes — scroll or filter to reach them'};
+      const sn=centre;
+      ringSel={left:centre.left+'px',top:centre.top+'px',w:centre.w+'px',
+        glyph:GLYPH[centre.kind],iconR:centre.kind==='router'?'5px':'50%',
+        rate:centre.rate,rateColor:centre.warn?WARN:T2,name:centre.name,
+        decl:sn.kind==='router'?'7 links · 4 qry':(sn.kind==='client'?'1 session · 1 sub':'14 sub · 3 qry'),
+        share:(sn.share||58)+'%',shareColor:sn.warn?WARN:AC,
+        regionLabel:reg.name+' · '+sn.kind,uptime:'6d 04:12',zid:'690fd749',
+        glyph:GLYPH[sn.kind],iconR:sn.kind==='router'?'5px':'50%',
+        rate:sn.rate,rateColor:sn.warn?WARN:T2,name:sn.name};
+    }
+
+    const groups=[
+      {left:'16px',top:'44px',w:'266px',h:'524px',maxw:'242px',name:'edge-fleet',stats:'6 nodes · 27.1k/s',alert:'',border:'var(--line)',bg:'var(--fill)'},
+      {left:'296px',top:'44px',w:'266px',h:'524px',maxw:'242px',name:'core-dc',stats:'4 nodes · 75.4k/s',alert:'',border:'var(--line)',bg:'var(--fill)'},
+      {left:'576px',top:'44px',w:'268px',h:'524px',maxw:'244px',name:'cloud',stats:'3 nodes',alert:'1 link retrying',border:'var(--line)',bg:'var(--fill)'},
+    ];
+    const el=(a,b,text,color,dx,dy)=>{const p=c(N[a]),q=c(N[b]);return{left:((p.x+q.x)/2+(dx||0))+'px',top:((p.y+q.y)/2+(dy||0))+'px',text,color};};
+    const edgeLabels=[el('rtredge','rtrcorea','100.73 · quic',AC2,-40,-26),el('rtrcoreb','rtrcloud','100.17 · tls',T3,-34,-4),el('rtrcorea','rtrcloud','retry ×4',ERR,-24,-24)];
+
+    const miniNodes=NODES.map(n=>({left:(8+n.left*0.158)+'px',top:(10+n.top*0.158)+'px',w:Math.max(4,W[n.kind]*0.158)+'px',h:Math.max(3,H[n.kind]*0.158)+'px',c:n.id===s.sel?AC:(n.warn?WARN:'var(--track)')}));
+
+    const peers=PEERROWS.map(([id,mode,region,transport,subs,ques,tx,rx,uptime,dot])=>({
+      name:N[id].name,zidShort:N[id].full.slice(0,8)+'…'+N[id].full.slice(-7),mode,region,transport,subs,ques,tx,rx,uptime,dot,
+      modeBg:mode==='router'?'var(--bg3)':(mode==='peer'?ACDIM:'var(--soft)'),
+      modeFg:mode==='router'?T1:(mode==='peer'?AC2:T2),
+      txColor:dot===WARN?WARN:T1,
+      rowbg:id===s.sel?'var(--acdim)':'transparent',
+      go:()=>this.setState({sel:id,view:'detail'}),
+    }));
+
+    const row=PEERROWS.find(r=>r[0]===s.sel)||PEERROWS[0];
+    const warn=!!sel.warn;
+    const d={
+      name:sel.name,mode:row[1],zid:sel.full,region:sel.region,
+      health:warn?'high tx · check':'healthy',healthBg:warn?'var(--warndim)':'var(--okdim)',healthFg:warn?WARN:OK,
+      adminKey:'@/'+sel.zid+'…/'+row[1],
+      subCount:row[4],queCount:row[5],
+      identity:[{k:'whatami',v:row[1]},{k:'zid',v:sel.zid+'…'},{k:'metadata.name',v:sel.name},{k:'metadata.location',v:sel.region},{k:'version',v:'1.5.1'},{k:'uptime',v:row[8]}],
+      routing:[{k:'routing mode',v:row[1]==='router'?'linkstate':'peer_to_peer'},{k:'region',v:sel.region},{k:'discovered via',v:warn?'gossip':'multicast'},{k:'gossip multihop',v:'false'},{k:'autoconnect',v:'router, peer'},{k:'adminspace',v:'read'}],
+      counters:[{k:'tx msg/s',v:row[6],color:warn?WARN:T1},{k:'rx msg/s',v:row[7],color:T1},{k:'tx bytes/s',v:'1.8 MB',color:T1},{k:'dropped',v:warn?'412':'0',color:warn?WARN:T1}],
+      prio:[{k:'real_time',pct:'12%',color:AC},{k:'interactive_high',pct:'34%',color:AC},{k:'data',pct:'71%',color:AC},{k:'data_low',pct:'22%',color:T3},{k:'background',pct:'4%',color:T3}],
+      links:[
+        {locator:'quic/10.0.4.11:7447',proto:'quic',peer:'rtr-edge-1',mtu:'1 400',rtt:'1.8 ms',rttColor:T1,rel:'reliable',prio:'0–7'},
+        {locator:'tcp/10.0.4.31:7447',proto:'tcp',peer:'ros2-bridge',mtu:'65 535',rtt:'0.9 ms',rttColor:T1,rel:'reliable',prio:'4–7'},
+        {locator:'udp/224.0.0.224:7446',proto:'udp',peer:'multicast',mtu:'1 472',rtt:'—',rttColor:T3,rel:'best effort',prio:'6–7'},
+      ],
+      subs:[{key:'fleet/agv/07/telemetry/pose',meta:'reliable · 40 Hz'},{key:'fleet/agv/07/telemetry/battery',meta:'reliable · 1 Hz'},{key:'fleet/agv/07/cmd/**',meta:'reliable · sporadic'},{key:'fleet/config/*',meta:'reliable · sporadic'},{key:'@/**',meta:'best effort'},{key:'fleet/alerts/**',meta:'reliable · 0.2 Hz'}],
+      ques:[{key:'fleet/agv/07/status',meta:'complete'},{key:'fleet/agv/07/diag/**',meta:'complete'},{key:'@/'+sel.zid+'/**',meta:'admin'}],
+      raw:'{\n  "zid": "'+sel.full+'",\n  "whatami": "'+row[1]+'",\n  "metadata": {\n    "name": "'+sel.name+'",\n    "location": "'+sel.region+'"\n  },\n  "locators": [\n    "quic/10.0.4.11:7447",\n    "tcp/10.0.4.31:7447"\n  ],\n  "sessions": [\n    { "peer": "ca78bafc…", "whatami": "router", "links": ["quic/10.0.4.2:7447"] }\n  ],\n  "version": "1.5.1"\n}',
+    };
+    const dtab=s.dtab;
+    const dt={overview:dtab==='overview',links:dtab==='links',decl:dtab==='decl',raw:dtab==='raw'};
+    const dtabs=[['overview','Overview'],['links','Links'],['decl','Declarations'],['raw','Raw JSON']].map(([id,label])=>({label,fg:dtab===id?T1:T2,bg:dtab===id?BG3:'transparent',go:()=>this.setState({dtab:id})}));
+
+    return {
+      go,v,viewTitle,viewSub,clock:s.clock,
+      paletteOpen:s.palette,connectOpen:s.connect,shortcutsOpen:s.shortcuts,
+      openPalette:()=>this.setState({palette:true}),
+      openConnect:()=>this.setState({connect:true}),
+      closeOverlays:()=>this.setState({palette:false,connect:false,shortcuts:false,settings:false}),
+      paletteGroups:[
+        {title:'Nodes',items:[
+          {icon:'P',label:'agv-07',meta:'peer · edge-fleet · 690fd749…',hint:'↵',sel:'agv07'},
+          {icon:'P',label:'agv-11',meta:'peer · edge-fleet · 38a7f630…',hint:'',sel:'agv11'},
+        ]},
+        {title:'Key expressions',items:[
+          {icon:'/',label:'fleet/agv/07/telemetry/**',meta:'61 resources · 1 storage',hint:'',view:'keys'},
+          {icon:'/',label:'fleet/agv/**',meta:'148 resources',hint:'',view:'keys'},
+        ]},
+        {title:'Commands',items:[
+          {icon:'>',label:'Tap a key expression',meta:'',hint:'⌘T',view:'tap'},
+          {icon:'>',label:'Connect to a network',meta:'',hint:'⌘N',connect:1},
+          {icon:'>',label:'Keyboard shortcuts',meta:'',hint:'?',shortcuts:1},
+        ]},
+      ].map(g=>({...g,items:g.items.map((i,ix)=>({...i,
+        bg:(g.title==='Nodes'&&ix===0)?'var(--bg3)':'transparent',
+        iconColor:g.title==='Commands'?T3:AC,
+        go:()=>this.setState({palette:false,...(i.sel?{sel:i.sel,view:'detail'}:{}),...(i.view?{view:i.view}:{}),...(i.connect?{connect:true}:{}),...(i.shortcuts?{shortcuts:true}:{})})}))})),
+      connectModes:[
+        {label:'client',desc:'One session to a router. Lightest, sees the whole network through it.',on:1},
+        {label:'peer',desc:'Direct sessions to everything discovered. Full link-state view.'},
+        {label:'router',desc:'Participates in routing. Only for a dedicated probe host.'},
+      ].map(m=>({...m,bg:m.on?'var(--acdim)':'var(--bg2)',border:m.on?'var(--ac)':'var(--line)',dot:m.on?'var(--ac)':'var(--t3)',dotFill:m.on?'var(--ac)':'transparent'})),
+      connectEndpoints:[
+        {locator:'tcp/10.0.4.11:7447',state:'reachable',color:OK},
+        {locator:'tls/34.19.8.4:7447',state:'unreachable · timeout',color:ERR},
+      ],
+      shortcutGroups:[
+        {title:'Global',items:[{label:'Search or run a command',keys:'⌘K'},{label:'Connect to a network',keys:'⌘N'},{label:'Keyboard shortcuts',keys:'?'},{label:'Settings',keys:'⌘,'},{label:'Collapse sidebar',keys:'⌘\\'}]},
+        {title:'Navigate',items:[{label:'Topology',keys:'G then T'},{label:'Peers & sessions',keys:'G then P'},{label:'Problems',keys:'G then !'},{label:'Admin space',keys:'G then A'},{label:'Next / previous session tab',keys:'⌘⇧] ['}]},
+        {title:'Graph',items:[{label:'Fit view',keys:'⇧F'},{label:'Zoom in / out',keys:'+ −'},{label:'Select next node',keys:'Tab'},{label:'Trace route from selection',keys:'⇧T'},{label:'Re-scout network',keys:'⇧R'}]},
+        {title:'Data',items:[{label:'Tap selection',keys:'⌘T'},{label:'Run GET',keys:'⌘↵'},{label:'Pause stream',keys:'space'},{label:'Clear stream',keys:'⌘⌫'},{label:'Export current view',keys:'⌘E'}]},
+      ],
+      actionsOpen:s.actionsOpen,
+      toggleActions:()=>this.setState({actionsOpen:!s.actionsOpen}),
+      action:{label:ACTIONS[s.view][0],group:ACTIONS[s.view][1],items:ACTIONS[s.view][2].map(([label,key])=>({label,key}))},
+      showRegionRail:s.view==='topology'&&!s.drill,
+      showInspector:(s.view==='topology'&&!!s.drill)||s.view==='peers',
+      rr:(()=>{
+        const id=s.region||'core-dc',i=REGIONS.findIndex(r=>r.id===id),r=REGIONS[i]||REGIONS[0];
+        return {name:r.name,mode:r.mode,index:(i+1)+' of '+REGIONS.length,
+          dot:r.err?ERR:OK,
+          rows:[
+            {k:'nodes',v:r.nodes.toLocaleString('en-US').replace(',',' '),color:T1},
+            {k:'routers',v:r.routers,color:T1},
+            {k:'peers',v:r.peers,color:T1},
+            {k:'clients',v:r.clients,color:T1},
+            {k:'throughput',v:r.rate,color:T1},
+            {k:'links',v:r.links,color:r.err?ERR:T1},
+          ],
+          trunks:(r.id==='core-dc'
+            ? [{proto:'quic',to:'edge-fleet',state:'up'},{proto:'tls',to:'plant-b',state:'up'},{proto:'tls',to:'plant-c',state:'up'},{proto:'tls',to:'cloud',state:'down'}]
+            : r.id==='cloud'
+              ? [{proto:'tls',to:'core-dc',state:'down'},{proto:'tls',to:'core-dc (via core-b)',state:'up'}]
+              : [{proto:'quic',to:'core-dc',state:'up'}]
+          ).map(t=>({...t,stateFg:t.state==='down'?ERR:OK})),
+          drill:()=>this.setState({drill:id})};
+      })(),
+      settingsOpen:s.settings,
+      toggleSettings:()=>this.setState({settings:!s.settings}),
+      closeSettings:()=>this.setState({settings:false}),
+      settingsNav:[['Appearance',1],['Connections',0],['Data & polling',0],['Shortcuts',0],['About',0]].map(([label,on])=>({label,fg:on?T1:T2,bg:on?BG3:'transparent'})),
+      themeOpts:[['dark','Dark'],['light','Light'],['system','System']].map(([id,label])=>({label,fg:s.theme===id?T1:T2,bg:s.theme===id?BG3:'transparent',go:()=>this.setState({theme:id})})),
+      settingsRows:[
+        {k:'Animate edge traffic',sub:'Dash animation on active trunks',tBg:AC,knob:'#08090a',side:'right'},
+        {k:'Show client nodes',sub:'Include client-mode sessions in the graph',tBg:AC,knob:'#08090a',side:'right'},
+        {k:'Compact rows',sub:'Denser tables in list views',tBg:BG3,knob:T3,side:'left'},
+        {k:'Auto-fit on change',sub:'Refit the canvas when topology changes',tBg:BG3,knob:T3,side:'left'},
+      ],
+      sessions:[
+        {name:'core-dc-prod',nodes:'13',dot:OK,active:1},
+        {name:'edge-lab',nodes:'6',dot:OK},
+        {name:'sim-bench',nodes:'—',dot:T3},
+      ].map((x,i)=>({...x,bg:s.session===i?BG3:'transparent',fg:s.session===i?T1:T2,go:()=>this.setState({session:i})})),
+
+      navW:col?'56px':'238px',
+      navPad:col?'12px 9px':'12px 10px',
+      statusW:col?'38px':'220px',
+      statusEndpoint:col?'':'tcp/10.0.4.11:7447',
+      navOpen:!col,navJust:col?'center':'flex-start',navGap:col?'0':'9px',
+      navItemW:col?'36px':'auto',navItemH:col?'34px':'34px',
+      navItemPad:col?'0':'0 10px',navItemMargin:col?'0 auto 8px':'0 0 10px',
+      toggleNav:()=>this.setState({navCollapsed:!col}),
+      settingsLabel:col?'':'Settings',
+      moreOpen:s.navMore,
+      toggleMore:()=>this.setState({navMore:!s.navMore}),
+      moreGlyph:s.navMore?'−':'+',
+      moreLabel:col?'':(s.navMore?'Less':'More'),
+      moreMargin:col?'6px auto 2px':'8px 0 2px',
+      navMore:this.nav([
+        ['admin','Admin space','@',''],
+        ['transport','Transport & links','▤','19','Transport & links'],
+        ['plugins','Plugins & storages','▣','2'],
+        ['config','Configuration','{}',''],
+        ['scouting','Scouting','◌','4'],
+        ['timeline','Events','—',''],
+      ]),
+      navSections:[
+        {title:'Explore',items:this.nav([['topology','Topology','◇','2.2k'],['peers','Peers & sessions','≡','2 184'],['regions','Regions','⬚','6']])},
+        {title:'Data',items:this.nav([['keys','Key expressions','/','48k'],['tap','Live tap','▶','live']])},
+      ].map((x,i)=>({...x,
+        title:col?'':x.title,
+        labelH:col?(i?'1px':'0px'):'auto',
+        margin:col?(i?'7px 8px':'0'):'0',
+        lineBg:col&&i?'var(--line)':'transparent',
+        pad:col?'0':(i?'18px 9px 8px':'6px 9px 8px')})),
+
+      insProps:{open:s.ins==='props',caret:s.ins==='props'?'border-bottom':'border-left',hint:s.ins==='props'?'':'6',go:()=>this.setState({ins:s.ins==='props'?'':'props'})},
+      insCounters:{open:s.ins==='counters',caret:s.ins==='counters'?'border-bottom':'border-left',hint:s.ins==='counters'?'':(warn?row[6]+' tx · 412 dropped':row[6]+' tx'),hintFg:warn?WARN:T3,go:()=>this.setState({ins:s.ins==='counters'?'':'counters'})},
+      insLinks:{open:s.ins==='links',caret:s.ins==='links'?'border-bottom':'border-left',hint:s.ins==='links'?'':'3',go:()=>this.setState({ins:s.ins==='links'?'':'links'})},
+      chromeLeft:s.drill?'316px':'16px',
+      legendLeft:s.drill?'356px':'56px',
+      legendOpen:s.legend,
+      toggleLegend:()=>this.setState({legend:!s.legend}),
+      statusOpen:s.status,
+      toggleStatus:()=>this.setState({status:!s.status}),
+      statusCaret:s.status?'border-right':'border-left',
+      statusLabel:s.status?'less':'details',
+      testerOpen:s.tester,
+      toggleTester:()=>this.setState({tester:!s.tester}),
+      tester:{btnBg:s.tester?'var(--acdim)':'var(--bg3)',btnBorder:s.tester?'var(--ac)':LINE,btnFg:s.tester?AC2:T2},
+      testerStats:[
+        {k:'resources matched',v:'2',color:T1},
+        {k:'declarations matched',v:'5',color:T1},
+        {k:'nodes reached',v:'3',color:T1},
+      ],
+      testerRows:[
+        {key:'fleet/agv/07/telemetry/pose',who:'agv-07',match:1,reason:'exact match on every chunk'},
+        {key:'fleet/agv/11/telemetry/pose',who:'agv-11',match:1,reason:'* matched chunk "agv"… no — 11 ≠ 07'},
+        {key:'fleet/agv/07/telemetry/imu',who:'agv-07',match:0,reason:'last chunk "imu" ≠ "pose"'},
+        {key:'fleet/agv/07/telemetry/pose/raw',who:'ros2-bridge',match:0,reason:'extra chunk — needs ** not *'},
+        {key:'fleet/robot07/telemetry/pose',who:'—',match:1,reason:'* matched chunk "robot07"'},
+        {key:'vision/mast-a/frames/meta',who:'vision-01',match:0,reason:'first chunk "vision" ≠ "fleet"'},
+      ].map(r=>{
+        const m=r.key==='fleet/agv/07/telemetry/pose'||r.key==='fleet/robot07/telemetry/pose';
+        return {...r,match:m,badge:m?'✓':'·',
+          badgeBg:m?'var(--okdim)':'var(--soft)',badgeFg:m?OK:T3,
+          reason:m?r.reason:r.reason.replace('* matched chunk "agv"… no — ','').trim(),
+          reasonColor:m?T2:T3};
+      }),
+      showQuery:s.view==='keys'||s.view==='admin',
+      queryOpen:s.query,
+      toggleQuery:()=>this.setState({query:!s.query}),
+      drawer:{left:'0px',right:'0px',caret:s.query?'border-bottom':'border-top'},
+      queryMethods:[['GET',1],['PUT',0],['DELETE',0]].map(([label,on])=>({label,fg:on?T1:T2,bg:on?BG3:'transparent',go:()=>{}})),
+      queryParams:[
+        {label:'Selector',hint:'key expr + params',isField:1,isSeg:0,value:'fleet/agv/07/telemetry/**'},
+        {label:'Target',hint:'',isSeg:1,isField:0,opts:[['Best matching',1],['All',0],['All complete',0]]},
+        {label:'Consolidation',hint:'',isSeg:1,isField:0,opts:[['Auto',0],['Latest',1],['None',0]]},
+        {label:'Timeout',hint:'ms',isField:1,isSeg:0,value:'10000'},
+        {label:'Accept replies from',hint:'',isSeg:1,isField:0,opts:[['Any',1],['Storages',0],['Queryables',0]]},
+      ].map(p=>({...p,opts:(p.opts||[]).map(([label,on])=>({label,fg:on?T1:T2,bg:on?BG3:'transparent'}))})),
+      queryReplies:[
+        {who:'demo-storage',glyph:'S',r:'6px',key:'fleet/agv/07/telemetry/pose',encoding:'application/cbor',bytes:'118',value:'{x: 12.44, y: -3.08, yaw: 1.57}'},
+        {who:'demo-storage',glyph:'S',r:'6px',key:'fleet/agv/07/telemetry/battery',encoding:'text/plain',bytes:'6',value:'78.4%'},
+        {who:'agv-07',glyph:'P',r:'50%',key:'fleet/agv/07/telemetry/imu',encoding:'application/cbor',bytes:'204',value:'{ax: 0.02, ay: -0.01, az: 9.79, …}'},
+        {who:'telemetry-hist',glyph:'S',r:'6px',key:'fleet/agv/07/telemetry/pose',encoding:'application/cbor',bytes:'118',value:'{x: 12.38, y: -3.11, yaw: 1.56}  (t−1s)'},
+      ],
+      queryHistory:[
+        {method:'GET',key:'fleet/agv/07/telemetry/**',meta:'4 replies · 12 ms · just now',on:1},
+        {method:'GET',key:'@/34f797e3…/router/metrics',meta:'1 reply · 6 ms · 2 m ago'},
+        {method:'PUT',key:'fleet/config/agv/07',meta:'ok · 4 m ago'},
+        {method:'GET',key:'vision/mast-a/**',meta:'0 replies · timeout · 11 m ago'},
+        {method:'DELETE',key:'fleet/config/agv/11',meta:'ok · 26 m ago'},
+        {method:'GET',key:'fleet/alerts/**',meta:'18 replies · 41 ms · 1 h ago'},
+      ].map(q=>({...q,bg:q.on?BG3:'transparent',mFg:q.method==='GET'?AC2:(q.method==='PUT'?OK:ERR)})),
+      traceOpen:s.trace,
+      toggleTrace:()=>this.setState({trace:!s.trace}),
+      traceTitle:'agv-07 → influx-sink',
+      traceStat:'5 hops · 41.2 ms',
+      traceVerdict:'1 link down on the direct path',
+      traceVerdictFg:WARN,
+      traceChain:(()=>{
+        const HOPS=[
+          {name:'agv-07',kind:'peer',proto:'quic',ms:0,weight:'source',note:'Publisher of fleet/agv/07/telemetry/pose · 40 Hz',action:'Open node'},
+          {name:'rtr-edge-1',kind:'router',proto:'quic',ms:1.8,weight:'weight 100.77',note:'Next hop for fleet/** · rtt 1.8 ms',action:'Open node'},
+          {name:'rtr-core-a',kind:'router',proto:'tls',ms:2.4,weight:'weight 100.73',note:'peers_failover_brokering: true · rtt 2.4 ms',action:'Open node'},
+          {fold:'4 healthy hops hidden'},
+          {name:'rtr-core-b',kind:'router',proto:'tls',ms:0.4,weight:'weight 100.04',bad:1,note:'Direct core-a → cloud link is down · 4 failed handshakes',action:'Open link'},
+          {name:'rtr-cloud',kind:'router',proto:'tls',ms:36,weight:'weight 100.17',bad:1,note:'Cross-region link · rtt 36.0 ms',action:'Open link'},
+          {name:'influx-sink',kind:'peer',proto:'tls',ms:0.6,weight:'destination',note:'Subscriber of fleet/**/telemetry/**',action:'Open node'},
+        ];
+        const total=HOPS.reduce((a,h)=>a+(h.ms||0),0)||1;
+        const sel=s.hop==null?5:s.hop;
+        return HOPS.map((h,i)=>{
+          if(h.fold)return {isFold:true,isHop:false,name:h.fold,go:()=>{}};
+          const on=i===sel;
+          return {isFold:false,isHop:true,...h,
+            ms:(h.ms?'+'+h.ms.toFixed(1):'0.0')+' ms',
+            share:Math.round((h.ms||0)/total*100)+'%',
+            open:on,rowBg:on?'var(--bg1)':'transparent',
+            glyph:GLYPH[h.kind],r:h.kind==='router'?'4px':'50%',
+            fg:T1,iconFg:on?AC:(h.bad?WARN:T3),
+            msFg:h.bad?WARN:T3,barFg:h.bad?WARN:'var(--track)',
+            noteFg:h.bad?WARN:T2,
+            go:()=>this.setState({hop:on?-1:i})};
+        });
+      })(),
+      edgeMenu:s.edgeMenu,
+      toggleEdgeMenu:()=>this.setState({edgeMenu:!s.edgeMenu}),
+      edgeOpts:[['Link-state graph',1,'14'],['Gossip announcements',0,'23'],['Multicast scouting',0,'8'],['Declaration routes',0,'61']].map(([label,on,n])=>({label,n,check:on?'✓':'',fg:on?T1:T2,bg:on?'var(--acdim)':'transparent'})),
+      miniSpark:bars([41,58,47,72,64,88,76,100],1),
+
+      meshInfo:meshMeta||{count:'',mode:'',focus:'',more:''},
+      meshList:meshList||[],
+      drillMore:s.drill?(((REGIONS.find(r=>r.id===s.drill)||{}).nodes||0)-24).toLocaleString('en-US').replace(',',' ')+' more nodes in this region — the canvas shows the 24 busiest':'',
+      crumbs:(()=>{
+        const reg=REGIONS.find(r=>r.id===s.drill);
+        const focusName=(meshMeta&&meshMeta.focus||'').split(' · ')[0];
+        const segs=[
+          {label:'core-dc-prod',fg:T2,go:()=>this.setState({drill:''}),
+           actions:[{label:'Reconnect session',key:'⌘R'},{label:'Connection settings',key:''},{label:'Close session',key:'⌘W'}]},
+          {label:reg?reg.name:'',fg:focusName?T2:T1,go:()=>this.setState({dsel:0}),
+           actions:[{label:'Open as list',key:''},{label:'Copy region name',key:'⌘C'},{label:'Back to all regions',key:'⌥↑'}]},
+        ];
+        if(focusName)segs.push({label:focusName,fg:T1,go:()=>this.setState({view:'detail'}),
+          actions:[{label:'Inspect node',key:'↵'},{label:'Trace route from here',key:'⇧T'},{label:'Tap this node',key:'⌘T'},{label:'Copy zid',key:''}]});
+        return segs.map((x,i)=>({...x,
+          hasNext:i<segs.length-1,
+          open:s.crumb===i,
+          menuBg:s.crumb===i?BG3:'transparent',
+          caretOp:s.crumb===i?1:'var(--caret,0)',
+          menu:()=>this.setState({crumb:s.crumb===i?-1:i})}));
+      })(),
+      drilled:!!s.drill,notDrilled:!s.drill,
+      drillName:s.drill||'',
+      drillUp:()=>this.setState({drill:''}),
+      canvasScale:s.drill?('24 of '+((REGIONS.find(r=>r.id===s.drill)||{}).nodes||0)+' · busiest'):'6 regions · 2 184 nodes',
+      viewAlert:(s.view==='topology'||s.view==='transport')?'1 link down':'',
+      regionCards:REGIONS.map(r=>{
+        const selRegion=s.region||'core-dc';
+        const R=REGIONS.reduce((a,x)=>a+x.nodes,0);
+        const seg=[['routers',r.routers,'var(--ac)'],['peers',r.peers,'var(--track)'],['clients',r.clients,'var(--soft)']];
+        return {...r,left:r.x+'px',top:r.y+'px',
+          nodes:r.nodes.toLocaleString('en-US').replace(',',' '),
+          dot:r.err?ERR:(r.warn?WARN:OK),
+          border:r.id===selRegion?AC:(r.err?'rgba(229,96,76,.35)':LINE),
+          glow:r.id===selRegion?'0 0 0 3px var(--acdim)':'none',
+          footBg:r.err?'var(--errdim)':(r.warn?'var(--warndim)':'var(--bg1)'),
+          footFg:r.err?ERR:(r.warn?WARN:T3),
+          mix:seg.map(([label,n,c])=>({label:label+' '+n,w:Math.max(2,Math.round(n/r.nodes*100))+'%',c})),
+          select:()=>this.setState({region:r.id}),
+          drill:()=>this.setState({drill:r.id})};
+      }),
+      regionEdges:[['core-dc','edge-fleet',{}],['core-dc','plant-b',{}],['core-dc','plant-c',{}],['core-dc','lab',{}],
+        ['core-dc','cloud',{stroke:ERR,dash:'4 7',w:2}],['plant-b','plant-c',{dash:'2 6',w:1.4}]]
+        .map(([a,b,o])=>({d:rcurve(REGIONS.find(r=>r.id===a),REGIONS.find(r=>r.id===b)),
+          stroke:o.stroke||'var(--wire2)',w:o.w||2.6,dash:o.dash||'none'})),
+      regionEdgeLabels:[
+        {left:'268px',top:'292px',text:'12 trunks',color:T3},
+        {left:'524px',top:'292px',text:'1 link down',color:ERR},
+        {left:'404px',top:'232px',text:'9 trunks',color:T3},
+      ],
+      nodes:ringNodes||nodes,
+      edges,flowEdges,
+      groups:s.drill?[]:groups,
+      edgeLabels:s.drill?[]:edgeLabels,
+      miniNodes:s.drill?(ringNodes||[]).map(n=>({left:(8+parseInt(n.left)*0.158)+'px',top:(10+parseInt(n.top)*0.158)+'px',w:'20px',h:'6px',c:n.ring===AC?AC:'var(--track)'})):miniNodes,
+      selCard:ringSel||selCard,
+      rfControls:[{g:'+',fg:T2},{g:'−',fg:T2},{g:'⛶',fg:T2},{g:'⊘',fg:T3}],
+      legend:[
+        {label:'R router',r:'3px',style:'solid',color:T3,fill:'transparent'},
+        {label:'P peer',r:'50%',style:'solid',color:T3,fill:'transparent'},
+        {label:'C client',r:'50%',style:'dashed',color:T3,fill:'transparent'},
+        {label:'link down',r:'50%',style:'solid',color:WARN,fill:WARN},
+      ],
+      peers,d,dt,dtabs,
+
+      regions:[
+        {name:'edge-fleet',desc:'AGV bay · linkstate routing, multicast scouting',dot:OK,stats:[{k:'nodes',v:'6'},{k:'links',v:'8'},{k:'msg/s',v:'27.1k'},{k:'links up',v:'8'}],members:[{name:'rtr-edge-1'},{name:'agv-07'},{name:'agv-11'},{name:'vision-01'},{name:'ros2-bridge'},{name:'logger'}]},
+        {name:'core-dc',desc:'Rack 4 · dual router, peers_failover_brokering',dot:OK,stats:[{k:'nodes',v:'4'},{k:'links',v:'7'},{k:'msg/s',v:'75.4k'},{k:'links up',v:'19'}],members:[{name:'rtr-core-a'},{name:'rtr-core-b'},{name:'fleet-mgr'},{name:'cli-probe'}]},
+        {name:'cloud',desc:'eu-west-1 · peer_to_peer, gossip only',dot:ERR,stats:[{k:'nodes',v:'3'},{k:'links',v:'4'},{k:'msg/s',v:'18.2k'},{k:'links down',v:'1',color:WARN}],members:[{name:'rtr-cloud'},{name:'influx-sink'},{name:'dashboard'}]},
+      ],
+      scoutStats:[
+        {k:'Multicast scouts / min',v:'42',sub:'224.0.0.224:7446',color:T1},
+        {k:'Gossip announcements',v:'118',sub:'multihop off',color:T1},
+        {k:'Autoconnects (1 h)',v:'7',sub:'router, peer',color:T1},
+        {k:'Failed handshakes',v:'4',sub:'rtr-cloud · tls',color:WARN},
+      ],
+      scoutLog:[
+        {time:'12:04:41.208',kind:'gossip',zid:'e2905ab1…',msg:'locator propagated by rtr-cloud',locator:'tls/34.19.8.4:7447'},
+        {time:'12:04:39.884',kind:'error',zid:'38a7f631…',msg:'tls handshake timeout, retry 4 of 8',locator:'tls/34.19.8.4:7447'},
+        {time:'12:04:33.117',kind:'scout',zid:'7a3f2ee9…',msg:'client scout, replied with router locators',locator:'udp/224.0.0.224:7446'},
+        {time:'12:04:28.560',kind:'connect',zid:'a1c94f22…',msg:'session opened, whatami peer',locator:'tcp/10.0.4.44:7447'},
+        {time:'12:04:28.402',kind:'gossip',zid:'a1c94f22…',msg:'discovered via rtr-edge-1',locator:'tcp/10.0.4.44:7447'},
+        {time:'12:03:58.031',kind:'scout',zid:'690fd749…',msg:'hello, whatami peer',locator:'udp/224.0.0.224:7446'},
+        {time:'12:03:52.774',kind:'connect',zid:'b8477fa0…',msg:'session opened, whatami client',locator:'ws/34.19.8.9:8000'},
+        {time:'12:03:44.219',kind:'gossip',zid:'1f6b0cd8…',msg:'locator propagated by rtr-core-b',locator:'tls/10.0.9.6:7447'},
+        {time:'12:03:11.905',kind:'scout',zid:'38a7f630…',msg:'hello, whatami peer',locator:'udp/224.0.0.224:7446'},
+        {time:'12:02:58.442',kind:'close',zid:'0b53ee71…',msg:'session closed by peer, reconnecting',locator:'tcp/10.0.4.77:7447'},
+        {time:'12:02:41.330',kind:'connect',zid:'0b53ee71…',msg:'session reopened, whatami client',locator:'tcp/10.0.4.77:7447'},
+        {time:'12:02:04.118',kind:'scout',zid:'c7d1a04b…',msg:'hello, whatami peer',locator:'udp/224.0.0.224:7446'},
+      ].map(l=>{const m={gossip:[ACDIM,AC2],scout:['var(--soft)',T2],connect:['var(--okdim)',OK],close:['var(--soft)',T3],error:['var(--errdim)',ERR]}[l.kind];return{...l,kindBg:m[0],kindFg:m[1]};}),
+
+      lanes:[
+        {label:'sessions',marks:[{left:'4%',width:'22%',color:'rgba(76,195,138,.35)'},{left:'34%',width:'8%',color:'rgba(76,195,138,.35)'},{left:'62%',width:'30%',color:'rgba(76,195,138,.35)'}]},
+        {label:'rtr-cloud links',marks:[{left:'12%',width:'14%',color:'rgba(229,96,76,.4)'},{left:'48%',width:'6%',color:'rgba(229,96,76,.4)'},{left:'78%',width:'18%',color:'rgba(229,96,76,.4)'}]},
+        {label:'declarations',marks:[{left:'6%',width:'4%',color:'rgba(74,158,255,.4)'},{left:'26%',width:'10%',color:'rgba(74,158,255,.4)'},{left:'52%',width:'6%',color:'rgba(74,158,255,.4)'},{left:'88%',width:'8%',color:'rgba(74,158,255,.4)'}]},
+        {label:'config PUTs',marks:[{left:'40%',width:'2.5%',color:'var(--warn)'},{left:'70%',width:'2.5%',color:'var(--warn)'}]},
+        {label:'storage aligns',marks:[{left:'10%',width:'3%',color:'var(--wire2)'},{left:'44%',width:'3%',color:'var(--wire2)'},{left:'80%',width:'3%',color:'var(--wire2)'}]},
+      ],
+      events:[
+        {time:'12:04:39',who:'rtr-cloud',what:'link down to rtr-core-a · 4 failed tls handshakes',color:ERR},
+        {time:'12:04:28',who:'vision-01',what:'joined via gossip, declared 2 subscribers',color:AC},
+        {time:'12:03:52',who:'dashboard',what:'client session opened over ws',color:OK},
+        {time:'12:02:58',who:'logger',what:'session closed by peer, then reopened',color:WARN},
+        {time:'12:01:12',who:'rtr-core-a',what:'config PUT scouting/gossip/multihop = false',color:WARN},
+        {time:'11:58:40',who:'demo-storage',what:'replication align completed, 1 204 keys',color:T3},
+      ],
+
+      keyTree:[
+        {name:'fleet',caret:'▾',indent:'10px',count:'191',fg:T1,bg:'transparent'},
+        {name:'agv',caret:'▾',indent:'26px',count:'148',fg:T1,bg:'transparent'},
+        {name:'07',caret:'▾',indent:'42px',count:'74',fg:T1,bg:'transparent'},
+        {name:'telemetry',caret:'▾',indent:'58px',count:'61',fg:AC2,bg:'var(--acdim)'},
+        {name:'pose',caret:'',indent:'74px',count:'40 Hz',fg:T2,bg:'transparent'},
+        {name:'battery',caret:'',indent:'74px',count:'1 Hz',fg:T2,bg:'transparent'},
+        {name:'imu',caret:'',indent:'74px',count:'200 Hz',fg:T2,bg:'transparent'},
+        {name:'cmd',caret:'▸',indent:'58px',count:'13',fg:T2,bg:'transparent'},
+        {name:'11',caret:'▸',indent:'42px',count:'74',fg:T2,bg:'transparent'},
+        {name:'config',caret:'▸',indent:'26px',count:'9',fg:T2,bg:'transparent'},
+        {name:'alerts',caret:'▸',indent:'26px',count:'34',fg:T2,bg:'transparent'},
+        {name:'vision',caret:'▸',indent:'10px',count:'42',fg:T2,bg:'transparent'},
+        {name:'ros2',caret:'▸',indent:'10px',count:'12',fg:T2,bg:'transparent'},
+        {name:'@',caret:'▸',indent:'10px',count:'3',fg:T3,bg:'transparent'},
+      ],
+      keyMeta:[{k:'matched resources',v:'61'},{k:'publishers',v:'4'},{k:'subscribers',v:'9'},{k:'queryables',v:'2'},{k:'storages',v:'1'},{k:'last sample',v:'12 ms ago'}],
+      keyDecls:[
+        {tag:'pub',who:'agv-07',meta:'40 Hz · reliable',tagBg:ACDIM,tagFg:AC2},
+        {tag:'sub',who:'fleet-mgr',meta:'reliable',tagBg:'var(--soft)',tagFg:T2},
+        {tag:'sub',who:'influx-sink',meta:'best effort',tagBg:'var(--soft)',tagFg:T2},
+        {tag:'storage',who:'demo-storage',meta:'memory volume',tagBg:'var(--okdim)',tagFg:OK},
+        {tag:'query',who:'dashboard',meta:'2 q/s',tagBg:'var(--soft)',tagFg:T2},
+      ],
+      samples:[
+        ['12:04:41.902','fleet/agv/07/telemetry/pose','PUT','application/cbor','118','{x: 12.44, y: -3.08, yaw: 1.57}'],
+        ['12:04:41.878','fleet/agv/11/telemetry/pose','PUT','application/cbor','118','{x: 4.10, y: 8.92, yaw: -0.22}'],
+        ['12:04:41.860','fleet/agv/07/telemetry/imu','PUT','application/cbor','204','{ax: 0.02, ay: -0.01, az: 9.79, …}'],
+        ['12:04:41.842','vision/mast-a/frames/meta','PUT','application/json','96','{"seq":88412,"w":1920,"h":1080}'],
+        ['12:04:41.801','fleet/agv/07/telemetry/battery','PUT','text/plain','6','78.4%'],
+        ['12:04:41.780','fleet/alerts/agv/11','PUT','application/json','142','{"code":"SLIP","severity":"warn"}'],
+        ['12:04:41.744','fleet/agv/11/telemetry/imu','PUT','application/cbor','204','{ax: -0.11, ay: 0.04, az: 9.81, …}'],
+        ['12:04:41.702','fleet/agv/07/telemetry/pose','PUT','application/cbor','118','{x: 12.41, y: -3.09, yaw: 1.57}'],
+        ['12:04:41.688','ros2/tf','PUT','application/octet-stream','1 044','0x1f8b0800000000000013…'],
+        ['12:04:41.651','fleet/config/agv/07','DELETE','—','0','—'],
+        ['12:04:41.602','fleet/agv/07/telemetry/pose','PUT','application/cbor','118','{x: 12.38, y: -3.11, yaw: 1.56}'],
+        ['12:04:41.588','vision/mast-a/detections','PUT','application/json','388','[{"cls":"pallet","conf":0.94}, …]'],
+        ['12:04:41.540','fleet/agv/11/telemetry/battery','PUT','text/plain','6','62.0%'],
+        ['12:04:41.502','fleet/agv/07/telemetry/pose','PUT','application/cbor','118','{x: 12.35, y: -3.12, yaw: 1.56}'],
+        ['12:04:41.480','@/34f797e3…/router/metrics','PUT','application/json','620','{"tx_msgs":41907,"rx_msgs":40331}'],
+        ['12:04:41.441','fleet/agv/07/telemetry/imu','PUT','application/cbor','204','{ax: 0.01, ay: -0.02, az: 9.80, …}'],
+      ].map(([time,key,kind,encoding,bytes,payload])=>({time,key,kind,encoding,bytes,payload,kindBg:kind==='PUT'?ACDIM:(kind==='DELETE'?'var(--errdim)':'var(--soft)'),kindFg:kind==='PUT'?AC2:(kind==='DELETE'?ERR:T2)})),
+
+      adminTree:[
+        {name:'@',caret:'▾',indent:'10px',fg:T1,bg:'transparent'},
+        {name:'34f797e3… (rtr-core-a)',caret:'▾',indent:'24px',fg:T1,bg:'transparent'},
+        {name:'router',caret:'▾',indent:'40px',fg:T1,bg:'transparent'},
+        {name:'linkstate',caret:'▾',indent:'56px',fg:T1,bg:'transparent'},
+        {name:'routers',caret:'',indent:'72px',fg:AC2,bg:'var(--acdim)'},
+        {name:'peers',caret:'',indent:'72px',fg:T2,bg:'transparent'},
+        {name:'metrics',caret:'',indent:'56px',fg:T2,bg:'transparent'},
+        {name:'status',caret:'▸',indent:'56px',fg:T2,bg:'transparent'},
+        {name:'config',caret:'▸',indent:'56px',fg:T2,bg:'transparent'},
+        {name:'plugins',caret:'▾',indent:'56px',fg:T2,bg:'transparent'},
+        {name:'rest',caret:'',indent:'72px',fg:T2,bg:'transparent'},
+        {name:'storage_manager',caret:'▸',indent:'72px',fg:T2,bg:'transparent'},
+        {name:'sessions',caret:'▸',indent:'40px',fg:T2,bg:'transparent'},
+        {name:'583d4db6… (rtr-core-b)',caret:'▸',indent:'24px',fg:T2,bg:'transparent'},
+        {name:'ca78bafc… (rtr-edge-1)',caret:'▸',indent:'24px',fg:T2,bg:'transparent'},
+        {name:'690fd749… (agv-07)',caret:'▸',indent:'24px',fg:T2,bg:'transparent'},
+      ],
+      adminJson:'{\n  "graph": {\n    "nodes": [\n      { "zid": "34f797e3…", "name": "rtr-core-a", "whatami": "router" },\n      { "zid": "583d4db6…", "name": "rtr-core-b", "whatami": "router" },\n      { "zid": "ca78bafc…", "name": "rtr-edge-1", "whatami": "router" },\n      { "zid": "38a7f631…", "name": "rtr-cloud",  "whatami": "router" }\n    ],\n    "edges": [\n      { "src": 0, "dst": 1, "weight": 100.73397051792917 },\n      { "src": 0, "dst": 2, "weight": 100.76891604433045 },\n      { "src": 1, "dst": 3, "weight": 100.17870163293058 },\n      { "src": 0, "dst": 3, "weight": null, "state": "retrying" }\n    ]\n  }\n}',
+
+      plugins:[
+        {name:'rest',glyph:'{}',path:'/usr/lib/zenoh/libzenoh_plugin_rest.so',status:'running',rows:[{k:'http_port',v:'8000'},{k:'requests / min',v:'318'},{k:'work_thread_num',v:'2'}]},
+        {name:'storage_manager',glyph:'▣',path:'/usr/lib/zenoh/libzenoh_plugin_storage_manager.so',status:'running',rows:[{k:'volumes',v:'memory, influxdb'},{k:'storages',v:'4'},{k:'align jobs',v:'idle'}]},
+      ],
+      storages:[
+        {name:'demo-storage',key:'fleet/agv/**',volume:'memory',repl:'3 replicas',entries:'1 204',size:'8.4 MB'},
+        {name:'telemetry-hist',key:'fleet/**/telemetry/**',volume:'influxdb',repl:'none',entries:'2.1 M',size:'1.9 GB'},
+        {name:'config-store',key:'fleet/config/**',volume:'memory',repl:'2 replicas',entries:'9',size:'12 kB'},
+        {name:'alerts',key:'fleet/alerts/**',volume:'influxdb',repl:'none',entries:'18 402',size:'46 MB'},
+      ],
+      transportStats:[
+        {k:'Total msg/s',v:'18.4k',color:T1,spark:bars([44,52,48,61,58,70,66,79,74,88],2)},
+        {k:'Bytes/s',v:'22.8 MB',color:T1,spark:bars([38,46,42,55,60,58,71,68,80,84],2)},
+        {k:'Dropped / min',v:'412',color:WARN,spark:bars([4,6,3,8,12,9,26,44,68,92],3)},
+        {k:'Links down',v:'1',color:WARN,spark:bars([0,0,0,0,0,0,0,0,100,100],2)},
+      ],
+      links:[
+        ['tcp/10.0.4.11:7447','tcp','rtr-edge-1 ↔ agv-07','1.8 ms','4.2k','1.9k','0','18%'],
+        ['quic/10.0.4.2:7447','quic','rtr-edge-1 ↔ rtr-core-a','2.4 ms','24.1k','25.0k','0','54%'],
+        ['tls/10.0.9.4:7447','tls','rtr-core-a ↔ rtr-core-b','0.4 ms','41.9k','40.3k','0','61%'],
+        ['tls/34.19.8.4:7447','tls','rtr-core-a ↔ rtr-cloud','—','0','0','412','0%',1],
+        ['tls/34.19.8.4:7447','tls','rtr-core-b ↔ rtr-cloud','38 ms','9.0k','9.2k','86','88%',2],
+        ['tcp/10.0.4.31:7447','tcp','rtr-edge-1 ↔ ros2-bridge','0.9 ms','7.3k','6.9k','0','32%'],
+        ['ws/34.19.8.9:8000','ws','rtr-cloud ↔ dashboard','44 ms','3','2.1k','0','6%'],
+        ['udp/224.0.0.224:7446','udp','multicast scouting','—','42','118','0','2%'],
+      ].map(([endpoint,proto,peers,rtt,tx,rx,drops,cong,flag])=>({endpoint,proto,peers,rtt,tx,rx,drops,cong,
+        rttColor:flag===2?WARN:(flag===1?ERR:T1),dropColor:drops==='0'?T2:WARN,
+        congColor:parseInt(cong)>80?WARN:AC})),
+
+      configLines:[
+        [1,'{',T2],[2,'  mode: "router",',T2],[3,'  metadata: {',T2],[4,'    name: "rtr-core-a",',T2],[5,'    location: "core-dc",',T2],[6,'  },',T2],
+        [7,'  connect: {',T2],[8,'    endpoints: [',T2],[9,'      "quic/10.0.4.2:7447",',AC2],[10,'      "tls/34.19.8.4:7447",',AC2],[11,'    ],',T2],[12,'  },',T2],
+        [13,'  scouting: {',T2],[14,'    multicast: {',T2],[15,'      enabled: true,',T2],[16,'      address: "224.0.0.224:7446",',T2],[17,'    },',T2],
+        [18,'    gossip: {',T2],[19,'      enabled: true,',T2],[20,'      multihop: false,',OK,'edit'],[21,'      target: { router: ["router","peer"] },',T2],[22,'    },',T2],[23,'  },',T2],
+        [24,'  routing: {',T2],[25,'    router: {',T2],[26,'      mode: "linkstate",',T2],[27,'      peers_failover_brokering: true,',OK,'edit'],[28,'    },',T2],[29,'  },',T2],
+        [30,'  adminspace: { permissions: { read: true, write: false } },',T2],[31,'}',T2],
+      ].map(([n,text,fg,edit])=>({n,text,fg,bg:edit?'rgba(76,195,138,.07)':'transparent'})),
+      configDiff:[
+        {path:'scouting/gossip/multihop',from:'true',to:'false'},
+        {path:'routing/router/peers_failover_brokering',from:'false',to:'true'},
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

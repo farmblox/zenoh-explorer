@@ -1,0 +1,26 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Read the network: run queries and open live taps. Writing is deliberately left
+out — grant `zenoh-data:allow-put` and `zenoh-data:allow-delete` explicitly if a
+window should be able to modify the network it is inspecting.
+"""
+permissions = [
+  "allow-query",
+  "allow-start-tap",
+  "allow-stop-tap",
+  "allow-list-taps",
+]
+
+[[permission]]
+identifier = "read-write"
+description = "Everything in the default set, plus publishing and deleting keys."
+permissions = [
+  "allow-query",
+  "allow-start-tap",
+  "allow-stop-tap",
+  "allow-list-taps",
+  "allow-put",
+  "allow-delete",
+]

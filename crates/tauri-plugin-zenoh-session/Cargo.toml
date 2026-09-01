@@ -1,0 +1,27 @@
+[package]
+name = "tauri-plugin-zenoh-session"
+description = "Session lifecycle for the Zenoh Explorer: connect, disconnect, and the registry every other plugin reads from."
+# Tauri requires plugin crates to declare `links`, and it must match the name.
+links = "tauri-plugin-zenoh-session"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[build-dependencies]
+tauri-plugin = { version = "2.6", features = ["build"] }
+
+[dependencies]
+zenoh-explorer-core.workspace = true
+tauri = "2.11"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+ts-rs.workspace = true

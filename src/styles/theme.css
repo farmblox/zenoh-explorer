@@ -1,0 +1,235 @@
+/*
+ * Design tokens.
+ *
+ * Two layers, deliberately:
+ *
+ *   1. Raw CSS custom properties on `:root`, redefined per theme. These are the
+ *      only place a colour literal appears in the whole codebase.
+ *   2. A Tailwind `@theme inline` block that maps them into utility namespaces.
+ *      `inline` matters — it makes utilities emit `var(--surface-1)` rather than
+ *      baking the resolved value in, so switching theme is a single attribute
+ *      change with no restyle pass and no flash.
+ *
+ * Adding a colour means adding it here, in all themes. If you find yourself
+ * reaching for a hex value in a component, the token is missing.
+ *
+ * ---------------------------------------------------------------------------
+ * Contrast
+ * ---------------------------------------------------------------------------
+ * Every pair below is measured, not eyeballed. Text tokens clear WCAG AA (4.5:1)
+ * on both surface-1 and surface-2; most clear AAA.
+ *
+ * Structure comes from the SURFACE RAMP, not from borders. Borders stay
+ * hairlines; each elevation step is a real, visible change in fill, so a card
+ * or a button reads as an object without being outlined.
+ */
+
+/* ---------------------------------------------------------------- dark ---- */
+/* Dark is the default: this is a tool for staring at a network graph for an
+   hour, and the mockup is designed dark-first. */
+:root {
+  /* Surfaces, ascending elevation.
+     0 = window chrome, 1 = content pane, 2 = cards / inputs / buttons,
+     3 = raised (selected, active segment), hover = pointer feedback.
+
+     The steps are wide enough that a card is distinguishable from the pane it
+     sits on without needing an outline to separate them. */
+  --surface-0: #0a0c0f;
+  --surface-1: #16191e;
+  --surface-2: #242a32;
+  --surface-3: #353d47;
+  --surface-hover: #414a56;
+
+  /* Text, descending emphasis. Measured against the busiest surface (s3). */
+  --ink: #f7f8fa;
+  --ink-muted: #b6bdc8;
+  --ink-faint: #a7aeba;
+  /* Disabled controls sit below AA on purpose — WCAG exempts them, and looking
+     inactive is the point. Kept near 3:1 so they stay readable. */
+  --ink-disabled: #7d8590;
+
+  /* Hairlines. Deliberately subtle: with the surface steps above doing the
+     structural work, a heavy border would only add noise. */
+  --line: rgb(255 255 255 / 0.09);
+  --line-soft: rgb(255 255 255 / 0.05);
+
+  /* Accent. `on-accent` is what sits legibly on a filled accent surface. */
+  --accent: #64b0ff;
+  --accent-strong: #97caff;
+  --accent-subtle: rgb(100 176 255 / 0.18);
+  --on-accent: #0a0c0f;
+
+  /* Status. Each has a `-subtle` fill sized so its own text clears AA on it. */
+  --ok: #5fd39a;
+  --ok-subtle: rgb(95 211 154 / 0.18);
+  --warn: #e6b354;
+  --warn-subtle: rgb(230 179 84 / 0.18);
+  --danger: #ff8f7c;
+  --danger-subtle: rgb(255 143 124 / 0.18);
+
+  /* Graph strokes. Stronger than a hairline because an edge in the topology
+     view is information, not decoration. */
+  --wire: rgb(255 255 255 / 0.22);
+  --wire-strong: rgb(255 255 255 / 0.42);
+  --track: rgb(255 255 255 / 0.24);
+  --fill: rgb(255 255 255 / 0.03);
+
+  /* Interaction overlays. Hover and press are a translucent white laid over
+     whatever the surface already is, so one pair of values works on every
+     control instead of each needing its own hover colour. */
+  --overlay-hover: rgb(255 255 255 / 0.06);
+  --overlay-press: rgb(255 255 255 / 0.03);
+
+  /* Floating layers are defined by a HAIRLINE, not by a shadow. The 1px border
+     does the separating; the shadow is only enough to say "this is above the
+     page" and should be almost impossible to point at. Controls get neither —
+     they stay completely flat. */
+  --shadow-popover: 0 4px 16px -6px rgb(0 0 0 / 0.45);
+  --shadow-dialog: 0 16px 48px -16px rgb(0 0 0 / 0.55);
+  --scrim: rgb(0 0 0 / 0.62);
+
+  color-scheme: dark;
+}
+
+/* --------------------------------------------------------------- light ---- */
+/*
+ * Light is defined exactly once, keyed on an explicit `data-theme="light"`.
+ *
+ * There is no `prefers-color-scheme` block, on purpose. A boot script in
+ * index.html resolves the user's preference — stored choice, else the system
+ * setting — and stamps `data-theme` before first paint. That keeps each palette
+ * in one place instead of duplicating it across a media query and an attribute
+ * selector, and it removes the theme flash entirely.
+ */
+:root[data-theme="light"] {
+  /* Cards are white on a tinted pane, rather than white on near-white. That
+     one change is most of why light mode now reads as layered. */
+  --surface-0: #dde2e9;
+  --surface-1: #f0f3f6;
+  --surface-2: #ffffff;
+  --surface-3: #dfe5ec;
+  --surface-hover: #d3dae3;
+
+  --ink: #11141a;
+  --ink-muted: #454d59;
+  --ink-faint: #545c68;
+  --ink-disabled: #878e98;
+
+  --line: rgb(8 11 16 / 0.11);
+  --line-soft: rgb(8 11 16 / 0.06);
+
+  --accent: #0f5bc4;
+  --accent-strong: #0b4796;
+  --accent-subtle: rgb(15 91 196 / 0.13);
+  --on-accent: #ffffff;
+
+  --ok: #0f6244;
+  --ok-subtle: rgb(15 98 68 / 0.13);
+  --warn: #734a00;
+  --warn-subtle: rgb(115 74 0 / 0.13);
+  --danger: #a92418;
+  --danger-subtle: rgb(169 36 24 / 0.13);
+
+  --wire: rgb(8 11 16 / 0.26);
+  --wire-strong: rgb(8 11 16 / 0.46);
+  --track: rgb(8 11 16 / 0.28);
+  --fill: rgb(8 11 16 / 0.03);
+
+  --overlay-hover: rgb(8 11 16 / 0.05);
+  --overlay-press: rgb(8 11 16 / 0.09);
+
+  --shadow-popover: 0 4px 16px -6px rgb(9 12 18 / 0.1);
+  --shadow-dialog: 0 16px 48px -16px rgb(9 12 18 / 0.14);
+  --scrim: rgb(9 12 18 / 0.42);
+
+  color-scheme: light;
+}
+
+/* ------------------------------------------------- tailwind namespaces ---- */
+@theme inline {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-disabled: var(--ink-disabled);
+
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-on-accent: var(--on-accent);
+
+  --color-ok: var(--ok);
+  --color-ok-subtle: var(--ok-subtle);
+  --color-warn: var(--warn);
+  --color-warn-subtle: var(--warn-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+
+  --color-wire: var(--wire);
+  --color-wire-strong: var(--wire-strong);
+  --color-track: var(--track);
+  --color-fill: var(--fill);
+
+  --color-scrim: var(--scrim);
+
+  /* Typography. IBM Plex Sans for the interface; Geist Mono anywhere a value
+     needs to line up in a column — zids, key expressions, rates, timestamps. */
+  --font-sans:
+    "IBM Plex Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Dense is the goal, but not past the point of being pleasant to read. */
+  --text-micro: 0.6875rem; /* 11px  — glyph badges only, never running text */
+  --text-tiny: 0.78125rem; /* 12.5px — badges, hints, section labels */
+  --text-small: 0.84375rem; /* 13.5px — the workhorse: rows, menus, controls */
+  --text-base: 0.9375rem; /* 15px  — node titles, emphasised rows */
+  --text-title: 1.125rem; /* 18px  — the one view title per screen */
+
+  /* Weights, shifted up half a step. IBM Plex Sans is a variable font, so 450
+     and 550 are real instances, not synthesised — and 450 is the single change
+     that most makes small UI text stop looking washed out. The rule that goes
+     with it: anything at --text-micro or --text-tiny is at least `medium`. */
+  --font-weight-normal: 450;
+  --font-weight-medium: 550;
+  --font-weight-semibold: 600;
+  --font-weight-strong: 650;
+
+  --radius-control: 0.375rem; /* 6px  — buttons, inputs */
+  --radius-inner: 0.25rem; /* 4px  — things nested inside a control */
+  --radius-panel: 0.5rem; /* 8px  — panels and the content pane */
+  --radius-dialog: 0.75rem; /* 12px — dialogs and the command palette */
+
+  --shadow-popover: var(--shadow-popover);
+  --shadow-dialog: var(--shadow-dialog);
+
+  /* Tracking. Interface type at these sizes is set slightly tight; the larger
+     it gets the tighter it goes. Loose default tracking is one of the clearest
+     tells of an unconsidered UI. */
+  --tracking-ui: -0.011em;
+  --tracking-title: -0.021em;
+
+  /* ---------------------------------------------------------------- motion --
+     Three curves, four durations, and a rule: state changes are FAST (a hover
+     that takes 200ms feels laggy), entrances are slower and eased out, and
+     nothing bounces. Springy easing reads as playful; this is a tool.
+
+     Everything a control does on hover, press or focus uses `--duration-fast`
+     with `--ease-standard`. Anything that appears — a menu, a dialog, a row
+     arriving — uses `--duration-base` with `--ease-out`.                     */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /* state changes */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* entrances: fast start, soft stop */
+
+  --duration-fast: 130ms; /* hover, press, focus */
+  --duration-base: 180ms; /* menus, disclosure, entrances */
+
+  --animate-fade-in: fade-in var(--duration-base) var(--ease-out);
+  --animate-scale-in: scale-in var(--duration-base) var(--ease-out);
+}

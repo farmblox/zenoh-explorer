@@ -1,0 +1,28 @@
+[package]
+name = "tauri-plugin-zenoh-profiles"
+description = "Saved connection profiles for the Zenoh Explorer."
+links = "tauri-plugin-zenoh-profiles"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[build-dependencies]
+tauri-plugin = { version = "2.6", features = ["build"] }
+
+[dependencies]
+zenoh-explorer-core.workspace = true
+tauri-plugin-zenoh-session = { path = "../tauri-plugin-zenoh-session" }
+tauri = "2.11"
+tauri-plugin-store = "2.4"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true
+uuid.workspace = true

@@ -1,0 +1,9 @@
+# ts-rs writes TypeScript bindings straight into the frontend's generated folder.
+# `relative = true` resolves this against the directory holding this config file.
+[env]
+TS_RS_EXPORT_DIR = { value = "src/ipc/generated", relative = true }
+
+# Tauri's IPC serialises `u64` as a JSON number, not a bigint, so the generated
+# types must say `number` or every timestamp would be mistyped. Values stay well
+# inside 2^53: they are epoch milliseconds and sample counters.
+TS_RS_LARGE_INT = "number"

@@ -1,0 +1,18 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" },
+
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+  },
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.cargo.features": "all",
+
+  // Tailwind v4 keeps its config in CSS, so the extension needs pointing at it.
+  "tailwindCSS.experimental.configFile": "src/styles/index.css",
+  "tailwindCSS.classFunctions": ["cn", "cva"],
+
+  "files.watcherExclude": { "**/target/**": true },
+  "search.exclude": { "**/target": true, "src/ipc/generated": true }
+}

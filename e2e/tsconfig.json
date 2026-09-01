@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "@wdio/globals/types", "@wdio/tauri-service", "mocha"],
+    "noEmit": true
+  },
+  "include": ["**/*.ts", "../wdio.conf.ts"]
+}

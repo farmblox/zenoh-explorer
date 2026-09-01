@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  # Handy for rehearsing the workflow without cutting a tag.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Apple Silicon and Intel are built separately rather than as a
+          # universal binary: two smaller downloads, and a failure on one arch
+          # does not block the other.
+          - os: macos-latest
+            label: macOS (Apple Silicon)
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            label: macOS (Intel)
+            target: x86_64-apple-darwin
+          - os: ubuntu-22.04
+            label: Linux
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            label: Windows
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install Tauri system dependencies
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libxdo-dev
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Updates are signature-checked. Without these the build still
+          # succeeds but produces no `.sig` files, and the updater rejects it.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Zenoh Explorer ${{ github.ref_name }}
+          releaseBody: |
+            See the assets below to download this version.
+          # Published by hand after checking the artifacts. A bad build is then
+          # a deleted draft rather than something already on people's machines.
+          releaseDraft: true
+          prerelease: false
+          # `uploadUpdaterJson` (on by default) writes `latest.json` into the
+          # release, which is what the endpoint in tauri.updater.conf.json
+          # points at.
+          args: >-
+            --target ${{ matrix.target }}
+            --features updater
+            --config src-tauri/tauri.updater.conf.json

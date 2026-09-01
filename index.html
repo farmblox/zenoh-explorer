@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zenoh Explorer</title>
+    <script>
+      // Resolve the theme before first paint so the window never flashes the
+      // wrong palette. Mirrors `resolveTheme` in src/stores/uiStore.ts — the
+      // two must agree, which is why both read the same storage key.
+      (() => {
+        try {
+          const stored = localStorage.getItem("zenoh-explorer.theme");
+          const system = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+          const resolved = stored === "light" || stored === "dark" ? stored : system;
+          document.documentElement.dataset.theme = resolved;
+        } catch {
+          // Private mode or blocked storage: the dark default in the tag stands.
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
