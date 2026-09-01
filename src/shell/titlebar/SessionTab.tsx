@@ -64,7 +64,9 @@ export function SessionTab({
     <div
       title={title}
       className={cn(
-        "group rounded-control relative flex h-8 shrink-0 items-center gap-2 pr-1.5 pl-3",
+        // 40px in a 56px strip. A 32px tab in a 48px bar read as a chip
+        // floating in the window frame rather than as a tab you can hit.
+        "group rounded-control relative flex h-10 shrink-0 items-center gap-2.5 pr-2 pl-3.5",
         transitionFast,
         // Three levels against the title bar's own surface-0: an unselected tab
         // still has a fill, so it reads as a tab rather than as bare chrome,
@@ -86,7 +88,7 @@ export function SessionTab({
         disabled={onSelect === undefined}
         aria-current={selected ? "page" : undefined}
         className={cn(
-          "text-small rounded-inner max-w-40 truncate text-left disabled:cursor-default",
+          "text-small rounded-inner max-w-44 truncate text-left disabled:cursor-default",
           focusRingOnChrome,
           transitionFast,
           failed ? "text-danger" : selected ? "text-ink" : "text-ink-muted group-hover:text-ink",
@@ -95,7 +97,7 @@ export function SessionTab({
         {label}
       </button>
 
-      <span className="relative flex h-4 min-w-4 shrink-0 items-center justify-end">
+      <span className="relative flex h-5 min-w-5 shrink-0 items-center justify-end">
         {meta !== undefined && meta !== null ? (
           <span
             aria-hidden
@@ -114,14 +116,14 @@ export function SessionTab({
           onClick={onClose}
           aria-label={closeLabel}
           className={cn(
-            "rounded-inner absolute inset-y-0 right-0 flex w-4 items-center justify-center",
+            "rounded-inner absolute inset-y-0 right-0 flex w-5 items-center justify-center",
             "text-ink-faint hover:text-ink",
             "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
             "transition-opacity duration-(--duration-fast)",
             focusRingOnChrome,
           )}
         >
-          <X size={11} />
+          <X size={12} />
         </button>
       </span>
     </div>

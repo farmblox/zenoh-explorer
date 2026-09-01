@@ -16,6 +16,13 @@ pub struct LinkSummary {
     pub to: String,
     /// Transport protocol, parsed out of the locator (`tcp`, `quic`, `tls`, ...).
     pub protocol: Option<String>,
+    /// Which of Zenoh's routing trees the link belongs to.
+    ///
+    /// `north` is the router backbone and Zenoh's default; `south:<n>:<mode>` is
+    /// a tree a router serves below it. This is a fact about the LINK: a node's
+    /// links routinely sit in different trees, so there is no such thing as the
+    /// region a node is in.
+    pub region: Option<String>,
     /// `true` when both ends independently reported this link.
     pub bidirectional: bool,
     /// Whether the link is multicast.
@@ -47,8 +54,17 @@ pub struct TopologySnapshot {
     pub local_zid: String,
     /// Wall-clock capture time in milliseconds since the Unix epoch.
     pub captured_at_ms: u64,
-    /// Nodes seen by scouting or link-state that we could not query directly.
-    pub partial: bool,
+    /// How many nodes are in the graph on another node's word.
+    ///
+    /// A node that answered `@/<zid>/<whatami>` described itself. One that did
+    /// not is here because something else reported a session to it, so its role,
+    /// its name and its other links are all unknown. Non-zero means the view is
+    /// partial, and by how much.
+    ///
+    /// The explorer's own session never counts: in client mode it has no admin
+    /// entry of its own to find, so including it would mark every snapshot
+    /// partial however well the rest of the network answered.
+    pub unverified_nodes: usize,
     /// How many nodes described themselves through the admin space.
     ///
     /// Zero means the graph stops at the first hop: either no node has

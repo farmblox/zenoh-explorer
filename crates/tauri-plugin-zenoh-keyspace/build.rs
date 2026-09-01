@@ -4,6 +4,7 @@
 const COMMANDS: &[&str] = &[
     "expand_keys",
     "refresh_declarations",
+    "node_declarations",
     "clear_keys",
     "analyse_key_expr",
     "test_key_expr",

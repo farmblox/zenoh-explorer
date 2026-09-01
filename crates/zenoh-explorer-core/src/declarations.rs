@@ -23,7 +23,7 @@ use zenoh::sample::SampleKind;
 use zenoh::Session;
 
 use crate::error::{Error, Result};
-use crate::keys::DeclarationKind;
+use crate::model::DeclarationKind;
 
 /// Selector matching every subscriber declared anywhere on the network.
 const SUBSCRIBERS: &str = "@/*/*/subscriber/**";

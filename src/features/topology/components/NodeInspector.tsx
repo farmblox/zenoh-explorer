@@ -13,13 +13,19 @@ import {
 import type { NodeSummary, TopologySnapshot } from "@/ipc";
 import { SOURCE_LABELS } from "../lib/sources";
 import { label } from "../lib/grouping";
+import { neighboursOf, unconfirmedCount } from "../lib/neighbours";
 
 export interface NodeInspectorProps {
   node: NodeSummary;
   snapshot: TopologySnapshot;
   onClose: () => void;
+  /** Follows a link to the node at its far end. */
   onSelectNode: (zid: string) => void;
-  onTrace: (zid: string) => void;
+  /**
+   * Opens the route trace. Omit where there is no canvas to trace on — the
+   * button then does not appear, rather than appearing and doing nothing.
+   */
+  onTrace?: ((zid: string) => void) | undefined;
 }
 
 /**
@@ -28,6 +34,9 @@ export interface NodeInspectorProps {
  * Sections start closed with their count on the summary row, so the panel opens
  * at the size of the question — which node is this, and how much is behind it —
  * rather than at the size of the answer. Opening one is a decision to read it.
+ *
+ * Used by the canvas and by the Nodes table. One component rather than two, so
+ * the two screens cannot come to disagree about how many links a node has.
  */
 export function NodeInspector({
   node,
@@ -36,18 +45,8 @@ export function NodeInspector({
   onSelectNode,
   onTrace,
 }: NodeInspectorProps) {
-  const neighbours = snapshot.links
-    .filter((link) => link.from === node.zid || link.to === node.zid)
-    .map((link) => {
-      const otherZid = link.from === node.zid ? link.to : link.from;
-      return {
-        link,
-        other: snapshot.nodes.find((candidate) => candidate.zid === otherZid),
-        otherZid,
-      };
-    });
-
-  const unconfirmed = neighbours.filter(({ link }) => !link.bidirectional).length;
+  const neighbours = neighboursOf(node.zid, snapshot);
+  const unconfirmed = unconfirmedCount(neighbours);
 
   return (
     <ResizablePanel
@@ -71,21 +70,23 @@ export function NodeInspector({
           </Button>
         </header>
 
-        <div className="border-line-soft border-b p-4">
-          <Button
-            icon={<Route size={13} />}
-            onClick={() => onTrace(node.zid)}
-            className="w-full"
-            disabled={node.isLocal}
-            title={
-              node.isLocal
-                ? "This is the explorer's own session — it is where every trace ends"
-                : undefined
-            }
-          >
-            Trace route to this explorer
-          </Button>
-        </div>
+        {onTrace ? (
+          <div className="border-line-soft border-b p-4">
+            <Button
+              icon={<Route size={13} />}
+              onClick={() => onTrace(node.zid)}
+              className="w-full"
+              disabled={node.isLocal}
+              title={
+                node.isLocal
+                  ? "This is the explorer's own session — it is where every trace ends"
+                  : undefined
+              }
+            >
+              Trace route to this explorer
+            </Button>
+          </div>
+        ) : null}
 
         <div className="space-y-0.5 p-2">
           <Disclosure summary="Identity" meta={SOURCE_LABELS[node.source]} defaultOpen>
@@ -141,7 +142,7 @@ export function NodeInspector({
                   off and only the other end of each link is visible.
                 </p>
               ) : (
-                neighbours.map(({ link, other, otherZid }) => (
+                neighbours.map(({ link, node: other, zid: otherZid }) => (
                   <ListRow
                     key={otherZid}
                     size="comfortable"
@@ -152,7 +153,13 @@ export function NodeInspector({
                       ) : null
                     }
                     meta={link.protocol}
-                    title={link.bidirectional ? undefined : "Only one end reported this link"}
+                    title={
+                      link.bidirectional
+                        ? link.region
+                          ? `Routing region ${link.region}`
+                          : undefined
+                        : "Only one end reported this link"
+                    }
                   >
                     {other ? label(other) : otherZid.slice(0, 8)}
                   </ListRow>

@@ -20,10 +20,12 @@ import { ViewHeader } from "@/shell/ViewHeader";
 /**
  * Regions, as a list rather than a graph.
  *
- * The topology view answers "how is this network shaped"; this one answers
- * "what is in each part of it, and is any part cut off". Same snapshot, same
- * grouping — a card here and a card on the canvas always agree, because both
- * come from `buildRegionView`.
+ * A region is what a node advertises as its `metadata.location`, which is the
+ * only region on a Zenoh network that groups nodes. Zenoh's own routing regions
+ * belong to a LINK — see `regionLabel.ts` — so they group nothing.
+ *
+ * The topology view answers "how is this network shaped"; this one answers "what
+ * is in each part of it, and is any part cut off".
  */
 export function RegionsView() {
   const sessionId = useActiveSessionId();
@@ -36,7 +38,7 @@ export function RegionsView() {
       <EmptyState
         icon={<Boxes />}
         title="No session"
-        description="Connect to a Zenoh network to see how it divides into regions."
+        description="Connect to a Zenoh network to see how it divides up."
       />
     );
   }

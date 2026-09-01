@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { KeyExprAnalysis } from "@/ipc/generated/KeyExprAnalysis";
 import type { KeySpaceSnapshot } from "@/ipc/generated/KeySpaceSnapshot";
 import type { MatchResult } from "@/ipc/generated/MatchResult";
+import type { NodeDeclaration } from "@/ipc/generated/NodeDeclaration";
 import type { SessionId } from "@/ipc/generated/SessionId";
 
 /**
@@ -25,6 +26,17 @@ export function expandKeys(sessionId: SessionId, prefix: string): Promise<KeySpa
  */
 export function refreshDeclarations(sessionId: SessionId): Promise<KeySpaceSnapshot> {
   return invoke("plugin:zenoh-keyspace|refresh_declarations", { sessionId });
+}
+
+/**
+ * What one node has declared: the key expressions it subscribes to or answers on.
+ *
+ * Reads the index the explorer already holds, so it asks the network nothing.
+ * Attributed rather than aggregated — the key tree can say eleven subscribers
+ * exist under `fleet/**`, this says which of them are this node's.
+ */
+export function nodeDeclarations(sessionId: SessionId, zid: string): Promise<NodeDeclaration[]> {
+  return invoke("plugin:zenoh-keyspace|node_declarations", { sessionId, zid });
 }
 
 /** Forgets every observed key for this session. */

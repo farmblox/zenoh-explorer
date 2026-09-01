@@ -69,8 +69,9 @@
 
   /* Graph strokes. Stronger than a hairline because an edge in the topology
      view is information, not decoration. */
-  --wire: rgb(255 255 255 / 0.22);
-  --wire-strong: rgb(255 255 255 / 0.42);
+  --wire-soft: rgb(255 255 255 / 0.3);
+  --wire: rgb(255 255 255 / 0.44);
+  --wire-strong: rgb(255 255 255 / 0.62);
   --track: rgb(255 255 255 / 0.24);
   --fill: rgb(255 255 255 / 0.03);
 
@@ -130,8 +131,9 @@
   --danger: #a92418;
   --danger-subtle: rgb(169 36 24 / 0.13);
 
-  --wire: rgb(8 11 16 / 0.26);
-  --wire-strong: rgb(8 11 16 / 0.46);
+  --wire-soft: rgb(8 11 16 / 0.32);
+  --wire: rgb(8 11 16 / 0.46);
+  --wire-strong: rgb(8 11 16 / 0.64);
   --track: rgb(8 11 16 / 0.28);
   --fill: rgb(8 11 16 / 0.03);
 
@@ -173,6 +175,7 @@
   --color-danger: var(--danger);
   --color-danger-subtle: var(--danger-subtle);
 
+  --color-wire-soft: var(--wire-soft);
   --color-wire: var(--wire);
   --color-wire-strong: var(--wire-strong);
   --color-track: var(--track);
@@ -234,9 +237,11 @@
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /* state changes */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* entrances: fast start, soft stop */
 
-  --duration-fast: 130ms; /* hover, press, focus */
+  --duration-snap: 150ms; /* arriving: hover on, press down. Front-loaded ease */
+  --duration-fast: 200ms; /* leaving: hover off, and state changes generally */
   --duration-base: 180ms; /* menus, disclosure, entrances */
 
   --animate-fade-in: fade-in var(--duration-base) var(--ease-out);
   --animate-scale-in: scale-in var(--duration-base) var(--ease-out);
+  --animate-slide-in-right: slide-in-right var(--duration-base) var(--ease-out);
 }

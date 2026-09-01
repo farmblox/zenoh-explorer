@@ -8,6 +8,7 @@ and `test-key-expr` are pure functions over strings and touch no session.
 permissions = [
   "allow-expand-keys",
   "allow-refresh-declarations",
+  "allow-node-declarations",
   "allow-clear-keys",
   "allow-analyse-key-expr",
   "allow-test-key-expr",

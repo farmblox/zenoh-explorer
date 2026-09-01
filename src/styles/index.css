@@ -140,6 +140,17 @@
     background-clip: padding-box;
   }
 
+  /* Scrolls, but shows no bar. For a strip that must not change height: a
+     10px bar under a 20px row of swatches would crowd them off it. */
+  .scroll-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scroll-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* The dotted canvas the topology graph sits on. */
   .canvas-grid {
     background-image: radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 0);
@@ -172,6 +183,18 @@
 @keyframes fade-in {
   from {
     opacity: 0;
+  }
+}
+
+/* A peek panel arriving from the right edge it is anchored to. */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(2%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 

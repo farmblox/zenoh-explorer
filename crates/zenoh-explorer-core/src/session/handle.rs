@@ -17,7 +17,7 @@ use crate::event::{AppEvent, DiagnosticLevel, EventSink};
 use crate::keys::KeyIndex;
 use crate::pulse::TopologyPulse;
 use crate::model::{
-    KeySpaceSnapshot, SampleRecord, SessionId, TapId, TransportSummary,
+    KeySpaceSnapshot, NodeDeclaration, SampleRecord, SessionId, TapId, TransportSummary,
 };
 use crate::tap::{SampleSink, Tap, TapSpec, TapStats};
 use crate::time::now_ms;
@@ -277,11 +277,21 @@ impl ManagedSession {
         {
             let mut index = self.key_index.lock();
             for declaration in &declarations {
-                index.declare(&declaration.key_expr, declaration.kind);
+                index.declare(&declaration.zid, &declaration.key_expr, declaration.kind);
             }
         }
 
         Ok(self.key_index.lock().expand(""))
+    }
+
+    /// Everything one node has declared, subscribers first.
+    ///
+    /// Read straight out of the local index — the declarations arrived over the
+    /// admin space when the session opened and stream in as they change, so this
+    /// asks the network nothing and answers instantly.
+    #[must_use]
+    pub fn node_declarations(&self, zid: &str) -> Vec<NodeDeclaration> {
+        self.key_index.lock().declarations_for(zid)
     }
 
     /// Runs a `get` and collects the replies as sample rows.
@@ -412,14 +422,23 @@ async fn watch_declarations(
         session,
         Arc::new(
             move |declaration: declarations::Declaration, change: declarations::Change| {
-                // Only additions change the index. Withdrawing a declaration
-                // does not un-declare the key expression: another node may
-                // still hold one, and the trie has no per-node ownership to
-                // unwind. The counts settle on the next full read.
+                // Both directions land, because the index records whose
+                // declaration each one is: withdrawing unwinds exactly that
+                // node's contribution and leaves any other node's declaration
+                // on the same expression alone.
                 let (total_keys, count) = {
                     let mut index = key_index.lock();
-                    if change == declarations::Change::Declared {
-                        index.declare(&declaration.key_expr, declaration.kind);
+                    match change {
+                        declarations::Change::Declared => {
+                            index.declare(&declaration.zid, &declaration.key_expr, declaration.kind);
+                        }
+                        declarations::Change::Undeclared => {
+                            index.undeclare(
+                                &declaration.zid,
+                                &declaration.key_expr,
+                                declaration.kind,
+                            );
+                        }
                     }
                     (index.total_keys(), index.declaration_count())
                 };
@@ -463,7 +482,7 @@ fn read_existing_declarations(
         let (total_keys, count) = {
             let mut index = key_index.lock();
             for declaration in &found {
-                index.declare(&declaration.key_expr, declaration.kind);
+                index.declare(&declaration.zid, &declaration.key_expr, declaration.kind);
             }
             (index.total_keys(), index.declaration_count())
         };

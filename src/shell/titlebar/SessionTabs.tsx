@@ -88,13 +88,13 @@ export function SessionTabs() {
         title="Connect to a network"
         aria-label="Connect to a network"
         className={cn(
-          "rounded-control flex size-8 shrink-0 items-center justify-center",
+          "rounded-control flex size-9 shrink-0 items-center justify-center",
           "text-ink-faint hover:bg-surface-2 hover:text-ink",
           focusRingOnChrome,
           transitionFast,
         )}
       >
-        <Plus size={15} />
+        <Plus size={16} />
       </button>
     </div>
   );

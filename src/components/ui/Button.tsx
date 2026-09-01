@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { controlBase, disabledState, overlayStates } from "@/lib/states";
+import { controlBase, disabledState, overlayStates, pressMotion } from "@/lib/states";
 
 /**
  * Visual weight, in descending order of how much attention it demands.
@@ -57,6 +57,7 @@ export function Button({
         "font-medium whitespace-nowrap",
         controlBase,
         overlayStates,
+        pressMotion,
         disabledState,
         VARIANTS[variant],
         SIZES[size],

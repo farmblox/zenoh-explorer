@@ -12,7 +12,7 @@ mod sample;
 mod topology;
 
 pub use ids::{SessionId, TapId};
-pub use keys::{KeyKind, KeyNode, KeySpaceSnapshot};
+pub use keys::{DeclarationKind, KeyKind, KeyNode, KeySpaceSnapshot, NodeDeclaration};
 pub use node::{LinkLocators, NodeKind, NodeSummary, TransportSummary};
 pub use sample::{SampleBatch, SampleKindDto, SampleRecord};
 pub use topology::{LinkSummary, TopologySnapshot};

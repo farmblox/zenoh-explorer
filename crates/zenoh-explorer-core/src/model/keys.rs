@@ -54,3 +54,27 @@ pub struct KeySpaceSnapshot {
     /// Total distinct keys the index holds, across the whole tree.
     pub total_keys: usize,
 }
+
+/// What kind of interest a node declared on a key expression.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export)]
+pub enum DeclarationKind {
+    /// The node wants data published here delivered to it.
+    Subscriber,
+    /// The node answers queries on this expression.
+    Queryable,
+}
+
+/// One declaration, as the node that made it described it.
+///
+/// The key expression is stored exactly as declared, wildcards and all:
+/// `fleet/**` is what the far node asked for, and resolving it to something
+/// concrete would invent detail it never claimed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NodeDeclaration {
+    pub key_expr: String,
+    pub kind: DeclarationKind,
+}

@@ -49,6 +49,9 @@ export type { SpinnerProps } from "./Spinner";
 export { StatusDot } from "./StatusDot";
 export type { Status, StatusDotProps } from "./StatusDot";
 
+export { ComboBox } from "./ComboBox";
+export type { ComboBoxOption, ComboBoxProps } from "./ComboBox";
+
 export { Menu } from "./Menu";
 export type { MenuItem, MenuProps } from "./Menu";
 

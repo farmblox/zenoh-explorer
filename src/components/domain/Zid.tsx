@@ -9,7 +9,13 @@ export interface ZidProps {
   zid: string;
   /** Show the whole id rather than the abbreviated form. */
   full?: boolean;
-  /** Adds a copy button. Off in dense tables, on in inspectors. */
+  /**
+   * Adds a copy button, revealed on hover or focus.
+   *
+   * Hidden at rest because a zid appears in dense strips and tables where a
+   * permanent icon beside every one of them is more clutter than affordance.
+   * The slot is always reserved, so revealing it never shifts the text.
+   */
   copyable?: boolean;
   className?: string;
 }
@@ -25,7 +31,7 @@ export function Zid({ zid, full, copyable, className }: ZidProps) {
   const { copied, copy } = useCopy();
 
   return (
-    <span className={cn("inline-flex items-center gap-1.5", className)}>
+    <span className={cn("group/zid inline-flex items-center gap-1.5", className)}>
       <span
         className="numeric selectable text-tiny text-ink-muted truncate font-medium"
         title={zid}
@@ -39,6 +45,10 @@ export function Zid({ zid, full, copyable, className }: ZidProps) {
           aria-label={copied ? "Copied" : "Copy id"}
           className={cn(
             "rounded-inner text-ink-faint hover:text-ink shrink-0",
+            // Revealed rather than permanent, and it keeps its box either way.
+            "opacity-0 group-hover/zid:opacity-100 focus-visible:opacity-100",
+            copied && "opacity-100",
+            "transition-opacity duration-(--duration-fast)",
             focusRing,
             transitionFast,
           )}

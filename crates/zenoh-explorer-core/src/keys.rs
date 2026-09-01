@@ -4,22 +4,9 @@
 //! whole — the mockup's reference network has 48 000 resources. So the index is
 //! a trie, and the UI expands one level at a time.
 
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 
-use crate::model::{KeyKind, KeyNode, KeySpaceSnapshot};
-
-/// What kind of interest a node declared on a key expression.
-///
-/// Not a transfer type: the frontend sees the COUNTS, in `KeyNode`, and never
-/// an individual declaration. Keeping it out of `model` keeps `model` honest
-/// about what actually crosses the IPC boundary.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DeclarationKind {
-    /// The node wants data published here delivered to it.
-    Subscriber,
-    /// The node answers queries on this expression.
-    Queryable,
-}
+use crate::model::{DeclarationKind, KeyKind, KeyNode, KeySpaceSnapshot, NodeDeclaration};
 
 /// One level of the trie.
 #[derive(Debug, Default)]
@@ -52,7 +39,16 @@ struct Entry {
 pub struct KeyIndex {
     root: Entry,
     total_keys: usize,
-    declarations: usize,
+    /// Every declaration, keyed by the node that made it.
+    ///
+    /// This is what makes a declaration ATTRIBUTABLE. Without it the trie knows
+    /// that eleven subscribers exist under `fleet/**` and nothing about who
+    /// holds them — so a node could not be asked what it is doing, and a
+    /// withdrawn declaration could not be unwound, because there was no record
+    /// of whose it was. A set rather than a list: the admin space is read in
+    /// full on connect and on every resync, and the same declaration arriving
+    /// twice is one declaration.
+    by_zid: AHashMap<String, AHashSet<(String, DeclarationKind)>>,
 }
 
 impl KeyIndex {
@@ -73,26 +69,86 @@ impl KeyIndex {
         }
     }
 
-    /// Records that a node declared an interest in `key_expr`.
+    /// Records that `zid` declared an interest in `key_expr`.
     ///
     /// Unlike `observe`, the expression may contain wildcards — `fleet/**` is
     /// stored as written, because that is what the far node actually declared
     /// and collapsing it to something concrete would invent detail.
-    pub fn declare(&mut self, key_expr: &str, kind: DeclarationKind) {
-        self.declarations += 1;
+    ///
+    /// Idempotent per node: re-reading the admin space re-reports every existing
+    /// declaration, and counting those again would inflate every total on screen
+    /// each time anything triggered a resync.
+    pub fn declare(&mut self, zid: &str, key_expr: &str, kind: DeclarationKind) {
+        let inserted = self
+            .by_zid
+            .entry(zid.to_owned())
+            .or_default()
+            .insert((key_expr.to_owned(), kind));
+        if !inserted {
+            return;
+        }
 
         let mut node = &mut self.root;
-        bump_declaration(node, kind);
+        bump_declaration(node, kind, true);
         for segment in key_expr.split('/').filter(|s| !s.is_empty()) {
             node = node.children.entry(segment.to_owned()).or_default();
-            bump_declaration(node, kind);
+            bump_declaration(node, kind, true);
         }
+    }
+
+    /// Records that `zid` withdrew its declaration on `key_expr`.
+    ///
+    /// The counters come back down because the entry says whose it was. Another
+    /// node's declaration on the same expression is untouched — it has its own
+    /// record and its own contribution to the counts.
+    pub fn undeclare(&mut self, zid: &str, key_expr: &str, kind: DeclarationKind) {
+        let held = self
+            .by_zid
+            .get_mut(zid)
+            .is_some_and(|held| held.remove(&(key_expr.to_owned(), kind)));
+        if !held {
+            return;
+        }
+
+        let mut node = &mut self.root;
+        bump_declaration(node, kind, false);
+        for segment in key_expr.split('/').filter(|s| !s.is_empty()) {
+            let Some(next) = node.children.get_mut(segment) else {
+                return;
+            };
+            node = next;
+            bump_declaration(node, kind, false);
+        }
+    }
+
+    /// Everything one node has declared, subscribers first then queryables,
+    /// each group by key expression.
+    #[must_use]
+    pub fn declarations_for(&self, zid: &str) -> Vec<NodeDeclaration> {
+        let mut out: Vec<NodeDeclaration> = self
+            .by_zid
+            .get(zid)
+            .into_iter()
+            .flatten()
+            .map(|(key_expr, kind)| NodeDeclaration {
+                key_expr: key_expr.clone(),
+                kind: *kind,
+            })
+            .collect();
+
+        // Sorted so the list is stable between calls: an `AHashSet` is not.
+        out.sort_by(|a, b| {
+            declaration_rank(a.kind)
+                .cmp(&declaration_rank(b.kind))
+                .then_with(|| a.key_expr.cmp(&b.key_expr))
+        });
+        out
     }
 
     /// Total declarations recorded, across every node.
     #[must_use]
     pub fn declaration_count(&self) -> usize {
-        self.declarations
+        self.by_zid.values().map(|held| held.len()).sum()
     }
 
     /// Walks the trie creating nodes as needed. Returns `true` when this call
@@ -139,7 +195,7 @@ impl KeyIndex {
     pub fn clear(&mut self) {
         self.root = Entry::default();
         self.total_keys = 0;
-        self.declarations = 0;
+        self.by_zid.clear();
     }
 
     /// Returns the immediate children of `prefix`, sorted by segment.
@@ -205,15 +261,88 @@ impl Entry {
 }
 
 /// Credits one declaration to a trie entry.
-fn bump_declaration(entry: &mut Entry, kind: DeclarationKind) {
+/// Subscribers before queryables, so a node's list reads consumers then providers.
+const fn declaration_rank(kind: DeclarationKind) -> u8 {
     match kind {
-        DeclarationKind::Subscriber => entry.subtree_subscribers += 1,
-        DeclarationKind::Queryable => entry.subtree_queryables += 1,
+        DeclarationKind::Subscriber => 0,
+        DeclarationKind::Queryable => 1,
     }
+}
+
+/// Moves a subtree counter one step, up when a declaration arrives and down when
+/// it is withdrawn.
+///
+/// Saturating on the way down: a counter can never be driven below zero by a
+/// withdrawal whose matching addition we somehow never saw.
+fn bump_declaration(entry: &mut Entry, kind: DeclarationKind, added: bool) {
+    let counter = match kind {
+        DeclarationKind::Subscriber => &mut entry.subtree_subscribers,
+        DeclarationKind::Queryable => &mut entry.subtree_queryables,
+    };
+    *counter = if added {
+        *counter + 1
+    } else {
+        counter.saturating_sub(1)
+    };
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_declaration_is_attributed_to_the_node_that_made_it() {
+        let mut index = KeyIndex::new();
+        index.declare("nodeA", "fleet/**", DeclarationKind::Subscriber);
+        index.declare("nodeB", "fleet/**", DeclarationKind::Subscriber);
+        index.declare("nodeA", "fleet/agv/*", DeclarationKind::Queryable);
+
+        let a = index.declarations_for("nodeA");
+        assert_eq!(a.len(), 2);
+        // Subscribers before queryables, then by expression.
+        assert_eq!(a[0].kind, DeclarationKind::Subscriber);
+        assert_eq!(a[0].key_expr, "fleet/**");
+        assert_eq!(a[1].kind, DeclarationKind::Queryable);
+
+        assert_eq!(index.declarations_for("nodeB").len(), 1);
+        assert_eq!(index.declarations_for("nobody"), Vec::new());
+        assert_eq!(index.declaration_count(), 3);
+    }
+
+    #[test]
+    fn re_reading_the_admin_space_does_not_inflate_the_counts() {
+        // The admin space is read in full on connect and again on every resync,
+        // so the same declaration arrives repeatedly. Counting it each time
+        // doubled every total on screen.
+        let mut index = KeyIndex::new();
+        for _ in 0..3 {
+            index.declare("nodeA", "fleet/**", DeclarationKind::Subscriber);
+        }
+        assert_eq!(index.declaration_count(), 1);
+        assert_eq!(index.declarations_for("nodeA").len(), 1);
+    }
+
+    #[test]
+    fn withdrawing_unwinds_only_that_nodes_declaration() {
+        let mut index = KeyIndex::new();
+        index.declare("nodeA", "fleet/**", DeclarationKind::Subscriber);
+        index.declare("nodeB", "fleet/**", DeclarationKind::Subscriber);
+
+        index.undeclare("nodeA", "fleet/**", DeclarationKind::Subscriber);
+
+        assert_eq!(index.declarations_for("nodeA"), Vec::new());
+        assert_eq!(index.declarations_for("nodeB").len(), 1);
+        // nodeB still holds one, so the subtree still has exactly one.
+        assert_eq!(index.declaration_count(), 1);
+    }
+
+    #[test]
+    fn withdrawing_something_never_declared_changes_nothing() {
+        let mut index = KeyIndex::new();
+        index.declare("nodeA", "fleet/**", DeclarationKind::Subscriber);
+        index.undeclare("nodeA", "vision/**", DeclarationKind::Subscriber);
+        index.undeclare("ghost", "fleet/**", DeclarationKind::Subscriber);
+        assert_eq!(index.declaration_count(), 1);
+    }
+
     use super::*;
 
     fn index_of(keys: &[&str]) -> KeyIndex {

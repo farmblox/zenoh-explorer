@@ -405,6 +405,8 @@ mod retry_tests {
                 multicast_interface: Some("en0".to_owned()),
                 multicast_ttl: Some(2),
                 multicast_listen: Some(true),
+                advertised_name: Some("explorer-under-test".to_owned()),
+                admin_space: Some(true),
                 open: OpenConditions {
                     connect_scouted: false,
                     declares: false,
@@ -434,5 +436,67 @@ mod retry_tests {
 
         let built = profile.to_zenoh_config();
         assert!(built.is_ok(), "retry backoff rejected by Zenoh: {built:?}");
+    }
+
+    /// The name has to survive the trip into Zenoh's own config.
+    ///
+    /// `metadata` is a `Value` rather than a typed block, so `insert_json5`
+    /// takes anything shaped like JSON and a malformed object would be accepted
+    /// as a string. Reading it back is the only way to know the name is a name.
+    #[test]
+    fn the_advertised_name_lands_in_zenoh_metadata() {
+        let profile = ConnectionProfile {
+            options: ConnectionOptions {
+                advertised_name: Some("zenoh-explorer".to_owned()),
+                admin_space: Some(true),
+                ..ConnectionOptions::default()
+            },
+            ..ConnectionProfile::default()
+        };
+
+        let config = profile.to_zenoh_config().expect("config builds");
+        let metadata = config.metadata();
+        assert_eq!(
+            metadata.get("name").and_then(serde_json::Value::as_str),
+            Some("zenoh-explorer"),
+            "metadata did not come back as an object with a name: {metadata:?}"
+        );
+        assert!(
+            metadata.get("version").is_some(),
+            "the version should travel with the name"
+        );
+    }
+
+    /// A name is only visible through the admin space, so turning that off
+    /// should not leave metadata behind claiming otherwise.
+    #[test]
+    fn no_metadata_is_written_when_the_admin_space_is_off() {
+        let entries: std::collections::HashMap<_, _> = ConnectionOptions {
+            admin_space: Some(false),
+            advertised_name: Some("ignored".to_owned()),
+            ..ConnectionOptions::default()
+        }
+        .config_entries()
+        .into_iter()
+        .collect();
+
+        assert_eq!(entries.get("adminspace/enabled").map(String::as_str), Some("false"));
+        assert!(!entries.contains_key("metadata"));
+    }
+
+    /// The explorer answers for itself but is never reconfigurable through it.
+    #[test]
+    fn the_admin_space_is_exposed_read_only() {
+        let entries: std::collections::HashMap<_, _> = ConnectionOptions::default()
+            .config_entries()
+            .into_iter()
+            .collect();
+
+        assert_eq!(entries.get("adminspace/enabled").map(String::as_str), Some("true"));
+        assert_eq!(
+            entries.get("adminspace/permissions/write").map(String::as_str),
+            Some("false"),
+            "the network must never be able to write our config"
+        );
     }
 }

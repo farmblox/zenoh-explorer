@@ -27,7 +27,7 @@ export function App() {
       { combo: "escape", handler: closeOverlay, allowInInput: true },
       // Digit shortcuts jump between the views people move between constantly.
       { combo: "mod+1", handler: () => navigate("topology") },
-      { combo: "mod+2", handler: () => navigate("peers") },
+      { combo: "mod+2", handler: () => navigate("nodes") },
       { combo: "mod+3", handler: () => navigate("keyspace") },
     ],
     [openOverlay, closeOverlay, toggleSidebar, resync, sessionId, navigate],

@@ -12,7 +12,7 @@ import type {
 import { cn } from "@/lib/cn";
 import { focusRing, transitionFast } from "@/lib/states";
 import { CertField } from "./CertField";
-import { DEFAULT_ADDRESS, hostOf } from "./defaults";
+import { DEFAULT_ADDRESS, DEFAULT_NAME, hostOf } from "./defaults";
 
 const MODES = [
   { value: "client", label: "Client" },
@@ -320,6 +320,36 @@ export function ConnectForm({ initial, onChange, onSubmit }: ConnectFormProps) {
                 checked={options.multicastListen ?? false}
                 onChange={(on) => {
                   const next = { ...options, multicastListen: on };
+                  setOptions(next);
+                  report({ options: next });
+                }}
+              />
+            </div>
+          </Field>
+
+          <Field label="Identity" hint="What other nodes see when they look at this explorer">
+            <div className="space-y-2">
+              <Checkbox
+                label="Answer for ourselves"
+                hint="Lets nodes we connect to read our name and version. Read-only — nothing on the network can change our settings."
+                checked={options.adminSpace ?? false}
+                onChange={(on) => {
+                  const next = { ...options, adminSpace: on };
+                  setOptions(next);
+                  report({ options: next });
+                }}
+              />
+              <Input
+                size="lg"
+                value={options.advertisedName ?? ""}
+                placeholder={DEFAULT_NAME}
+                disabled={options.adminSpace !== true}
+                spellCheck={false}
+                autoComplete="off"
+                aria-label="Name to advertise"
+                onChange={(event) => {
+                  const raw = event.target.value;
+                  const next = { ...options, advertisedName: raw.length > 0 ? raw : null };
                   setOptions(next);
                   report({ options: next });
                 }}

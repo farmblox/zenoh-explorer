@@ -14,6 +14,15 @@ const NAV_WIDTH_COLLAPSED = 72;
 const TOGGLE_SLOT = 38;
 
 /**
+ * Height of the strip, in pixels.
+ *
+ * Deep enough that a 40px tab sits IN it with a margin, rather than filling it
+ * edge to edge. A tab strip that is barely taller than its tabs reads as window
+ * chrome the tabs were squeezed into.
+ */
+const HEIGHT = 56;
+
+/**
  * The window's top strip.
  *
  * Tauri hides the native title bar (`titleBarStyle: "Overlay"`) so this row can
@@ -41,7 +50,11 @@ export function Titlebar() {
   const leftWidth = Math.max(navWidth, TRAFFIC_LIGHT_INSET + TOGGLE_SLOT);
 
   return (
-    <header data-tauri-drag-region="deep" className="bg-surface-0 flex h-12 shrink-0 items-stretch">
+    <header
+      data-tauri-drag-region="deep"
+      style={{ height: HEIGHT }}
+      className="bg-surface-0 flex shrink-0 items-stretch"
+    >
       <div
         style={{ width: leftWidth, paddingLeft: TRAFFIC_LIGHT_INSET }}
         className={cn(
@@ -57,12 +70,12 @@ export function Titlebar() {
           aria-expanded={!collapsed}
           className={cn(
             "rounded-inner text-ink-faint hover:bg-surface-2 hover:text-ink",
-            "flex size-6.5 items-center justify-center",
+            "flex size-7 items-center justify-center",
             transitionFast,
             focusRingOnChrome,
           )}
         >
-          <PanelLeft size={14} />
+          <PanelLeft size={15} />
         </button>
       </div>
 

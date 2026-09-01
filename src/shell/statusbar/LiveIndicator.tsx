@@ -1,7 +1,7 @@
+import { Zid } from "@/components/domain";
 import { StatusDot } from "@/components/ui";
 import type { SessionSummary } from "@/ipc";
 import { cn } from "@/lib/cn";
-import { shortZid } from "@/lib/format";
 import { focusRingOnChrome, transitionFast } from "@/lib/states";
 import { useLastChange, useTopologyStore } from "@/stores";
 
@@ -30,30 +30,35 @@ export function LiveIndicator({ session }: LiveIndicatorProps) {
   const connected = session.transportCount > 0;
 
   return (
-    <button
-      type="button"
-      onClick={() => void resync(session.id)}
-      title={
-        connected
-          ? "Following the network — the view updates itself. Click to re-read everything, which is only needed if a node's admin space was switched on after you connected."
-          : "Connected to nothing. Click to try reading the network again."
-      }
-      className={cn(
-        "rounded-inner -mx-1 flex shrink-0 items-center gap-2 px-1",
-        "hover:text-ink",
-        focusRingOnChrome,
-        transitionFast,
-      )}
-    >
-      {/* Keyed on the last change, so each one remounts the dot and fires the
-          ring exactly once. No timer, and no state tracking whether it is
-          mid-animation. */}
-      <StatusDot
-        key={lastChange ?? "initial"}
-        status={connected ? "live" : "degraded"}
-        ping={lastChange !== null}
-      />
-      <span className="numeric">{shortZid(session.zid)}</span>
-    </button>
+    <span className="flex shrink-0 items-center gap-2">
+      <button
+        type="button"
+        onClick={() => void resync(session.id)}
+        title={
+          connected
+            ? "Following the network — the view updates itself. Click to re-read everything, which is only needed if a node's admin space was switched on after you connected."
+            : "Connected to nothing. Click to try reading the network again."
+        }
+        className={cn(
+          "rounded-inner -mx-1 flex shrink-0 items-center px-1",
+          "hover:text-ink",
+          focusRingOnChrome,
+          transitionFast,
+        )}
+      >
+        {/* Keyed on the last change, so each one remounts the dot and fires the
+            ring exactly once. No timer, and no state tracking whether it is
+            mid-animation. */}
+        <StatusDot
+          key={lastChange ?? "initial"}
+          status={connected ? "live" : "degraded"}
+          ping={lastChange !== null}
+        />
+      </button>
+
+      {/* Outside the button. Clicking the id should copy it, not set off a
+          full re-read of the network. */}
+      <Zid zid={session.zid} copyable />
+    </span>
   );
 }

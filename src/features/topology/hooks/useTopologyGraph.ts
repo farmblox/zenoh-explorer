@@ -4,14 +4,10 @@ import { Position, type Edge, type Node } from "@xyflow/react";
 import type { LinkSummary, NodeSummary, TopologySnapshot } from "@/ipc";
 import { classifyEdge } from "../lib/edgeStyle";
 import { isFirsthand } from "../lib/sources";
-import { buildRegionDetail, buildRegionView, label } from "../lib/grouping";
-import { layoutGraph, layoutRegions } from "../lib/layout";
+import { label } from "../lib/grouping";
+import { layoutGraph } from "../lib/layout";
 import type { NodeCardData } from "../components/NodeCard";
-import type { RegionCardData } from "../components/RegionCard";
 import type { LinkEdgeData } from "../components/LinkEdge";
-
-/** What the canvas is currently showing. */
-export type GraphLevel = { kind: "regions" } | { kind: "region"; regionId: string };
 
 /** Callbacks a node card offers once it is selected. */
 export interface GraphActions {
@@ -21,98 +17,42 @@ export interface GraphActions {
 
 export interface TopologyGraphInput {
   readonly snapshot: TopologySnapshot | null;
-  readonly level: GraphLevel;
   readonly selectedZid: string | null;
+  /** Zids drawn only as context for a narrowed region. */
+  readonly anchors: ReadonlySet<string>;
   readonly actions: GraphActions;
 }
 
 export interface TopologyGraph {
   readonly nodes: Node[];
   readonly edges: Edge[];
-  /** `true` when the drilled region no longer exists in this snapshot. */
-  readonly missing: boolean;
 }
 
 /**
  * Turns a snapshot into React Flow nodes and edges.
+ *
+ * One level: the nodes, and the links between them. Regions narrow this graph
+ * rather than standing in front of it, and the Regions view is where they are
+ * the subject.
  *
  * Memoised on everything it reads, because React Flow re-measures and re-fits
  * whenever these arrays change identity. Rebuilding them on every render would
  * make the canvas twitch on unrelated state changes.
  */
 export function useTopologyGraph(input: TopologyGraphInput): TopologyGraph {
-  const { snapshot, level, selectedZid, actions } = input;
+  const { snapshot, selectedZid, anchors, actions } = input;
 
   return useMemo(() => {
-    if (!snapshot) return { nodes: [], edges: [], missing: false };
-    // Two levels: one card per region, then that region's nodes as a graph.
-    return level.kind === "regions"
-      ? buildRegionGraph(snapshot)
-      : buildRegionDetailGraph(snapshot, level.regionId, selectedZid, actions);
-  }, [snapshot, level, selectedZid, actions]);
-}
+    if (!snapshot) return { nodes: [], edges: [] };
 
-/** The overview: one node per region. */
-function buildRegionGraph(snapshot: TopologySnapshot): TopologyGraph {
-  const { regions, links } = buildRegionView(snapshot);
-  const positions = layoutRegions(regions);
+    const positions = layoutGraph(snapshot.nodes, snapshot.links);
+    const cards = buildNodeCards(snapshot.nodes, snapshot.links, selectedZid, anchors, actions);
 
-  const nodes: Node<RegionCardData>[] = regions.map((region) => ({
-    id: region.id,
-    type: "region",
-    position: positions.get(region.id) ?? { x: 0, y: 0 },
-    data: {
-      label: region.id,
-      total: region.nodes.length,
-      routers: region.routers,
-      peers: region.peers,
-      clients: region.clients,
-      containsLocal: region.containsLocal,
-      // Counted from the links leaving this region, so the footer and the
-      // edges drawn beside it always agree.
-      trunks: links.filter((link) => link.from === region.id || link.to === region.id).length,
-      // Routers first, which `buildRegionView` already ordered them as, so the
-      // names shown are the ones that identify the region rather than three
-      // arbitrary leaves.
-      members: region.nodes.map((node) => label(node)),
-    },
-  }));
-
-  const edges: Edge<LinkEdgeData>[] = links.map((link) => ({
-    id: `${link.from}--${link.to}`,
-    source: link.from,
-    target: link.to,
-    type: "link",
-    data: {
-      protocol: null,
-      kind: "trunk",
-      weight: link.count,
-      highlighted: false,
-      flowing: false,
-    },
-  }));
-
-  return { nodes, edges, missing: false };
-}
-
-/** One region opened up: a node per member. */
-function buildRegionDetailGraph(
-  snapshot: TopologySnapshot,
-  regionId: string,
-  selectedZid: string | null,
-  actions: GraphActions,
-): TopologyGraph {
-  const detail = buildRegionDetail(snapshot, regionId);
-  if (!detail) return { nodes: [], edges: [], missing: true };
-
-  const positions = layoutGraph(detail.region.nodes, detail.links);
-  const cards = buildNodeCards(detail.region.nodes, detail.links, selectedZid, actions);
-
-  return {
-    nodes: cards.map((card) => ({ ...card, position: positions.get(card.id) ?? card.position })),
-    edges: buildEdges(detail.links, snapshot.nodes, selectedZid),
-    missing: false,
-  };
+    return {
+      nodes: cards.map((card) => ({ ...card, position: positions.get(card.id) ?? card.position })),
+      edges: buildEdges(snapshot.links, snapshot.nodes, selectedZid),
+    };
+  }, [snapshot, selectedZid, anchors, actions]);
 }
 
 /** One card per node, positioned by the caller. */
@@ -120,6 +60,7 @@ function buildNodeCards(
   nodes: readonly NodeSummary[],
   links: readonly LinkSummary[],
   selectedZid: string | null,
+  anchors: ReadonlySet<string>,
   actions: GraphActions,
 ): Node<NodeCardData>[] {
   // Counted from the links we are about to draw, so the number on a card always
@@ -153,6 +94,7 @@ function buildNodeCards(
         rate: null,
         declarations: `${linkCount} ${linkCount === 1 ? "link" : "links"} · ${node.kind}`,
         firsthand: isFirsthand(node.source),
+        context: anchors.has(node.zid),
         alert: describeNodeAlert(node, links),
         onInspect: actions.onInspect,
         onTrace: actions.onTrace,

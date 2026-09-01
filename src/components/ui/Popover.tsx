@@ -22,6 +22,13 @@ export interface PopoverProps {
   children: ReactNode | ((props: PopoverRenderProps) => ReactNode);
   side?: PopoverSide | undefined;
   align?: PopoverAlign | undefined;
+  /**
+   * What kind of thing the panel is, for assistive technology.
+   *
+   * `dialog` for a panel of controls, `listbox` when the panel is a list of
+   * values to choose from.
+   */
+  haspopup?: "dialog" | "listbox" | "menu" | undefined;
   /** Class for the trigger button. */
   triggerClassName?: string | undefined;
   /** Class for the floating panel. */
@@ -51,6 +58,7 @@ export function Popover({
   children,
   side = "bottom",
   align = "start",
+  haspopup = "dialog",
   triggerClassName,
   className,
 }: PopoverProps) {
@@ -67,7 +75,7 @@ export function Popover({
         type="button"
         aria-label={label}
         aria-expanded={open}
-        aria-haspopup="dialog"
+        aria-haspopup={haspopup}
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((current) => !current)}
         // The ring is the component's, not the caller's: a trigger that is only

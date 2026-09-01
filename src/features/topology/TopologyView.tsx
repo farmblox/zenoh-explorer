@@ -3,66 +3,91 @@ import { Network } from "lucide-react";
 import { ReactFlowProvider } from "@xyflow/react";
 
 import { EmptyState, Spinner } from "@/components/ui";
-import { groupedNumber } from "@/lib/format";
-import { useActiveSession, useActiveSessionId, useTopology, useTopologyStore } from "@/stores";
+import { useActiveSessionId, useTopology, useTopologyStore } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
-import { CanvasBadge } from "./components/CanvasBadge";
 import { CoverageBanner } from "./components/CoverageBanner";
 import { MeshList } from "./components/MeshList";
 import { NodeInspector } from "./components/NodeInspector";
 import { RouteTracePanel } from "./components/RouteTracePanel";
 import { TopologyCanvas } from "./components/TopologyCanvas";
 import { TopologyToolbar } from "./components/TopologyToolbar";
-import type { GraphLevel } from "./hooks/useTopologyGraph";
+import { buildRegionView, narrowToRegion } from "./lib/grouping";
 import { applySourceFilter, sourceOptions, type SourceFilter } from "./lib/sources";
-import { buildRegionDetail, label as nodeLabel } from "./lib/grouping";
 
 /**
  * The network graph.
  *
- * Three levels, because a flat picture of two thousand nodes is a picture of
- * nothing: regions collapse to a card each, opening one shows its nodes, and
- * selecting a node opens the inspector. The drill state is local to the view —
- * it is a way of looking at the snapshot, not part of it.
+ * One screen: the nodes on the left as a list, the graph beside them, the
+ * selection in a panel on the right. You land on the network itself — no level
+ * above it to get through first, because on a network of a dozen nodes that is
+ * friction for no gain. Region narrows the graph from the toolbar, and the
+ * Regions view is where regions are the subject.
+ *
+ * The list is the part that scales. A graph of two thousand nodes is a picture
+ * of nothing however it is laid out, so past a few dozen the canvas says as much
+ * and asks you to narrow — while the list stays exactly as usable as it was.
  */
+/** Stable identity for "nothing is context", so memoised children hold. */
+const EMPTY_ANCHORS: ReadonlySet<string> = new Set();
+
 export function TopologyView() {
   const sessionId = useActiveSessionId();
   const { snapshot: raw, awaiting, error } = useTopology(sessionId);
-  const session = useActiveSession();
-  const sessionName = session?.profile.name ?? "Session";
+  const resync = useTopologyStore((state) => state.resync);
 
   const [source, setSource] = useState<SourceFilter>("all");
-  const [level, setLevel] = useState<GraphLevel>({ kind: "regions" });
+  const [region, setRegion] = useState<string | null>(null);
   const [selectedZid, setSelectedZid] = useState<string | null>(null);
   const [traceFrom, setTraceFrom] = useState<string | null>(null);
-
-  const snapshot = useMemo(() => (raw ? applySourceFilter(raw, source) : null), [raw, source]);
-  const sources = useMemo(() => (raw ? sourceOptions(raw) : []), [raw]);
-
-  const openRegionAt = useCallback((regionId: string) => {
-    setLevel({ kind: "region", regionId });
-    setSelectedZid(null);
-  }, []);
-
-  const leaveRegion = useCallback(() => {
-    setLevel({ kind: "regions" });
-    setSelectedZid(null);
-  }, []);
-
-  const closeTrace = useCallback(() => setTraceFrom(null), []);
 
   // Ask once if this session has no snapshot yet.
   //
   // The backend probes on its own the moment a session opens and pushes the
-  // result, so in the normal case this never fires. It exists because "the
-  // graph arrives as an event" has one failure mode with no way out: an event
-  // that lands before the frontend is listening leaves the view blank forever,
-  // and the only recovery was for the user to know about a button. One query on
-  // mount is a cheap floor under that.
-  const resync = useTopologyStore((state) => state.resync);
+  // result, so in the normal case this never fires. It exists because "the graph
+  // arrives as an event" has one failure mode with no way out: an event that
+  // lands before the frontend is listening leaves the view blank forever.
   useEffect(() => {
     if (sessionId && awaiting) void resync(sessionId);
   }, [sessionId, awaiting, resync]);
+
+  const bySource = useMemo(() => (raw ? applySourceFilter(raw, source) : null), [raw, source]);
+  const sources = useMemo(() => (raw ? sourceOptions(raw) : []), [raw]);
+
+  /** Every region present, for the narrowing box. */
+  const regions = useMemo(
+    () =>
+      bySource
+        ? buildRegionView(bySource).regions.map((entry) => ({
+            id: entry.id,
+            count: entry.nodes.length,
+          }))
+        : [],
+    [bySource],
+  );
+
+  const narrowed = useMemo(
+    () => (bySource && region !== null ? narrowToRegion(bySource, region) : null),
+    [bySource, region],
+  );
+
+  const snapshot = useMemo(
+    () =>
+      bySource && narrowed
+        ? { ...bySource, nodes: [...narrowed.nodes], links: [...narrowed.links] }
+        : bySource,
+    [bySource, narrowed],
+  );
+
+  /** Nodes on screen only because the narrowed region links to them. */
+  const anchors = useMemo(() => narrowed?.anchors ?? EMPTY_ANCHORS, [narrowed]);
+
+  const narrow = useCallback((next: string | null) => {
+    setRegion(next);
+    setSelectedZid(null);
+    setTraceFrom(null);
+  }, []);
+
+  const closeTrace = useCallback(() => setTraceFrom(null), []);
 
   const actions = useMemo(
     () => ({
@@ -75,12 +100,6 @@ export function TopologyView() {
   const selectedNode = useMemo(
     () => snapshot?.nodes.find((node) => node.zid === selectedZid) ?? null,
     [snapshot, selectedZid],
-  );
-
-  const openRegion = useMemo(
-    () =>
-      snapshot && level.kind === "region" ? buildRegionDetail(snapshot, level.regionId) : null,
-    [snapshot, level],
   );
 
   /** Rates keyed by zid. Empty until nodes report throughput. */
@@ -104,11 +123,12 @@ export function TopologyView() {
       <ViewHeader
         title="Topology"
         subtitle={
-          openRegion
-            ? `${groupedNumber(openRegion.region.nodes.length)} nodes in ${openRegion.region.id}`
-            : "Grouped by the region each node reports"
+          region === null
+            ? "Every node the explorer can see, and the links between them"
+            : anchors.size === 0
+              ? `Narrowed to ${region}`
+              : `Narrowed to ${region}, with ${anchors.size} node${anchors.size === 1 ? "" : "s"} it attaches to`
         }
-        alert={snapshot?.partial ? "Partial view" : undefined}
       />
 
       {snapshot ? (
@@ -116,10 +136,9 @@ export function TopologyView() {
           source={source}
           sources={sources}
           onSourceChange={setSource}
-          sessionName={sessionName}
-          openRegionId={openRegion ? openRegion.region.id : null}
-          onLeaveRegion={leaveRegion}
-          focusLabel={selectedNode ? nodeLabel(selectedNode) : null}
+          region={region}
+          regions={regions}
+          onRegionChange={narrow}
           nodeCount={nodeCount}
           linkCount={linkCount}
         />
@@ -132,10 +151,11 @@ export function TopologyView() {
       {raw ? <CoverageBanner snapshot={raw} /> : null}
 
       <div className="flex min-h-0 flex-1">
-        {openRegion ? (
+        {snapshot && nodeCount > 0 ? (
           <MeshList
-            nodes={openRegion.region.nodes}
+            nodes={snapshot.nodes}
             rates={rates}
+            anchors={anchors}
             selectedZid={selectedZid}
             onSelect={(zid) => setSelectedZid(zid === selectedZid ? null : zid)}
           />
@@ -143,30 +163,21 @@ export function TopologyView() {
 
         <div className="relative min-w-0 flex-1">
           {snapshot && nodeCount > 0 ? (
-            <>
-              {openRegion ? (
-                <CanvasBadge
-                  mode={openRegion.region.id}
-                  detail={`${groupedNumber(openRegion.region.nodes.length)} of ${groupedNumber(nodeCount)} nodes drawn`}
-                />
-              ) : null}
-              {/* The provider must wrap the canvas rather than the app: it owns
-                  the store for this graph, and remounting it on session change
-                  is exactly what we want. */}
-              <ReactFlowProvider>
-                <TopologyCanvas
-                  snapshot={snapshot}
-                  level={level}
-                  selectedZid={selectedZid}
-                  actions={actions}
-                  // Both side panels take width from the canvas, so their
-                  // presence is part of how the graph should be framed.
-                  framingKey={`${openRegion ? "list" : ""}:${traceFrom ? "trace" : selectedNode ? "inspector" : ""}`}
-                  onOpenRegion={openRegionAt}
-                  onSelectNode={setSelectedZid}
-                />
-              </ReactFlowProvider>
-            </>
+            // The provider must wrap the canvas rather than the app: it owns
+            // the store for this graph, and remounting it on session change is
+            // exactly what we want.
+            <ReactFlowProvider>
+              <TopologyCanvas
+                snapshot={snapshot}
+                selectedZid={selectedZid}
+                anchors={anchors}
+                actions={actions}
+                // Both side panels take width from the canvas, and narrowing
+                // builds a different graph — all three change how it frames.
+                framingKey={`${region ?? "all"}:${source}:${traceFrom ? "trace" : selectedNode ? "inspector" : ""}`}
+                onSelectNode={setSelectedZid}
+              />
+            </ReactFlowProvider>
           ) : (
             <div className="canvas-grid h-full">
               <EmptyState
@@ -177,7 +188,7 @@ export function TopologyView() {
                     ? "Querying every reachable node's admin space."
                     : source !== "all"
                       ? "No node was discovered through that source. Try drawing from every source."
-                      : "No node replied on the admin space. Zenoh ships with adminspace.enabled set to false, so nodes have to opt in before the explorer can read their topology. The graph updates itself the moment one does."
+                      : "No node replied on the admin space. Zenoh ships with adminspace.enabled set to false, so nodes have to opt in before the explorer can read their topology. The graph fills in the moment one does."
                 }
               />
             </div>

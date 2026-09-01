@@ -32,6 +32,8 @@ export type { KeyExprAnalysis } from "./generated/KeyExprAnalysis";
 export type { KeyKind } from "./generated/KeyKind";
 export type { KeyNode } from "./generated/KeyNode";
 export type { KeySpaceSnapshot } from "./generated/KeySpaceSnapshot";
+export type { DeclarationKind } from "./generated/DeclarationKind";
+export type { NodeDeclaration } from "./generated/NodeDeclaration";
 export type { LinkLocators } from "./generated/LinkLocators";
 export type { LinkSummary } from "./generated/LinkSummary";
 export type { MatchResult } from "./generated/MatchResult";

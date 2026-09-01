@@ -3,7 +3,7 @@
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_zenoh_session::{Result, ZenohSessionExt};
 use zenoh_explorer_core::keyexpr_tools::{KeyExprAnalysis, MatchResult};
-use zenoh_explorer_core::model::{KeySpaceSnapshot, SessionId};
+use zenoh_explorer_core::model::{KeySpaceSnapshot, NodeDeclaration, SessionId};
 
 /// Returns the immediate children of `prefix`.
 ///
@@ -32,6 +32,25 @@ pub(crate) async fn refresh_declarations<R: Runtime>(
         .refresh_declarations()
         .await
         .map_err(Into::into)
+}
+
+/// What one node has declared: the key expressions it subscribes to or answers
+/// on.
+///
+/// Attributed rather than aggregated. The key tree can say that eleven
+/// subscribers exist under `fleet/**`; this says which of them are this node's,
+/// which is the difference between "somebody is listening" and "this node is
+/// listening".
+#[tauri::command]
+pub(crate) async fn node_declarations<R: Runtime>(
+    app: AppHandle<R>,
+    session_id: SessionId,
+    zid: String,
+) -> Result<Vec<NodeDeclaration>> {
+    Ok(app
+        .zenoh_sessions()?
+        .get(&session_id)?
+        .node_declarations(&zid))
 }
 
 /// Forgets every observed key for this session.

@@ -64,6 +64,13 @@ impl Default for OpenConditions {
     }
 }
 
+/// What the explorer calls itself when nothing else is configured.
+///
+/// The product name rather than the host or the profile name: a profile can be
+/// called anything — "prod-customer-x" — and a profile name is the user's note
+/// to themselves, not something to put on somebody else's network.
+pub const DEFAULT_NAME: &str = "zenoh-explorer";
+
 /// Everything about *how* the explorer connects, as opposed to where.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -102,6 +109,31 @@ pub struct ConnectionOptions {
     #[serde(default)]
     pub multicast_listen: Option<bool>,
 
+    /// What the explorer calls itself on the network.
+    ///
+    /// Written into the config's `metadata`, which Zenoh describes as "arbitrary
+    /// json data available from the admin space" — so this is only ever visible
+    /// through [`ConnectionOptions::admin_space`], and setting a name with that
+    /// off names nothing.
+    ///
+    /// `None` uses [`DEFAULT_NAME`]. An empty string advertises no name at all.
+    #[serde(default)]
+    pub advertised_name: Option<String>,
+
+    /// Answer admin-space queries about ourselves.
+    ///
+    /// This is what makes the explorer identifiable. Without it the session is
+    /// an anonymous zid attached to somebody's router — which, for an operator
+    /// looking at their own network, is an unexplained client and a reasonable
+    /// thing to be alarmed by.
+    ///
+    /// Read-only: `adminspace.permissions.write` is set false explicitly, so
+    /// nothing on the network can reconfigure the explorer through it. What it
+    /// does expose is this session's own account of itself — its name, version,
+    /// locators and the transports it holds.
+    #[serde(default)]
+    pub admin_space: Option<bool>,
+
     /// What `open` blocks on.
     #[serde(default)]
     pub open: OpenConditions,
@@ -121,6 +153,17 @@ impl Default for ConnectionOptions {
             // segment. It is here to watch, and answering scouts makes it a
             // discovery target for every other node.
             multicast_listen: Some(false),
+            advertised_name: None,
+            // Deliberately on, which is not Zenoh's default.
+            //
+            // Not being discoverable by broadcast and not saying who you are
+            // once connected are different things. Multicast listen is off above
+            // because the explorer has no business answering scouts from the
+            // whole segment. This is the opposite case: these are nodes we have
+            // already dialled, on a network the operator runs, and leaving them
+            // with an anonymous client they cannot account for is worse
+            // behaviour than answering for ourselves.
+            admin_space: Some(true),
             open: OpenConditions::default(),
         }
     }
@@ -196,6 +239,33 @@ impl ConnectionOptions {
         }
         if let Some(listen) = self.multicast_listen {
             push("scouting/multicast/listen", listen.to_string());
+        }
+
+        if self.admin_space == Some(true) {
+            push("adminspace/enabled", "true".to_owned());
+            // Explicit, not inherited. `write` already defaults to false, but a
+            // default that happens to be right is not the same as a decision,
+            // and this one decides whether the network can reconfigure us.
+            push("adminspace/permissions/read", "true".to_owned());
+            push("adminspace/permissions/write", "false".to_owned());
+        } else if self.admin_space == Some(false) {
+            push("adminspace/enabled", "false".to_owned());
+        }
+
+        // Only worth writing when something can read it: metadata lives in the
+        // admin space and nowhere else.
+        if self.admin_space != Some(false) {
+            let name = self.advertised_name.as_deref().unwrap_or(DEFAULT_NAME);
+            if !name.is_empty() {
+                push(
+                    "metadata",
+                    format!(
+                        "{{ name: {}, version: {} }}",
+                        json_string(name),
+                        json_string(env!("CARGO_PKG_VERSION"))
+                    ),
+                );
+            }
         }
 
         push(

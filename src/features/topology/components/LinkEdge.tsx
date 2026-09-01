@@ -7,7 +7,7 @@ import {
 } from "@xyflow/react";
 
 import { cn } from "@/lib/cn";
-import type { EdgeKind } from "../lib/edgeStyle";
+import { edgeStyle, type EdgeKind } from "../lib/edgeStyle";
 
 /** What an edge needs to render. React Flow requires an index signature. */
 export type LinkEdgeData = {
@@ -25,14 +25,6 @@ export type LinkEdgeData = {
 };
 
 export type LinkEdgeType = Edge<LinkEdgeData, "link">;
-
-/** Stroke, weight and dash per classification. Mirrors `edgeStyle.ts`. */
-const KINDS: Record<EdgeKind, { stroke: string; width: number; dash?: string; opacity: number }> = {
-  trunk: { stroke: "var(--wire-strong)", width: 2.6, opacity: 1 },
-  access: { stroke: "var(--wire)", width: 1.5, opacity: 0.9 },
-  mesh: { stroke: "var(--wire)", width: 1.4, dash: "2 5", opacity: 0.55 },
-  unconfirmed: { stroke: "var(--warn)", width: 1.6, dash: "4 7", opacity: 0.8 },
-};
 
 /**
  * A link between two nodes, or between two regions.
@@ -70,7 +62,7 @@ export function LinkEdge({
 
   const highlighted = data?.highlighted ?? false;
   const weight = data?.weight ?? 1;
-  const style = KINDS[data?.kind ?? "access"];
+  const style = edgeStyle(data?.kind ?? "access");
 
   // A region edge stands for many node-level links, so weight reads as
   // thickness — capped, so a busy pair does not become a slab.
@@ -99,7 +91,6 @@ export function LinkEdge({
           stroke: highlighted ? "var(--accent)" : style.stroke,
           strokeWidth: highlighted ? Math.max(2, width) : width,
           ...(style.dash ? { strokeDasharray: style.dash } : {}),
-          opacity: highlighted ? 1 : style.opacity,
           transition: "stroke var(--duration-fast) var(--ease-standard)",
         }}
       />

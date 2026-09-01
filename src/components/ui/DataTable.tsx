@@ -24,6 +24,18 @@ const OVERSCAN = 12;
 /** How close to the bottom still counts as "at the bottom", in pixels. */
 const PINNED_SLACK = 24;
 
+/**
+ * Narrowest a flexible column may be squeezed to.
+ *
+ * Below this the header reads as an ellipsis and the column says nothing. When
+ * the columns no longer fit, the table scrolls sideways instead — a side panel
+ * opening must not silently delete a column's content.
+ */
+const MIN_FLEX_WIDTH = 130;
+
+/** Horizontal gap between columns, in pixels. Mirrors the `gap-4` below. */
+const COLUMN_GAP = 16;
+
 /** One column: how to size it, what to title it, how to render a cell. */
 export interface Column<Row> {
   readonly id: string;
@@ -144,94 +156,112 @@ export function DataTable<Row>({
   const template = columns
     .map((column) => {
       const width = widthOf(column);
-      return width === "flex" ? "minmax(0, 1fr)" : `${width}px`;
+      return width === "flex" ? `minmax(${MIN_FLEX_WIDTH}px, 1fr)` : `${width}px`;
     })
     .join(" ");
 
+  /**
+   * Width below which the table scrolls rather than shrinks.
+   *
+   * Every column at its declared or minimum width, plus the gaps and the row
+   * padding. Applied to the header and the row spacer alike so the two cannot
+   * disagree about where a column starts.
+   */
+  const minWidth =
+    columns.reduce((total, column) => {
+      const width = widthOf(column);
+      return total + (width === "flex" ? MIN_FLEX_WIDTH : width);
+    }, 0) +
+    COLUMN_GAP * Math.max(0, columns.length - 1) +
+    40;
+
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
-      {showEmpty ? null : (
-        <div
-          role="row"
-          style={{ gridTemplateColumns: template }}
-          className={cn(
-            "border-line bg-surface-0 grid shrink-0 items-center gap-4 border-b px-5 py-2.5",
-            "text-tiny text-ink-muted font-semibold tracking-wide uppercase",
-          )}
-        >
-          {columns.map((column, index) => {
-            const width = widthOf(column);
-            // The last column has nothing to its right to take space from, so
-            // dragging its edge would only move the table's own boundary.
-            const resizable = column.resizable !== false && index < columns.length - 1;
-
-            return (
-              <span
-                key={column.id}
-                role="columnheader"
-                // NOT `truncate` here: that sets `overflow: hidden`, which
-                // clips the resize handle sitting just outside this cell and
-                // makes it both invisible and impossible to grab. The label
-                // truncates on its own element instead.
-                className={cn("relative min-w-0", column.align === "right" && "text-right")}
-              >
-                <span className="block truncate">{column.header}</span>
-
-                {resizable ? (
-                  <span
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label={`Resize the ${column.header} column`}
-                    tabIndex={0}
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      columnWidths.beginDrag(
-                        column.id,
-                        event.clientX,
-                        // A flex column has no declared pixel width, so its
-                        // rendered one is measured off the header cell.
-                        width === "flex"
-                          ? (event.currentTarget.parentElement?.offsetWidth ?? 120)
-                          : width,
-                      );
-                    }}
-                    onDoubleClick={() => columnWidths.reset(column.id)}
-                    onKeyDown={(event) => {
-                      const measured =
-                        width === "flex"
-                          ? (event.currentTarget.parentElement?.offsetWidth ?? 120)
-                          : width;
-                      if (event.key === "ArrowLeft")
-                        columnWidths.nudge(column.id, measured, -KEYBOARD_STEP);
-                      if (event.key === "ArrowRight")
-                        columnWidths.nudge(column.id, measured, KEYBOARD_STEP);
-                      if (event.key === "Home") columnWidths.reset(column.id);
-                    }}
-                    title="Drag to resize · double-click to reset"
-                    className={cn(
-                      resizeHandle,
-                      // Sits in the gap between this column and the next, so it
-                      // never overlaps a header's own text.
-                      "-right-[13px]",
-                      columnWidths.dragging === column.id
-                        ? resizeHandleLine.active
-                        : resizeHandleLine.idle,
-                    )}
-                  />
-                ) : null}
-              </span>
-            );
-          })}
-        </div>
-      )}
-
       {showEmpty ? (
         <div className="flex-1">{empty}</div>
       ) : (
-        <div ref={scrollRef} className="scroll-thin relative min-h-0 flex-1 overflow-y-auto">
+        // One scroll container for the header and the rows, so a sideways
+        // scroll moves both. A header outside it would stay put while the
+        // columns beneath it slid away.
+        <div ref={scrollRef} className="scroll-thin relative min-h-0 flex-1 overflow-auto">
+          <div
+            role="row"
+            style={{ gridTemplateColumns: template, minWidth }}
+            className={cn(
+              "border-line bg-surface-0 sticky top-0 z-10 grid items-center gap-4 border-b px-5 py-2.5",
+              "text-tiny text-ink-muted font-semibold tracking-wide uppercase",
+            )}
+          >
+            {columns.map((column, index) => {
+              const width = widthOf(column);
+              // The last column has nothing to its right to take space from, so
+              // dragging its edge would only move the table's own boundary.
+              const resizable = column.resizable !== false && index < columns.length - 1;
+
+              return (
+                <span
+                  key={column.id}
+                  role="columnheader"
+                  // NOT `truncate` here: that sets `overflow: hidden`, which
+                  // clips the resize handle sitting just outside this cell and
+                  // makes it both invisible and impossible to grab. The label
+                  // truncates on its own element instead.
+                  className={cn("relative min-w-0", column.align === "right" && "text-right")}
+                >
+                  <span className="block truncate">{column.header}</span>
+
+                  {resizable ? (
+                    <span
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label={`Resize the ${column.header} column`}
+                      tabIndex={0}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        columnWidths.beginDrag(
+                          column.id,
+                          event.clientX,
+                          // A flex column has no declared pixel width, so its
+                          // rendered one is measured off the header cell.
+                          width === "flex"
+                            ? (event.currentTarget.parentElement?.offsetWidth ?? MIN_FLEX_WIDTH)
+                            : width,
+                        );
+                      }}
+                      onDoubleClick={() => columnWidths.reset(column.id)}
+                      onKeyDown={(event) => {
+                        const measured =
+                          width === "flex"
+                            ? (event.currentTarget.parentElement?.offsetWidth ?? MIN_FLEX_WIDTH)
+                            : width;
+                        if (event.key === "ArrowLeft")
+                          columnWidths.nudge(column.id, measured, -KEYBOARD_STEP);
+                        if (event.key === "ArrowRight")
+                          columnWidths.nudge(column.id, measured, KEYBOARD_STEP);
+                        if (event.key === "Home") columnWidths.reset(column.id);
+                      }}
+                      title="Drag to resize · double-click to reset"
+                      className={cn(
+                        resizeHandle,
+                        // Sits in the gap between this column and the next, so
+                        // it never overlaps a header's own text.
+                        "-right-[13px]",
+                        columnWidths.dragging === column.id
+                          ? resizeHandleLine.active
+                          : resizeHandleLine.idle,
+                      )}
+                    />
+                  ) : null}
+                </span>
+              );
+            })}
+          </div>
+
           {/* One tall spacer holding every row's worth of height, with only the
-              visible slice actually in the DOM. */}
-          <div style={{ height: virtualizer.getTotalSize() }}>
+              visible slice actually in the DOM. It is the positioned ancestor
+              for the rows, so `inset-x-0` spans the table's real width rather
+              than the viewport's. */}
+          <div className="relative" style={{ height: virtualizer.getTotalSize(), minWidth }}>
             {virtualizer.getVirtualItems().map((item) => {
               const row = rows[item.index];
               if (row === undefined) return null;
@@ -290,7 +320,7 @@ export function DataTable<Row>({
               type="button"
               onClick={jumpToLatest}
               className={cn(
-                "rounded-control border-line bg-surface-2 text-tiny text-ink absolute right-4 bottom-4",
+                "rounded-control border-line bg-surface-2 text-tiny text-ink sticky bottom-4 left-[calc(100%-9rem)]",
                 "shadow-popover flex items-center gap-1.5 border px-2.5 py-1.5 font-medium",
                 focusRing,
                 transitionFast,

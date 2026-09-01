@@ -24,6 +24,11 @@ export type NodeCardData = {
    * with us.
    */
   readonly firsthand: boolean;
+  /**
+   * `true` when the node is outside the narrowed region and is only drawn
+   * because something inside it links here.
+   */
+  readonly context: boolean;
   /** Set when something about this node needs attention. */
   readonly alert: string | null;
   /** Opens the full inspector. */
@@ -70,13 +75,19 @@ export function NodeCard({
       // grows downwards and no neighbour shifts sideways.
       style={{ width: size.width, ...(selected ? {} : { height: size.height }) }}
       title={
-        data.firsthand
-          ? undefined
-          : "Reported by another node — the explorer has not heard from this one directly"
+        data.context
+          ? "Outside the region you narrowed to — drawn because something inside it links here"
+          : data.firsthand
+            ? undefined
+            : "Reported by another node — the explorer has not heard from this one directly"
       }
       className={cn(
         "rounded-panel bg-surface-2 border",
         transitionFast,
+        // Held back rather than hidden. A narrowed region needs the routers it
+        // hangs off to be legible — they are the answer to "how is this
+        // attached" — while still reading as not part of the region.
+        data.context && !selected && "opacity-[0.55]",
         // Dashed means hearsay, the same thing it means on a link only one end
         // confirmed. One vocabulary for "we are less sure of this".
         data.firsthand ? "border-solid" : "border-dashed",
@@ -143,10 +154,10 @@ export function NodeCard({
 
       {selected ? (
         <div className="animate-fade-in">
-          {/* What it is, and what is wrong with it. There was a share bar here
-              measuring this node's links against the busiest node's, which made
-              every router read 100% and dressed an invented ratio as a
-              measurement. The counts that ARE real live in the inspector. */}
+          {/* What it is, and what is wrong with it. No share bar: a ratio of
+              this node's links to the busiest node's would read 100% on every
+              router and dress an invented number as a measurement. The counts
+              that are real live in the inspector. */}
           <div className={cn("flex flex-col gap-1.5", GUTTER)}>
             <p className="text-tiny text-ink-muted truncate">{data.declarations}</p>
             {data.alert ? <p className="text-tiny text-warn truncate">{data.alert}</p> : null}

@@ -21,9 +21,49 @@
  */
 import { cn } from "./cn";
 
-/** State changes: fast and linear-feeling. Anything slower reads as lag. */
-export const transitionFast =
-  "transition-[background-color,color,box-shadow,border-color] duration-(--duration-fast) ease-(--ease-standard)";
+/**
+ * State changes: front-loaded on arrival, eased on the way out.
+ *
+ * The CURVE does the work here, not the duration. `--ease-out` is
+ * `cubic-bezier(0.16, 1, 0.3, 1)`, which puts about 85% of the change in the
+ * first quarter of the time — so a 150ms arrival is perceptually complete in
+ * around 35ms and still has 100ms of visible settle after it. That is what
+ * makes a control feel both immediate and alive. A linear 130ms fade managed
+ * neither: a pointer crossing a control in 40ms never got a third of the way to
+ * the hover colour, so the control read as dead, and killing the duration
+ * outright traded that for a hard snap with no motion in it at all.
+ *
+ * Leaving is slower and evenly eased, because a swept row of controls all
+ * snapping back at once strobes.
+ *
+ * `transform` is in the list so a control can move as well as change colour —
+ * see `pressMotion`. Nothing MOVES on hover, though: a row that slides under the
+ * pointer takes its own label with it, and text that shifts as you pass over it
+ * reads as the app wobbling rather than responding. Hover is colour only.
+ *
+ * `box-shadow` is deliberately NOT in the list: it is the most expensive of
+ * these to interpolate, and the only thing using it is the focus ring, which
+ * should arrive instantly because a focus ring that fades in is one you have
+ * already started typing past.
+ */
+export const transitionFast = cn(
+  "transition-[background-color,color,border-color,transform]",
+  "duration-(--duration-fast) ease-(--ease-standard)",
+  "hover:duration-(--duration-snap) hover:ease-(--ease-out)",
+  "active:duration-(--duration-snap) active:ease-(--ease-out)",
+);
+
+/**
+ * A control that gives under the pointer.
+ *
+ * Two per cent, which is enough to feel and not enough to see. Opt-in rather
+ * than part of `transitionFast`, because it belongs on things shaped like
+ * buttons and not on table rows — a row that shrinks when you click it drags
+ * its neighbours' text with it.
+ *
+ * `motion-safe` so a reduced-motion preference gets the colour change alone.
+ */
+export const pressMotion = "motion-safe:active:scale-[0.98]";
 
 /**
  * The focus ring.

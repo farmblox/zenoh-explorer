@@ -274,6 +274,9 @@ pub async fn snapshot(session: &Session) -> Result<(TopologySnapshot, Vec<String
                     .find(|t| t.zid == node.zid)
                     .and_then(|t| t.links.first())
                     .and_then(|link| protocol_of(&link.dst)),
+                // The local session knows it holds the transport, not which
+                // routing tree the far end filed it under.
+                region: None,
                 // We are one end and we are reporting it; the far end has not
                 // independently confirmed it.
                 bidirectional: false,
@@ -317,9 +320,13 @@ pub async fn snapshot(session: &Session) -> Result<(TopologySnapshot, Vec<String
         Err(err) => diagnostics.push(format!("admin space unavailable: {err}")),
     }
 
-    let partial = nodes
+    // The explorer's own session is excluded: in client mode it has no admin
+    // entry of its own to find, so counting it would mark every snapshot
+    // partial regardless of how well the rest of the network answered.
+    let unverified_nodes = nodes
         .values()
-        .any(|node| node.source != DiscoverySource::AdminSpace);
+        .filter(|node| !node.is_local && node.source != DiscoverySource::AdminSpace)
+        .count();
 
     Ok((
         TopologySnapshot {
@@ -327,7 +334,7 @@ pub async fn snapshot(session: &Session) -> Result<(TopologySnapshot, Vec<String
             links: links.into_values().collect(),
             local_zid,
             captured_at_ms: now_ms(),
-            partial,
+            unverified_nodes,
             admin_responses,
         },
         diagnostics,

@@ -28,7 +28,9 @@ describe("design capture", () => {
   before(() => mkdirSync(OUT, { recursive: true }));
 
   it("captures the connect dialog, which is the resting state", async () => {
-    await $("dialog[open]").waitForDisplayed({ timeout: 15_000 }).catch(() => {});
+    await $("dialog[open]")
+      .waitForDisplayed({ timeout: 15_000 })
+      .catch(() => {});
     await shoot("00-connect");
   });
 
@@ -41,7 +43,9 @@ describe("design capture", () => {
       const item = $(`button=${label}`);
       if (!(await item.isExisting())) continue;
       await item.click();
-      await shoot(`${String(index + 1).padStart(2, "0")}-${label.toLowerCase().replace(/[^a-z]+/g, "-")}`);
+      await shoot(
+        `${String(index + 1).padStart(2, "0")}-${label.toLowerCase().replace(/[^a-z]+/g, "-")}`,
+      );
     }
   });
 
