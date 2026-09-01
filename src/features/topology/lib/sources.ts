@@ -1,21 +1,4 @@
-import type { DiscoverySource, NodeSummary, TopologySnapshot } from "@/ipc";
-import { UNGROUPED } from "./grouping";
-
-/**
- * How the canvas divides the network up.
- *
- * Three questions, not three skins. Region answers "how is this deployment
- * organised", router answers "who routes for whom", flat answers "what is
- * actually out there". A network that looks tidy grouped by region can look
- * alarming grouped by router, and that difference is the diagnosis.
- */
-export type GraphMode = "region" | "router" | "flat";
-
-export const GRAPH_MODES = [
-  { value: "region", label: "Region" },
-  { value: "router", label: "Router" },
-  { value: "flat", label: "Flat" },
-] as const satisfies ReadonlyArray<{ value: GraphMode; label: string }>;
+import type { DiscoverySource, TopologySnapshot } from "@/ipc";
 
 /**
  * Whether we know this node first-hand.
@@ -31,9 +14,6 @@ export const GRAPH_MODES = [
 export function isFirsthand(source: DiscoverySource): boolean {
   return source === "adminSpace" || source === "transport";
 }
-
-/** Nodes attached to no router at all. */
-export const UNROUTED = "no router";
 
 /**
  * Which sources of truth the graph is drawn from.
@@ -104,62 +84,4 @@ export function applySourceFilter(
     nodes,
     links: snapshot.links.filter((link) => kept.has(link.from) && kept.has(link.to)),
   };
-}
-
-/**
- * Which box each node belongs in, under the current mode.
- *
- * Router mode walks the links rather than trusting metadata: a node's router is
- * whichever router it actually holds a link to, and a node holding links to two
- * routers is filed under the first by zid so the answer is stable between
- * refreshes.
- */
-export function groupNodes(
-  snapshot: TopologySnapshot,
-  mode: GraphMode,
-): ReadonlyMap<string, string> {
-  const groups = new Map<string, string>();
-  if (mode === "flat") return groups;
-
-  if (mode === "region") {
-    for (const node of snapshot.nodes) groups.set(node.zid, node.region ?? UNGROUPED);
-    return groups;
-  }
-
-  const routers = new Set(
-    snapshot.nodes.filter((node) => node.kind === "router").map((node) => node.zid),
-  );
-  const attached = new Map<string, string[]>();
-
-  for (const link of snapshot.links) {
-    if (routers.has(link.from) && !routers.has(link.to)) {
-      attached.set(link.to, [...(attached.get(link.to) ?? []), link.from]);
-    }
-    if (routers.has(link.to) && !routers.has(link.from)) {
-      attached.set(link.from, [...(attached.get(link.from) ?? []), link.to]);
-    }
-  }
-
-  for (const node of snapshot.nodes) {
-    if (routers.has(node.zid)) {
-      groups.set(node.zid, node.zid);
-      continue;
-    }
-    const [first] = (attached.get(node.zid) ?? []).sort();
-    groups.set(node.zid, first ?? UNROUTED);
-  }
-
-  return groups;
-}
-
-/** What a group box is called, given the mode that produced it. */
-export function groupLabel(
-  groupId: string,
-  mode: GraphMode,
-  nodes: readonly NodeSummary[],
-): string {
-  if (mode !== "router") return groupId;
-  if (groupId === UNROUTED) return UNROUTED;
-  const router = nodes.find((node) => node.zid === groupId);
-  return router?.name ?? groupId.slice(0, 8);
 }

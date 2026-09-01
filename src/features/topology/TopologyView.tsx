@@ -4,7 +4,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 
 import { EmptyState, Spinner } from "@/components/ui";
 import { groupedNumber } from "@/lib/format";
-import { useActiveSessionId, useTopology } from "@/stores";
+import { useActiveSession, useActiveSessionId, useTopology } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
 import { CanvasBadge } from "./components/CanvasBadge";
 import { CoverageBanner } from "./components/CoverageBanner";
@@ -14,14 +14,8 @@ import { RouteTracePanel } from "./components/RouteTracePanel";
 import { TopologyCanvas } from "./components/TopologyCanvas";
 import { TopologyToolbar } from "./components/TopologyToolbar";
 import type { GraphLevel } from "./hooks/useTopologyGraph";
-import {
-  applySourceFilter,
-  sourceOptions,
-  type GraphMode,
-  type SourceFilter,
-} from "./lib/graphMode";
-import { buildRegionDetail } from "./lib/grouping";
-import type { LayoutMode } from "./lib/layout";
+import { applySourceFilter, sourceOptions, type SourceFilter } from "./lib/sources";
+import { buildRegionDetail, label as nodeLabel } from "./lib/grouping";
 
 /**
  * The network graph.
@@ -34,12 +28,12 @@ import type { LayoutMode } from "./lib/layout";
 export function TopologyView() {
   const sessionId = useActiveSessionId();
   const { snapshot: raw, awaiting, error } = useTopology(sessionId);
+  const session = useActiveSession();
+  const sessionName = session?.profile.name ?? "Session";
 
-  const [mode, setMode] = useState<GraphMode>("region");
   const [source, setSource] = useState<SourceFilter>("all");
   const [level, setLevel] = useState<GraphLevel>({ kind: "regions" });
   const [selectedZid, setSelectedZid] = useState<string | null>(null);
-  const [layout, setLayout] = useState<LayoutMode>("tree");
   const [traceFrom, setTraceFrom] = useState<string | null>(null);
 
   const snapshot = useMemo(() => (raw ? applySourceFilter(raw, source) : null), [raw, source]);
@@ -51,14 +45,6 @@ export function TopologyView() {
   }, []);
 
   const leaveRegion = useCallback(() => {
-    setLevel({ kind: "regions" });
-    setSelectedZid(null);
-  }, []);
-
-  const changeMode = useCallback((next: GraphMode) => {
-    setMode(next);
-    // Only region mode has a level below the top one, so switching away from it
-    // has to put the canvas back somewhere that exists.
     setLevel({ kind: "regions" });
     setSelectedZid(null);
   }, []);
@@ -80,10 +66,8 @@ export function TopologyView() {
 
   const openRegion = useMemo(
     () =>
-      snapshot && mode === "region" && level.kind === "region"
-        ? buildRegionDetail(snapshot, level.regionId)
-        : null,
-    [snapshot, mode, level],
+      snapshot && level.kind === "region" ? buildRegionDetail(snapshot, level.regionId) : null,
+    [snapshot, level],
   );
 
   /** Rates keyed by zid. Empty until nodes report throughput. */
@@ -108,27 +92,21 @@ export function TopologyView() {
         title="Topology"
         subtitle={
           openRegion
-            ? `Inside ${openRegion.region.id}`
-            : mode === "region"
-              ? "Grouped by the region each node reports"
-              : mode === "router"
-                ? "Grouped by the router each node attaches to"
-                : "Every node the explorer can see"
+            ? `${groupedNumber(openRegion.region.nodes.length)} nodes in ${openRegion.region.id}`
+            : "Grouped by the region each node reports"
         }
         alert={snapshot?.partial ? "Partial view" : undefined}
       />
 
       {snapshot ? (
         <TopologyToolbar
-          mode={mode}
-          onModeChange={changeMode}
           source={source}
           sources={sources}
           onSourceChange={setSource}
+          sessionName={sessionName}
           openRegionId={openRegion ? openRegion.region.id : null}
           onLeaveRegion={leaveRegion}
-          layout={layout}
-          onLayoutChange={setLayout}
+          focusLabel={selectedNode ? nodeLabel(selectedNode) : null}
           nodeCount={nodeCount}
           linkCount={linkCount}
         />
@@ -165,10 +143,8 @@ export function TopologyView() {
               <ReactFlowProvider>
                 <TopologyCanvas
                   snapshot={snapshot}
-                  mode={mode}
                   level={level}
                   selectedZid={selectedZid}
-                  layout={layout}
                   actions={actions}
                   // Both side panels take width from the canvas, so their
                   // presence is part of how the graph should be framed.

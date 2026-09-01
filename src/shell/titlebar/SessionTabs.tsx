@@ -20,7 +20,7 @@ import { SessionTab } from "./SessionTab";
 export function SessionTabs() {
   const sessions = useSessionStore((state) => state.sessions);
   const pending = useSessionStore((state) => state.pending);
-  const activeId = useSessionStore((state) => state.activeId);
+  const activeTab = useSessionStore((state) => state.activeTab);
   const setActive = useSessionStore((state) => state.setActive);
   const disconnect = useSessionStore((state) => state.disconnect);
   const dismissPending = useSessionStore((state) => state.dismissPending);
@@ -43,9 +43,9 @@ export function SessionTabs() {
         <SessionTab
           key={session.id}
           label={session.profile.name}
-          status={session.transportCount > 0 ? "live" : "degraded"}
+          state={session.transportCount > 0 ? "live" : "degraded"}
+          selected={session.id === activeTab}
           meta={groupedNumber(session.transportCount)}
-          active={session.id === activeId}
           title={
             session.transportCount > 0
               ? `${session.profile.name} — ${groupedNumber(session.transportCount)} transports`
@@ -61,20 +61,18 @@ export function SessionTabs() {
         <SessionTab
           key={attempt.key}
           label={attempt.profile.name}
-          status={attempt.error ? "down" : "connecting"}
-          pulse={!attempt.error}
-          tone={attempt.error ? "danger" : "default"}
-          title={attempt.error ?? "Connecting — click to change the settings"}
-          // A failed attempt keeps its profile so the dialog can reopen on it;
-          // clicking one that is still running would have nothing to show.
-          onSelect={
-            attempt.error
-              ? () => {
-                  editProfile(attempt.profile);
-                  openOverlay("connect");
-                }
-              : undefined
-          }
+          state={attempt.error ? "failed" : "connecting"}
+          selected={attempt.key === activeTab}
+          title={attempt.error ?? `Connecting to ${attempt.profile.name}`}
+          onSelect={() => {
+            setActive(attempt.key);
+            // A failed attempt kept its profile, so selecting it offers the
+            // dialog back with those settings rather than a blank one.
+            if (attempt.error) {
+              editProfile(attempt.profile);
+              openOverlay("connect");
+            }
+          }}
           onClose={() => dismissPending(attempt.key)}
           closeLabel={
             attempt.error

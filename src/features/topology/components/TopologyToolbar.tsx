@@ -1,28 +1,22 @@
 import { ChevronDown, ChevronLeft } from "lucide-react";
 
-import { Button, Menu, SegmentedControl, Toolbar, ToolbarDivider } from "@/components/ui";
+import { Button, Menu, Toolbar } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { groupedNumber } from "@/lib/format";
 import { controlBase, overlayStates } from "@/lib/states";
-import {
-  GRAPH_MODES,
-  type GraphMode,
-  type SourceFilter,
-  type SourceOption,
-} from "../lib/graphMode";
-import { LAYOUTS, type LayoutMode } from "../lib/layout";
+import type { SourceFilter, SourceOption } from "../lib/sources";
 
 export interface TopologyToolbarProps {
-  mode: GraphMode;
-  onModeChange: (mode: GraphMode) => void;
   source: SourceFilter;
   sources: readonly SourceOption[];
   onSourceChange: (source: SourceFilter) => void;
+  /** The session's own name, the first crumb. */
+  sessionName: string;
   /** Set when a region is open — switches the bar to a breadcrumb. */
   openRegionId: string | null;
   onLeaveRegion: () => void;
-  layout: LayoutMode;
-  onLayoutChange: (layout: LayoutMode) => void;
+  /** The node selected inside that region, the last crumb. */
+  focusLabel: string | null;
   nodeCount: number;
   linkCount: number;
 }
@@ -31,20 +25,17 @@ export interface TopologyToolbarProps {
  * The controls above the canvas.
  *
  * Two states, because the two levels ask different questions. At the top level
- * you are choosing how to cut the network up and what evidence to trust. Inside
- * a region you already chose, and what you want is a way back out and a way to
- * rearrange what is in front of you.
+ * you are choosing what evidence to draw from. Inside a region you already
+ * chose, and what you want is to know where you are and how to get back out.
  */
 export function TopologyToolbar({
-  mode,
-  onModeChange,
   source,
   sources,
   onSourceChange,
+  sessionName,
   openRegionId,
   onLeaveRegion,
-  layout,
-  onLayoutChange,
+  focusLabel,
   nodeCount,
   linkCount,
 }: TopologyToolbarProps) {
@@ -53,63 +44,49 @@ export function TopologyToolbar({
   return (
     <Toolbar>
       {openRegionId === null ? (
-        <>
-          <SegmentedControl
-            label="Group the graph by"
-            segments={GRAPH_MODES}
-            value={mode}
-            onChange={onModeChange}
-          />
-
-          <Menu
-            label="Choose which discovery sources the graph is drawn from"
-            heading="Draw nodes known from"
-            items={sources.map((option) => ({
-              value: option.value,
-              label: option.label,
-              hint: groupedNumber(option.count),
-              selected: option.value === source,
-            }))}
-            onSelect={onSourceChange}
-            width={244}
-            triggerClassName={cn(
-              "rounded-control border-line bg-surface-2 flex h-8 items-center gap-2.5 px-3",
-              "text-small text-ink-muted hover:text-ink font-medium whitespace-nowrap",
-              controlBase,
-              overlayStates,
-            )}
-            trigger={
-              <>
-                Source: {active?.label.toLowerCase() ?? "every source"}
-                <ChevronDown size={13} className="text-ink-faint" />
-              </>
-            }
-          />
-        </>
+        <Menu
+          label="Choose which discovery sources the graph is drawn from"
+          heading="Draw nodes known from"
+          items={sources.map((option) => ({
+            value: option.value,
+            label: option.label,
+            hint: groupedNumber(option.count),
+            selected: option.value === source,
+          }))}
+          onSelect={onSourceChange}
+          width={244}
+          triggerClassName={cn(
+            "rounded-control bg-surface-2 flex h-8 items-center gap-2.5 px-3",
+            "text-small text-ink-muted hover:text-ink font-medium whitespace-nowrap",
+            controlBase,
+            overlayStates,
+          )}
+          trigger={
+            <>
+              Source: {active?.label.toLowerCase() ?? "every source"}
+              <ChevronDown size={13} className="text-ink-faint" />
+            </>
+          }
+        />
       ) : (
-        <>
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<ChevronLeft size={13} />}
-              onClick={onLeaveRegion}
-            >
-              All regions
-            </Button>
-            <span className="text-tiny text-ink-faint">/</span>
-            <span className="numeric text-small text-ink px-2">{openRegionId}</span>
-          </nav>
-
-          <ToolbarDivider />
-
-          <SegmentedControl
-            label="Arrange nodes as"
-            segments={LAYOUTS}
-            value={layout}
-            onChange={onLayoutChange}
-          />
-        </>
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<ChevronLeft size={13} />}
+            onClick={onLeaveRegion}
+          >
+            {sessionName}
+          </Button>
+          <Crumb />
+          <span className="numeric text-small text-ink shrink-0 px-1">{openRegionId}</span>
+          {focusLabel ? (
+            <>
+              <Crumb />
+              <span className="text-small text-ink-muted min-w-0 truncate px-1">{focusLabel}</span>
+            </>
+          ) : null}
+        </nav>
       )}
 
       <span className="flex-1" />
@@ -118,5 +95,14 @@ export function TopologyToolbar({
         {groupedNumber(nodeCount)} nodes · {groupedNumber(linkCount)} links
       </span>
     </Toolbar>
+  );
+}
+
+/** The separator between breadcrumb segments. */
+function Crumb() {
+  return (
+    <span aria-hidden className="text-tiny text-ink-faint shrink-0">
+      /
+    </span>
   );
 }

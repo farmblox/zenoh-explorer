@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { useSessionStore, useUiStore } from "@/stores";
+import { useActiveSessionId, useUiStore } from "@/stores";
 import { VIEW_BY_ID } from "./views";
 import type { ViewDefinition, ViewId } from "./types";
 
@@ -24,7 +24,11 @@ const SESSIONLESS_VIEW: ViewId = "scouting";
  * views that work without one.
  */
 export function useNavigation(): Navigation {
-  const activeId = useSessionStore((state) => state.activeId);
+  // The SESSION, not the tab. View state belongs to a session — a tab whose
+  // connection is still being made has no view state of its own to remember,
+  // and its key changes the moment it succeeds, which would reset the view
+  // just as the network arrived.
+  const activeId = useActiveSessionId();
   const viewBySession = useUiStore((state) => state.viewBySession);
   const fallbackView = useUiStore((state) => state.fallbackView);
   const setView = useUiStore((state) => state.setView);

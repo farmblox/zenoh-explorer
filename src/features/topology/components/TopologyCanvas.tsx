@@ -12,14 +12,11 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 
-import { GroupBox } from "./GroupBox";
 import { Legend } from "./Legend";
 import { LinkEdge } from "./LinkEdge";
 import { NodeCard, type NodeCardData } from "./NodeCard";
 import { RegionCard } from "./RegionCard";
 import { useTopologyGraph, type GraphActions, type GraphLevel } from "../hooks/useTopologyGraph";
-import type { GraphMode } from "../lib/graphMode";
-import type { LayoutMode } from "../lib/layout";
 import type { TopologySnapshot } from "@/ipc";
 
 /**
@@ -28,7 +25,7 @@ import type { TopologySnapshot } from "@/ipc";
  * React Flow warns and remounts every node if these object identities change
  * between renders, which would reset the canvas on every state update.
  */
-const NODE_TYPES = { region: RegionCard, zenohNode: NodeCard, group: GroupBox } as const;
+const NODE_TYPES = { region: RegionCard, zenohNode: NodeCard } as const;
 const EDGE_TYPES = { link: LinkEdge } as const;
 
 /** Leaves room for the floating controls without cropping the graph. */
@@ -44,10 +41,8 @@ const MINIMAP_THRESHOLD = 14;
 
 export interface TopologyCanvasProps {
   snapshot: TopologySnapshot;
-  mode: GraphMode;
   level: GraphLevel;
   selectedZid: string | null;
-  layout: LayoutMode;
   actions: GraphActions;
   /**
    * Changes whenever a side panel opens or closes.
@@ -71,23 +66,21 @@ export interface TopologyCanvasProps {
  */
 export function TopologyCanvas({
   snapshot,
-  mode,
   level,
   selectedZid,
-  layout,
   actions,
   framingKey,
   onOpenRegion,
   onSelectNode,
 }: TopologyCanvasProps) {
-  const graph = useTopologyGraph({ snapshot, mode, level, selectedZid, layout, actions });
+  const graph = useTopologyGraph({ snapshot, level, selectedZid, actions });
 
   const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
   const { fitView } = useReactFlow();
 
   /** Which graph the current positions belong to. */
-  const levelKey = `${mode}:${level.kind === "regions" ? "regions" : level.regionId}:${layout}`;
+  const levelKey = level.kind === "regions" ? "regions" : level.regionId;
   const previousLevel = useRef(levelKey);
   /** Set when the graph changed and the new one still needs framing. */
   const needsFit = useRef(false);
@@ -141,7 +134,6 @@ export function TopologyCanvas({
 
   const onNodeClick = useCallback<NodeMouseHandler>(
     (_event, node) => {
-      if (node.type === "group") return;
       if (node.type === "region") onOpenRegion(node.id);
       else onSelectNode(node.id === selectedZid ? null : node.id);
     },
@@ -149,7 +141,6 @@ export function TopologyCanvas({
   );
 
   const minimapColor = useCallback((node: Node) => {
-    if (node.type === "group") return "transparent";
     if (node.type === "region") return "var(--accent)";
     const data = node.data as NodeCardData;
     if (data.alert) return "var(--warn)";

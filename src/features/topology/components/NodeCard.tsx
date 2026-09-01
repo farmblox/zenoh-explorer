@@ -3,8 +3,8 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { NodeKindIcon } from "@/components/domain";
 import { Meter } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { focusRing, transitionFast } from "@/lib/states";
 import { rate as formatRate } from "@/lib/format";
+import { focusRing, transitionFast } from "@/lib/states";
 import { NODE_SIZE } from "../lib/layout";
 
 /** What a node card needs to render. React Flow requires an index signature. */
@@ -17,9 +17,9 @@ export type NodeCardData = {
   readonly locator: string | null;
   /** Messages per second, when the node reports it. */
   readonly rate: number | null;
-  /** This node's share of the busiest node's traffic, 0 to 1. */
+  /** This node's share of the busiest node's links, 0 to 1. */
   readonly share: number | null;
-  /** What the node has declared, already phrased — "14 subs · 3 queryables". */
+  /** What the node has declared, already phrased. */
   readonly declarations: string | null;
   /**
    * `false` when the node was only reported by somebody else — a scout reply or
@@ -38,17 +38,24 @@ export type NodeCardData = {
 
 export type NodeCardNode = Node<NodeCardData, "zenohNode">;
 
+/** Inner padding per role, matching the card heights in `NODE_SIZE`. */
+const PADDING = {
+  router: "px-[13px] py-3",
+  peer: "px-[13px] py-3",
+  client: "px-3 py-[9px]",
+} as const;
+
 /**
  * One Zenoh node.
  *
- * At rest it is a single row — glyph, name, rate — sized by role, so the shape
- * of the graph carries the shape of the network before any label is read.
- * Selecting it expands the card downwards in place to add what it has declared,
- * its share of the region's traffic, and the two things you would do next.
+ * At rest it is a single row — glyph, name, value — sized by role, so the shape
+ * of the graph carries the shape of the network before any label is read. The
+ * glyph stays quiet until the node is selected: a graph where everything is
+ * accent-coloured has nothing left to say when one node matters.
  *
- * Expanding IN PLACE rather than floating a panel over the canvas matters: the
- * detail stays anchored to the node it describes, and nothing it covers was
- * something you were looking at.
+ * Selecting it expands the card downwards IN PLACE rather than floating a panel
+ * over the canvas, so the detail stays attached to the node it describes and
+ * nothing it covers was something you were looking at.
  */
 export function NodeCard({
   data,
@@ -60,8 +67,8 @@ export function NodeCard({
 
   return (
     <div
-      // Width is fixed by role; height is fixed only while collapsed, so the
-      // expansion grows downwards and no neighbour shifts sideways.
+      // Width is fixed by role; height only while collapsed, so the expansion
+      // grows downwards and no neighbour shifts sideways.
       style={{ width: size.width, ...(selected ? {} : { height: size.height }) }}
       title={
         data.firsthand
@@ -70,11 +77,10 @@ export function NodeCard({
       }
       className={cn(
         "rounded-panel bg-surface-2 border",
-        // Dashed means hearsay, the same thing it means on a link we could only
-        // confirm from one end. One vocabulary for "we are less sure of this",
-        // whether it is drawn as a node or an edge.
+        transitionFast,
+        // Dashed means hearsay, the same thing it means on a link only one end
+        // confirmed. One vocabulary for "we are less sure of this".
         data.firsthand ? "border-solid" : "border-dashed",
-        "transition-[border-color,box-shadow] duration-(--duration-fast) ease-(--ease-standard)",
         selected
           ? "border-accent shadow-[0_0_0_3px_var(--accent-subtle)]"
           : data.isLocal
@@ -82,35 +88,40 @@ export function NodeCard({
             : "border-line hover:border-ink-faint",
       )}
     >
-      {/* One of each, unnamed, positioned from the node's own props. React Flow
-          attaches an edge's tail to a `source` and its head to a `target`, and
-          falls back to the unnamed handle of each type when an edge does not
-          name one — so a node carrying only sources silently draws no edges at
-          all rather than erroring. */}
+      {/* Visible, unlike most React Flow handles: on a read-only graph they are
+          not connection points but a legible statement of where an edge meets
+          the card, which keeps a fan of edges from appearing to touch the text. */}
       <Handle
         type="target"
         position={targetPosition}
         isConnectable={false}
-        className="!border-0 !bg-transparent"
+        className="!border-line !bg-surface-3 !size-2 !rounded-full !border"
       />
       <Handle
         type="source"
         position={sourcePosition}
         isConnectable={false}
-        className="!border-0 !bg-transparent"
+        className="!border-line !bg-surface-3 !size-2 !rounded-full !border"
       />
 
       <div
-        className={cn("flex items-center gap-2.5 px-3", selected ? "pt-2.5" : "h-full")}
+        className={cn("flex items-center gap-2.5", PADDING[data.kind], selected && "pb-2.5")}
         style={selected ? undefined : { height: size.height }}
       >
-        <NodeKindIcon kind={data.kind} local={data.isLocal} />
+        <NodeKindIcon
+          kind={data.kind}
+          local={data.isLocal}
+          alert={data.alert !== null}
+          selected={selected}
+        />
 
-        <span className="text-small text-ink min-w-0 flex-1 truncate" title={data.zid}>
+        <span className="text-small text-ink min-w-0 flex-1 truncate font-normal">
           {data.label}
         </span>
 
-        <span className="numeric text-tiny text-ink-faint shrink-0">
+        <span
+          className={cn("numeric text-tiny shrink-0", data.alert ? "text-warn" : "text-ink-muted")}
+        >
           {data.rate === null ? data.linkCount : formatRate(data.rate)}
         </span>
 
@@ -121,7 +132,7 @@ export function NodeCard({
 
       {selected ? (
         <div className="animate-fade-in">
-          <div className="flex items-baseline gap-2.5 px-3 pt-2.5">
+          <div className="flex items-baseline gap-2.5 px-[13px]">
             <span className="text-tiny text-ink-muted min-w-0 flex-1 truncate">
               {data.declarations ?? `${data.linkCount} links`}
             </span>
@@ -138,13 +149,13 @@ export function NodeCard({
               size="xs"
               tone="accent"
               label={`${data.label} share of the region's links`}
-              className="mx-3 mt-2"
+              className="mx-[13px] mt-2"
             />
           ) : null}
 
-          {data.alert ? <p className="text-tiny text-warn px-3 pt-2.5">{data.alert}</p> : null}
+          {data.alert ? <p className="text-tiny text-warn px-[13px] pt-2.5">{data.alert}</p> : null}
 
-          <div className="border-line-soft bg-surface-1 mt-3 flex items-center gap-2.5 rounded-b-[calc(var(--radius-panel)-1px)] border-t px-3 py-2">
+          <div className="border-line-soft bg-surface-1 mt-3 flex items-center gap-2.5 rounded-b-[calc(var(--radius-panel)-1px)] border-t px-[13px] py-2">
             <CardAction onClick={() => data.onInspect?.(data.zid)}>Inspect</CardAction>
             <span className="bg-line h-3 w-px" aria-hidden />
             <CardAction onClick={() => data.onTrace?.(data.zid)}>Trace route</CardAction>

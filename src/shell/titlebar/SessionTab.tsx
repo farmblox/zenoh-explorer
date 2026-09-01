@@ -5,17 +5,25 @@ import { StatusDot, type Status } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { focusRingOnChrome, transitionFast } from "@/lib/states";
 
+/** What the connection behind a tab is doing. */
+export type SessionTabState = "live" | "degraded" | "connecting" | "failed";
+
+const DOTS: Record<SessionTabState, { status: Status; pulse: boolean }> = {
+  live: { status: "live", pulse: false },
+  degraded: { status: "degraded", pulse: false },
+  connecting: { status: "connecting", pulse: true },
+  failed: { status: "down", pulse: false },
+};
+
 export interface SessionTabProps {
   /** What the session or attempt is called. */
   label: string;
-  status: Status;
-  /** Draws the dot breathing, for a connection still being made. */
-  pulse?: boolean;
-  /** Right-aligned value at rest — a transport count, or a word like "failed". */
+  /** What its connection is doing. Shown by the dot. */
+  state: SessionTabState;
+  /** Whether this is the tab currently on screen. Shown by the fill. */
+  selected?: boolean;
+  /** Right-aligned value at rest — a transport count. */
   meta?: ReactNode;
-  active?: boolean;
-  /** Tints the whole tab, for an attempt that failed. */
-  tone?: "default" | "danger";
   title?: string | undefined;
   onSelect?: (() => void) | undefined;
   onClose: () => void;
@@ -25,67 +33,68 @@ export interface SessionTabProps {
 /**
  * One tab in the session strip.
  *
- * A tab, not a pill: fully rounded reads as a chip, something you dismiss,
- * where these are places you go. The softened rectangle and the extra height
- * give them the weight of a destination, and let the active one sit as a raised
- * surface rather than a tinted lozenge.
+ * Selection is a FILL and nothing else — the same `surface-2` the sidebar uses
+ * for the view you are on. Nothing in this app outlines the selected thing, so
+ * a tab that did read as a different kind of control that had wandered into the
+ * title bar.
+ *
+ * That leaves the dot free to carry the only other thing a tab has to say:
+ * whether its connection is up, still being made, or broken. Two questions, two
+ * channels, neither borrowing the other's.
  *
  * The trailing slot holds the meta at rest and the close button on hover or
- * focus — one fixed-width slot rather than two, so revealing the close button
- * never nudges the label. That also means every tab can be closed, including
- * one still connecting, which is exactly when you most want to give up on it.
+ * focus — one slot rather than two, so revealing the close never nudges the
+ * label, and sized from the meta rather than the button. Every tab can be
+ * closed, including one still connecting, which is when you most want to.
  */
 export function SessionTab({
   label,
-  status,
-  pulse,
+  state,
+  selected = false,
   meta,
-  active,
-  tone = "default",
   title,
   onSelect,
   onClose,
   closeLabel,
 }: SessionTabProps) {
+  const dot = DOTS[state];
+  const failed = state === "failed";
+
   return (
     <div
       title={title}
       className={cn(
-        "group rounded-control relative flex h-8 shrink-0 items-center gap-2 border pr-1.5 pl-3",
+        "group rounded-control relative flex h-8 shrink-0 items-center gap-2 pr-1.5 pl-3",
         transitionFast,
-        tone === "danger"
-          ? "bg-danger-subtle border-danger/30"
-          : active
-            ? "bg-surface-2 border-line shadow-[0_1px_0_var(--line-soft)]"
-            : "hover:bg-surface-2/70 border-transparent",
+        // Three levels against the title bar's own surface-0: an unselected tab
+        // still has a fill, so it reads as a tab rather than as bare chrome,
+        // and the selected one wins clearly. Exactly one tab is ever selected,
+        // because only an open session can be — an attempt has no view behind
+        // it to show.
+        failed
+          ? "bg-danger-subtle"
+          : selected
+            ? "bg-surface-2"
+            : "bg-surface-1 hover:bg-surface-2/70",
       )}
     >
-      <StatusDot status={status} pulse={pulse} />
+      <StatusDot status={dot.status} pulse={dot.pulse} />
 
       <button
         type="button"
         onClick={onSelect}
-        disabled={!onSelect}
-        aria-current={active ? "page" : undefined}
+        disabled={onSelect === undefined}
+        aria-current={selected ? "page" : undefined}
         className={cn(
-          "text-small rounded-inner max-w-40 truncate text-left",
+          "text-small rounded-inner max-w-40 truncate text-left disabled:cursor-default",
           focusRingOnChrome,
           transitionFast,
-          "disabled:cursor-default",
-          tone === "danger"
-            ? "text-danger"
-            : active
-              ? "text-ink"
-              : "text-ink-muted group-hover:text-ink",
+          failed ? "text-danger" : selected ? "text-ink" : "text-ink-muted group-hover:text-ink",
         )}
       >
         {label}
       </button>
 
-      {/* One slot, two occupants, only ever one of them visible — so revealing
-          the close button never nudges the label. The slot takes its width from
-          the meta rather than being fixed at the close button's 16px, which is
-          what let a wider value spill over the tab's edge. */}
       <span className="relative flex h-4 min-w-4 shrink-0 items-center justify-end">
         {meta !== undefined && meta !== null ? (
           <span

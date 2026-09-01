@@ -2,13 +2,10 @@ import { useMemo } from "react";
 import { Position, type Edge, type Node } from "@xyflow/react";
 
 import type { LinkSummary, NodeSummary, TopologySnapshot } from "@/ipc";
-import { groupedNumber } from "@/lib/format";
 import { classifyEdge } from "../lib/edgeStyle";
-import { groupLabel, groupNodes, isFirsthand, type GraphMode } from "../lib/graphMode";
+import { isFirsthand } from "../lib/sources";
 import { buildRegionDetail, buildRegionView, label } from "../lib/grouping";
-import { layoutGrouped, layoutRegionNodes, layoutRegions, layoutTree } from "../lib/layout";
-import type { LayoutMode } from "../lib/layout";
-import type { GroupBoxData } from "../components/GroupBox";
+import { layoutGraph, layoutRegions } from "../lib/layout";
 import type { NodeCardData } from "../components/NodeCard";
 import type { RegionCardData } from "../components/RegionCard";
 import type { LinkEdgeData } from "../components/LinkEdge";
@@ -24,10 +21,8 @@ export interface GraphActions {
 
 export interface TopologyGraphInput {
   readonly snapshot: TopologySnapshot | null;
-  readonly mode: GraphMode;
   readonly level: GraphLevel;
   readonly selectedZid: string | null;
-  readonly layout: LayoutMode;
   readonly actions: GraphActions;
 }
 
@@ -46,21 +41,15 @@ export interface TopologyGraph {
  * make the canvas twitch on unrelated state changes.
  */
 export function useTopologyGraph(input: TopologyGraphInput): TopologyGraph {
-  const { snapshot, mode, level, selectedZid, layout, actions } = input;
+  const { snapshot, level, selectedZid, actions } = input;
 
   return useMemo(() => {
     if (!snapshot) return { nodes: [], edges: [], missing: false };
-
-    // Region mode is the only one that drills: its top level is one card per
-    // region. Router and flat draw every node at once, so there is nothing to
-    // drill into.
-    if (mode === "region") {
-      return level.kind === "regions"
-        ? buildRegionGraph(snapshot)
-        : buildRegionDetailGraph(snapshot, level.regionId, selectedZid, layout, actions);
-    }
-    return buildGroupedGraph(snapshot, mode, selectedZid, actions);
-  }, [snapshot, mode, level, selectedZid, layout, actions]);
+    // Two levels: one card per region, then that region's nodes as a graph.
+    return level.kind === "regions"
+      ? buildRegionGraph(snapshot)
+      : buildRegionDetailGraph(snapshot, level.regionId, selectedZid, actions);
+  }, [snapshot, level, selectedZid, actions]);
 }
 
 /** The overview: one node per region. */
@@ -111,18 +100,13 @@ function buildRegionDetailGraph(
   snapshot: TopologySnapshot,
   regionId: string,
   selectedZid: string | null,
-  layout: LayoutMode,
   actions: GraphActions,
 ): TopologyGraph {
   const detail = buildRegionDetail(snapshot, regionId);
   if (!detail) return { nodes: [], edges: [], missing: true };
 
-  const positions =
-    layout === "tree"
-      ? layoutTree(detail.region.nodes, detail.links)
-      : layoutRegionNodes(detail.region.nodes);
-
-  const cards = buildNodeCards(detail.region.nodes, detail.links, selectedZid, actions, layout);
+  const positions = layoutGraph(detail.region.nodes, detail.links);
+  const cards = buildNodeCards(detail.region.nodes, detail.links, selectedZid, actions);
 
   return {
     nodes: cards.map((card) => ({ ...card, position: positions.get(card.id) ?? card.position })),
@@ -131,55 +115,12 @@ function buildRegionDetailGraph(
   };
 }
 
-/** Every node at once, in dashed boxes by group. */
-function buildGroupedGraph(
-  snapshot: TopologySnapshot,
-  mode: GraphMode,
-  selectedZid: string | null,
-  actions: GraphActions,
-): TopologyGraph {
-  const groups = groupNodes(snapshot, mode);
-  const { positions, boxes } = layoutGrouped(snapshot.nodes, groups);
-
-  const cards = buildNodeCards(snapshot.nodes, snapshot.links, selectedZid, actions, null);
-  const placed = cards.map((card) => ({
-    ...card,
-    position: positions.get(card.id) ?? card.position,
-  }));
-
-  // Boxes are nodes too, sat behind the cards. Not draggable and not
-  // selectable: they describe a set, and dragging a description away from what
-  // it describes is meaningless.
-  const groupNodesList: Node<GroupBoxData>[] = boxes.map((box) => ({
-    id: `group:${box.id}`,
-    type: "group",
-    position: { x: box.x, y: box.y },
-    draggable: false,
-    selectable: false,
-    zIndex: -1,
-    data: {
-      label: groupLabel(box.id, mode, snapshot.nodes),
-      width: box.width,
-      height: box.height,
-      stats: `${groupedNumber(box.nodes.length)} ${box.nodes.length === 1 ? "node" : "nodes"}`,
-      alert: describeGroupAlert(box.nodes, snapshot.links),
-    },
-  }));
-
-  return {
-    nodes: mode === "flat" ? placed : [...groupNodesList, ...placed],
-    edges: buildEdges(snapshot.links, snapshot.nodes, selectedZid),
-    missing: false,
-  };
-}
-
-/** Node cards, shared by every mode so a node looks the same wherever it is drawn. */
+/** One card per node, positioned by the caller. */
 function buildNodeCards(
   nodes: readonly NodeSummary[],
   links: readonly LinkSummary[],
   selectedZid: string | null,
   actions: GraphActions,
-  layout: LayoutMode | null,
 ): Node<NodeCardData>[] {
   // Counted from the links we are about to draw, so the number on a card always
   // matches what is visible next to it.
@@ -197,12 +138,11 @@ function buildNodeCards(
       type: "zenohNode",
       position: { x: 0, y: 0 },
       selected: node.zid === selectedZid,
-      // A tree reads left to right, so edges leave the right edge and arrive at
-      // the left. Every other arrangement puts neighbours in all directions,
-      // and fixed anchors would send half the edges the long way round a card.
-      ...(layout === "tree"
-        ? { sourcePosition: Position.Right, targetPosition: Position.Left }
-        : {}),
+      // dagre ranks left to right, so an edge leaves a card's right edge and
+      // arrives at the next card's left. Anchoring them anywhere else would
+      // send half the edges back round the card they just left.
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
       data: {
         zid: node.zid,
         label: label(node),
@@ -266,17 +206,4 @@ function describeNodeAlert(node: NodeSummary, links: readonly LinkSummary[]): st
     return `${unconfirmed} link${unconfirmed === 1 ? "" : "s"} confirmed by one end only`;
   }
   return null;
-}
-
-/** What is wrong inside a group, in one phrase, or null when nothing is. */
-function describeGroupAlert(
-  nodes: readonly NodeSummary[],
-  links: readonly LinkSummary[],
-): string | null {
-  const inside = new Set(nodes.map((node) => node.zid));
-  const unconfirmed = links.filter(
-    (link) => !link.bidirectional && (inside.has(link.from) || inside.has(link.to)),
-  ).length;
-
-  return unconfirmed > 0 ? `${unconfirmed} unconfirmed` : null;
 }

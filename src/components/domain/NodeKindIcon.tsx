@@ -10,8 +10,10 @@ export interface NodeKindIconProps {
   size?: NodeKindIconSize;
   /** Marks this as the explorer's own session. */
   local?: boolean;
-  /** Marks the node as needing attention, which outranks the local marker. */
+  /** Marks the node as needing attention, which outranks everything else. */
   alert?: boolean;
+  /** Lifts the glyph to the accent colour, for the node currently picked. */
+  selected?: boolean;
   className?: string;
 }
 
@@ -29,7 +31,14 @@ const SIZES: Record<NodeKindIconSize, string> = {
  * A letter rather than an icon: at this size three distinguishable glyphs read
  * faster than three similar pictures, and they can be spoken aloud.
  */
-export function NodeKindIcon({ kind, size = "md", local, alert, className }: NodeKindIconProps) {
+export function NodeKindIcon({
+  kind,
+  size = "md",
+  local,
+  alert,
+  selected,
+  className,
+}: NodeKindIconProps) {
   const role = NODE_ROLES[kind];
 
   return (
@@ -40,11 +49,15 @@ export function NodeKindIcon({ kind, size = "md", local, alert, className }: Nod
         "numeric inline-flex shrink-0 items-center justify-center font-medium",
         SIZES[size],
         role.shape,
+        // Quiet at rest. A graph where every glyph is accent-coloured has
+        // nothing left to say when one of them matters.
         alert
           ? "border-warn text-warn"
-          : local
-            ? "border-ok text-ok"
-            : "border-accent/60 text-accent-strong",
+          : selected
+            ? "border-accent bg-accent-subtle text-accent"
+            : local
+              ? "border-ok text-ok"
+              : "border-ink-faint text-ink-faint",
         className,
       )}
     >

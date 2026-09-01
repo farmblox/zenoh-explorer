@@ -11,7 +11,7 @@ import {
   ScrollArea,
 } from "@/components/ui";
 import type { NodeSummary, TopologySnapshot } from "@/ipc";
-import { SOURCE_LABELS } from "../lib/graphMode";
+import { SOURCE_LABELS } from "../lib/sources";
 import { label } from "../lib/grouping";
 
 export interface NodeInspectorProps {
