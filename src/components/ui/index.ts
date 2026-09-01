@@ -49,6 +49,9 @@ export type { SpinnerProps } from "./Spinner";
 export { StatusDot } from "./StatusDot";
 export type { Status, StatusDotProps } from "./StatusDot";
 
+export { Checkbox } from "./Checkbox";
+export type { CheckboxProps } from "./Checkbox";
+
 export { ComboBox } from "./ComboBox";
 export type { ComboBoxOption, ComboBoxProps } from "./ComboBox";
 
@@ -87,3 +90,12 @@ export type { SectionLabelProps } from "./SectionLabel";
 
 export { MIN_COLUMN_WIDTH, useColumnWidths } from "./useColumnWidths";
 export type { ColumnWidths } from "./useColumnWidths";
+
+export { Separator } from "./Separator";
+export type { SeparatorProps } from "./Separator";
+
+export { Skeleton } from "./Skeleton";
+export type { SkeletonProps } from "./Skeleton";
+
+export { Tooltip } from "./Tooltip";
+export type { TooltipProps, TooltipSide } from "./Tooltip";

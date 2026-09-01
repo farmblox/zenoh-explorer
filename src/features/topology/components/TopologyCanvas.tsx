@@ -10,6 +10,7 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 
+import { Tooltip } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { controlBase, overlayStates } from "@/lib/states";
 import type { LinkSummary, TopologySnapshot } from "@/ipc";
@@ -254,21 +255,22 @@ function ZoomButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={cn(
-        // 32px, the same height every other control in the app is. A footer
-        // button that is smaller than a toolbar button reads as secondary, and
-        // zoom is not secondary on a graph.
-        "rounded-control text-ink-muted hover:text-ink flex size-8 items-center justify-center",
-        controlBase,
-        overlayStates,
-      )}
-    >
-      {children}
-    </button>
+    <Tooltip content={label}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={cn(
+          // 32px, the same height every other control in the app is. A footer
+          // button that is smaller than a toolbar button reads as secondary, and
+          // zoom is not secondary on a graph.
+          "rounded-control text-ink-muted hover:text-ink flex size-8 items-center justify-center",
+          controlBase,
+          overlayStates,
+        )}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }

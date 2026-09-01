@@ -75,9 +75,26 @@ export function Disclosure({
         <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
         {meta ? <span className="numeric text-tiny text-ink-faint shrink-0">{meta}</span> : null}
       </button>
-      {/* Unmounted rather than hidden: a closed section must not keep a
-          subscription open or hold a large list in memory. */}
-      {isOpen ? <div id={panelId}>{children}</div> : null}
+      {/* The grid-rows trick: a `1fr`/`0fr` track animates where `height: auto`
+          cannot, so the section slides open at whatever height its content
+          turns out to be, with no measuring and no magic max-height that
+          clips a long list.
+          
+          Still unmounted when closed — a closed section must not keep a
+          subscription open or hold a large list in memory — so the animation
+          runs on the way in and the content leaves at once. */}
+      {isOpen ? (
+        <div
+          id={panelId}
+          className={cn(
+            "grid",
+            "motion-safe:animate-[disclosure-open_var(--duration-base)_var(--ease-out)]",
+          )}
+          style={{ gridTemplateRows: "1fr" }}
+        >
+          <div className="min-h-0 overflow-hidden">{children}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

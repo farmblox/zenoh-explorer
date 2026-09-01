@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 
-import { Badge, Disclosure, Input, SegmentedControl } from "@/components/ui";
+import { Badge, Checkbox, Disclosure, Input, SegmentedControl } from "@/components/ui";
 import type {
   CertSource,
   ConnectionOptions,
@@ -434,31 +434,6 @@ function Field({ label, hint, children }: { label: string; hint: string; childre
         <span className="text-tiny text-ink-faint">{hint}</span>
       </span>
       {children}
-    </label>
-  );
-}
-
-function Checkbox({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-baseline gap-2">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="accent-accent size-3.5 cursor-pointer"
-      />
-      <span className="text-small text-ink-muted">{label}</span>
-      {hint ? <span className="text-tiny text-ink-faint">{hint}</span> : null}
     </label>
   );
 }

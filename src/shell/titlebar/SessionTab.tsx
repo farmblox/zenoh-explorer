@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { StatusDot, type Status } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { focusRingOnChrome, transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 
 /** What the connection behind a tab is doing. */
 export type SessionTabState = "live" | "degraded" | "connecting" | "failed";
@@ -64,20 +64,25 @@ export function SessionTab({
     <div
       title={title}
       className={cn(
-        // 40px in a 56px strip. A 32px tab in a 48px bar read as a chip
-        // floating in the window frame rather than as a tab you can hit.
-        "group rounded-control relative flex h-10 shrink-0 items-center gap-2.5 pr-2 pl-3.5",
+        // Wide and shallow, the proportion a tab has. 36px of height in a 56px
+        // strip still gives a comfortable target, and the minimum width means a
+        // session called "lab" gets the same presence as one called
+        // "core-dc-prod" — a strip of tabs that step down in size with the
+        // length of their names reads as ragged rather than as a set.
+        "group rounded-control relative flex h-9 min-w-[184px] shrink-0 items-center gap-2.5 pr-2 pl-3.5",
         transitionFast,
-        // Three levels against the title bar's own surface-0: an unselected tab
-        // still has a fill, so it reads as a tab rather than as bare chrome,
-        // and the selected one wins clearly. Exactly one tab is ever selected,
-        // because only an open session can be — an attempt has no view behind
-        // it to show.
+        // Three levels against the title bar. An unselected tab still carries a
+        // fill so it reads as a tab rather than as bare chrome, and the selected
+        // one wins clearly. Exactly one tab is ever selected, because only an
+        // open session can be — an attempt has no view behind it to show.
+        //
+        // Both fills are directional overlays, so "selected" is lighter than
+        // the bar on the dark theme and darker than it on the light one.
         failed
           ? "bg-danger-subtle"
           : selected
-            ? "bg-surface-2"
-            : "bg-surface-1 hover:bg-surface-2/70",
+            ? "bg-selected"
+            : "bg-overlay-hover hover:bg-overlay-press",
       )}
     >
       <StatusDot status={dot.status} pulse={dot.pulse} />
@@ -88,8 +93,8 @@ export function SessionTab({
         disabled={onSelect === undefined}
         aria-current={selected ? "page" : undefined}
         className={cn(
-          "text-small rounded-inner max-w-44 truncate text-left disabled:cursor-default",
-          focusRingOnChrome,
+          "text-small rounded-inner max-w-56 truncate text-left disabled:cursor-default",
+          focusRing,
           transitionFast,
           failed ? "text-danger" : selected ? "text-ink" : "text-ink-muted group-hover:text-ink",
         )}
@@ -120,7 +125,7 @@ export function SessionTab({
             "text-ink-faint hover:text-ink",
             "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
             "transition-opacity duration-(--duration-fast)",
-            focusRingOnChrome,
+            focusRing,
           )}
         >
           <X size={12} />

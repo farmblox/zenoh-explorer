@@ -14,12 +14,21 @@ export interface EmptyStateProps {
   className?: string;
 }
 
-/** Shown wherever a view has nothing to display. */
+/**
+ * Shown wherever a view has nothing to display.
+ *
+ * Fills whatever slot it is given rather than sizing to its own text. As a flex
+ * item it was `flex-none`, so it took the width of its longest line and centred
+ * within THAT — which put the message a third of the way across a wide pane and
+ * read as a layout mistake rather than a considered empty screen. `flex-1`
+ * covers a flex parent on either axis and `size-full` covers a block one.
+ */
 export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
   return (
     <div
       className={cn(
-        "flex h-full flex-col items-center justify-center gap-3 px-8 py-16 text-center",
+        "flex size-full min-h-0 min-w-0 flex-1 flex-col items-center justify-center",
+        "gap-3 px-8 py-16 text-center",
         className,
       )}
     >

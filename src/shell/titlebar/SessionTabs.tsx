@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { groupedNumber } from "@/lib/format";
-import { focusRingOnChrome, transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 import { useSessionStore, useUiStore } from "@/stores";
 import { SessionTab } from "./SessionTab";
 
@@ -90,7 +90,7 @@ export function SessionTabs() {
         className={cn(
           "rounded-control flex size-9 shrink-0 items-center justify-center",
           "text-ink-faint hover:bg-surface-2 hover:text-ink",
-          focusRingOnChrome,
+          focusRing,
           transitionFast,
         )}
       >

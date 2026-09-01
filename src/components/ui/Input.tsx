@@ -65,7 +65,12 @@ export function Input({
   return (
     <div
       className={cn(
-        "rounded-control bg-surface-2 flex items-center border",
+        // Transparent, not filled. A field used to be `surface-2`, which made
+        // it invisible the moment it sat on a `surface-2` ground — inside a
+        // dialog, inside a popover. Taking the colour of whatever it is on and
+        // letting the border define it means one rule works everywhere, and it
+        // is the reason the dialog could move up to the raised surface at all.
+        "rounded-control flex items-center border bg-transparent",
         SIZES[size],
         transitionFast,
         // A halo drawn as a shadow, so focus never shifts a neighbour by the
@@ -74,7 +79,7 @@ export function Input({
         // A disabled field has to LOOK disabled. The keyspace toolbar locks the
         // key expression while a subscription is running, and a field that
         // still reads as editable there is the app lying about its own state.
-        disabled ? "bg-surface-1 text-ink-disabled" : invalid ? fieldInvalid : fieldFocus,
+        disabled ? "bg-fill text-ink-disabled" : invalid ? fieldInvalid : fieldFocus,
         containerClassName,
       )}
     >

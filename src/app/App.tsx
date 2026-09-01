@@ -1,5 +1,6 @@
 import { useHotkeys, type Hotkey } from "@/hooks";
 import { AppShell } from "@/shell/AppShell";
+import { SHORTCUTS, type ShortcutId } from "./shortcuts";
 import { useNavigation } from "@/navigation/useNavigation";
 import { useActiveSessionId, useTopologyStore, useUiStore } from "@/stores";
 import { useMemo } from "react";
@@ -18,20 +19,35 @@ export function App() {
   const sessionId = useActiveSessionId();
   const { navigate } = useNavigation();
 
-  const hotkeys = useMemo<Hotkey[]>(
-    () => [
-      { combo: "mod+k", handler: () => openOverlay("palette"), allowInInput: true },
-      { combo: "mod+n", handler: () => openOverlay("connect") },
-      { combo: "mod+b", handler: toggleSidebar },
-      { combo: "mod+r", handler: () => sessionId && void resync(sessionId) },
-      { combo: "escape", handler: closeOverlay, allowInInput: true },
-      // Digit shortcuts jump between the views people move between constantly.
-      { combo: "mod+1", handler: () => navigate("topology") },
-      { combo: "mod+2", handler: () => navigate("nodes") },
-      { combo: "mod+3", handler: () => navigate("keyspace") },
-    ],
-    [openOverlay, closeOverlay, toggleSidebar, resync, sessionId, navigate],
-  );
+  // Handlers by id, so the binding and the printed map cannot drift: every
+  // shortcut in `SHORTCUTS` is bound here, and nothing else is.
+  const hotkeys = useMemo<Hotkey[]>(() => {
+    const handlers: Record<ShortcutId, () => void> = {
+      palette: () => openOverlay("palette"),
+      connect: () => openOverlay("connect"),
+      settings: () => openOverlay("settings"),
+      sidebar: toggleSidebar,
+      resync: () => {
+        if (sessionId) void resync(sessionId);
+      },
+      close: closeOverlay,
+      "view:topology": () => navigate("topology"),
+      "view:nodes": () => navigate("nodes"),
+      "view:keyspace": () => navigate("keyspace"),
+      "view:regions": () => navigate("regions"),
+      "view:admin": () => navigate("admin"),
+      "view:scouting": () => navigate("scouting"),
+      "view:events": () => navigate("events"),
+      "view:transport": () => navigate("transport"),
+      "view:config": () => navigate("config"),
+    };
+
+    return SHORTCUTS.map((shortcut) => ({
+      combo: shortcut.combo,
+      handler: handlers[shortcut.id],
+      ...(shortcut.allowInInput === undefined ? {} : { allowInInput: shortcut.allowInInput }),
+    }));
+  }, [openOverlay, closeOverlay, toggleSidebar, resync, sessionId, navigate]);
 
   useHotkeys(hotkeys);
 

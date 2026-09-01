@@ -251,7 +251,7 @@ function ComboBoxPanel<T extends string>({
                   }
                 }}
                 className={cn(
-                  "rounded-inner text-small tracking-ui flex h-8 w-full items-center gap-2.5 px-2.5 text-left",
+                  "rounded-control text-small tracking-ui flex h-8 w-full items-center gap-2.5 px-2.5 text-left",
                   "disabled:text-ink-disabled disabled:pointer-events-none",
                   focusRing,
                   transitionFast,

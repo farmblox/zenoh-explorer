@@ -7,3 +7,4 @@ export { useDismiss } from "./useDismiss";
 
 export { formatCombo, useHotkeys } from "./useHotkeys";
 export type { Hotkey } from "./useHotkeys";
+export { usePresence } from "./usePresence";

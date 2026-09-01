@@ -103,6 +103,51 @@ export function resolveTheme(preference: ThemePreference): ResolvedTheme {
 /** Stamps the theme onto the document, where the token stylesheet reads it. */
 export function applyTheme(theme: ResolvedTheme): void {
   document.documentElement.dataset["theme"] = theme;
+  syncWindowChrome(theme);
+}
+
+/**
+ * Tells the OS what the window is wearing.
+ *
+ * The frame around the page is drawn by the window server, not by us: its
+ * border, its rounded corners and the colour behind the page before it paints.
+ * Stamping `data-theme` repaints everything inside the webview and leaves that
+ * frame at whatever it was built with, so switching to light left a near-black
+ * hairline around a white app.
+ *
+ * The colour is read back out of `--surface-0` rather than written here, so
+ * `theme.css` stays the only place a palette value exists.
+ *
+ * Silent outside Tauri: the same code runs in a browser during design work,
+ * where there is no window to tell.
+ */
+function syncWindowChrome(theme: ResolvedTheme): void {
+  if (!("__TAURI_INTERNALS__" in globalThis)) return;
+
+  void (async () => {
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const win = getCurrentWindow();
+      await win.setTheme(theme);
+
+      const surface = getComputedStyle(document.documentElement)
+        .getPropertyValue("--surface-0")
+        .trim();
+      const rgb = parseHex(surface);
+      if (rgb) await win.setBackgroundColor(rgb);
+    } catch {
+      // A window that will not take a theme is a cosmetic loss, not a fault
+      // worth interrupting anyone over.
+    }
+  })();
+}
+
+/** `#0a0c0f` → `[10, 12, 15]`. Null for anything that is not a six-digit hex. */
+function parseHex(value: string): [number, number, number] | null {
+  const match = /^#([0-9a-f]{6})$/i.exec(value);
+  if (!match?.[1]) return null;
+  const n = parseInt(match[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
 function readStoredTheme(): ThemePreference {

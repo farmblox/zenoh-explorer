@@ -3,7 +3,7 @@ import type { ComponentType } from "react";
 import { StatusDot } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { compactNumber } from "@/lib/format";
-import { focusRingOnChrome, transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 
 /**
  * What the mark beside a row means.
@@ -33,10 +33,11 @@ export interface SidebarItemProps {
 /**
  * One navigation row.
  *
- * Three states on a three-step ramp off the rail's own `surface-0`: nothing at
- * rest, `surface-1` under the pointer, `surface-2` for the view you are on. The
- * same ramp the session tabs use, and for the same reason — hover and selected
- * shared a fill, so every row looked selected in turn as the pointer crossed it.
+ * Nothing at rest, a translucent overlay under the pointer, a stronger one for
+ * the view you are on. Both are directional tokens rather than rungs on the
+ * surface ladder: on the dark theme they lighten the row, on the light theme
+ * they darken it, which is what emphasis means on each. Naming a fixed surface
+ * instead put a white row on a near-white rail in light mode.
  */
 export function SidebarItem({
   icon: Icon,
@@ -61,14 +62,14 @@ export function SidebarItem({
       title={collapsed ? label : title}
       className={cn(
         "rounded-control text-small flex h-[34px] w-full shrink-0 items-center whitespace-nowrap",
-        focusRingOnChrome,
+        focusRing,
         transitionFast,
         collapsed ? "justify-center px-0" : "gap-3 px-2.5",
         disabled
           ? "text-ink-disabled pointer-events-none"
           : active
-            ? "bg-surface-2 text-ink"
-            : "text-ink-muted hover:bg-surface-1 hover:text-ink",
+            ? "bg-selected text-ink"
+            : "text-ink-muted hover:bg-overlay-hover hover:text-ink",
       )}
     >
       <span className="relative flex shrink-0 items-center">

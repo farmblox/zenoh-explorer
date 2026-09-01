@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import { Search, Settings } from "lucide-react";
 
 import { Kbd } from "@/components/ui";
+import { buildRegionView } from "@/features/topology";
 import { cn } from "@/lib/cn";
-import { focusRingOnChrome, transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 import { VIEWS } from "@/navigation/views";
 import type { ViewDefinition } from "@/navigation/types";
 import { useNavigation } from "@/navigation/useNavigation";
@@ -31,7 +33,24 @@ export function Sidebar() {
   const unread = useDiagnosticsStore((state) => state.unread);
   const snapshot = useTopology(session?.id ?? null).snapshot;
 
-  /** What each view has to report, if anything. */
+  const regionCount = useMemo(
+    () => (snapshot ? buildRegionView(snapshot).regions.length : null),
+    [snapshot],
+  );
+
+  /**
+   * What each view has to report, if anything.
+   *
+   * One meaning for the column: **how much is in there**. A view earns a number
+   * when the explorer already knows the answer from what the backend pushes, and
+   * gets none when the view has to go and ask — Scouting, Admin space and
+   * Configuration all run a query when you open them, and a badge that appears
+   * only after your first visit is less consistent than no badge at all.
+   *
+   * Topology is the other exception, for the opposite reason: it draws the same
+   * collection Nodes counts, and two rows reading 11 would be one fact wearing
+   * two badges.
+   */
   const badgeFor = (view: ViewDefinition): SidebarBadge | undefined => {
     if (!session) return undefined;
 
@@ -44,7 +63,13 @@ export function Sidebar() {
         // From the snapshot rather than the session summary, so the number the
         // badge shows is the number the page shows.
         return snapshot ? { kind: "count", value: snapshot.nodes.length } : undefined;
+      case "regions":
+        return regionCount === null ? undefined : { kind: "count", value: regionCount };
+      case "transport":
+        return { kind: "count", value: session.transportCount };
       case "events":
+        // The one row that is an inbox rather than an inventory, and the only
+        // one drawn in the accent colour.
         return unread > 0 ? { kind: "unread", value: unread } : undefined;
       default:
         return undefined;
@@ -68,7 +93,7 @@ export function Sidebar() {
           "rounded-control bg-surface-2 border-line mb-5 flex h-8 shrink-0 items-center border",
           "hover:bg-surface-3",
           transitionFast,
-          focusRingOnChrome,
+          focusRing,
           collapsed ? "w-8 justify-center" : "w-full gap-2.5 px-2.5",
         )}
       >

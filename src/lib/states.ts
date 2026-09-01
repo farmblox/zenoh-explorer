@@ -66,21 +66,22 @@ export const transitionFast = cn(
 export const pressMotion = "motion-safe:active:scale-[0.98]";
 
 /**
- * The focus ring.
+ * The focus ring. One of them, for every surface.
  *
- * A box-shadow, not an outline, so it follows the element's border radius and
- * never nudges a neighbour. `focus-visible` only: a pointer click should not
- * leave a ring behind.
+ * An outline with an offset, so the gap between the control and the ring shows
+ * whatever is ACTUALLY behind it. There used to be two rings, each a
+ * double box-shadow whose inner layer named a fixed surface — which is only
+ * correct where the control happens to sit on that exact surface. With three
+ * surfaces in play and two variants, a control on a card drew a 2px band of the
+ * wrong grey around itself.
+ *
+ * Outline follows `border-radius` in every engine this ships on, and costs no
+ * layout, so the reason the ring was a shadow in the first place has expired.
+ *
+ * `focus-visible` only: a pointer click should not leave a ring behind.
  */
 export const focusRing = cn(
-  "focus-visible:outline-none",
-  "focus-visible:shadow-[0_0_0_2px_var(--surface-1),0_0_0_4px_var(--accent)]",
-);
-
-/** Focus ring for controls that sit directly on the window chrome. */
-export const focusRingOnChrome = cn(
-  "focus-visible:outline-none",
-  "focus-visible:shadow-[0_0_0_2px_var(--surface-0),0_0_0_4px_var(--accent)]",
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
 );
 
 /** Hover and press overlays, for a control with its own background. */

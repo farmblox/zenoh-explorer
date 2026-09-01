@@ -1,6 +1,6 @@
 import { useCallback, useId, useRef, useState, type ReactNode } from "react";
 
-import { useDismiss } from "@/hooks";
+import { useDismiss, usePresence } from "@/hooks";
 import { cn } from "@/lib/cn";
 import { focusRing } from "@/lib/states";
 
@@ -40,6 +40,9 @@ const SIDES: Record<PopoverSide, string> = {
   top: "bottom-[calc(100%+5px)] origin-bottom",
 };
 
+/** How long the exit animation runs. Mirrors `--duration-exit`. */
+const EXIT_MS = 120;
+
 const ALIGNS: Record<PopoverAlign, string> = {
   start: "left-0",
   end: "right-0",
@@ -69,6 +72,10 @@ export function Popover({
   const close = useCallback(() => setOpen(false), []);
   useDismiss(containerRef, open, close);
 
+  // Held on screen for one exit duration so the panel can animate away. Without
+  // it the panel scales in and then disappears on a hard cut.
+  const { mounted, state } = usePresence(open, EXIT_MS);
+
   return (
     <div ref={containerRef} className="relative shrink-0">
       <button
@@ -86,12 +93,15 @@ export function Popover({
         {trigger}
       </button>
 
-      {open ? (
+      {mounted ? (
         <div
           id={panelId}
+          data-state={state}
           className={cn(
-            "rounded-panel border-line bg-surface-2 absolute z-30 border p-1.5",
-            "shadow-popover animate-scale-in",
+            "rounded-dialog border-line-elevated bg-surface-2 absolute z-30 border p-2",
+            "shadow-popover",
+            "motion-safe:data-[state=open]:animate-scale-in",
+            "motion-safe:data-[state=closed]:animate-scale-out",
             SIDES[side],
             ALIGNS[align],
             className,

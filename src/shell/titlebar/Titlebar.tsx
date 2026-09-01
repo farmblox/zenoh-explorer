@@ -1,8 +1,9 @@
 import { PanelLeft } from "lucide-react";
 
+import { Tooltip } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { TRAFFIC_LIGHT_INSET } from "@/lib/platform";
-import { focusRingOnChrome, transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 import { useUiStore } from "@/stores";
 import { SessionTabs } from "./SessionTabs";
 
@@ -62,21 +63,22 @@ export function Titlebar() {
           "transition-[width] duration-(--duration-base) ease-(--ease-out)",
         )}
       >
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-expanded={!collapsed}
-          className={cn(
-            "rounded-inner text-ink-faint hover:bg-surface-2 hover:text-ink",
-            "flex size-7 items-center justify-center",
-            transitionFast,
-            focusRingOnChrome,
-          )}
-        >
-          <PanelLeft size={15} />
-        </button>
+        <Tooltip content={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="bottom">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            className={cn(
+              "rounded-inner text-ink-faint hover:bg-surface-2 hover:text-ink",
+              "flex size-7 items-center justify-center",
+              transitionFast,
+              focusRing,
+            )}
+          >
+            <PanelLeft size={15} />
+          </button>
+        </Tooltip>
       </div>
 
       <SessionTabs />

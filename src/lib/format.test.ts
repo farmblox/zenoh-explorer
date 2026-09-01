@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { EMPTY, bytes, compactNumber, duration, groupedNumber, rate, shortZid } from "./format";
+import {
+  EMPTY,
+  ageSince,
+  bytes,
+  coarseAge,
+  compactNumber,
+  duration,
+  groupedNumber,
+  rate,
+  shortZid,
+} from "./format";
 
 describe("compactNumber", () => {
   it("leaves small numbers alone", () => {
@@ -75,5 +85,40 @@ describe("groupedNumber is locale-independent", () => {
     expect(groupedNumber(999)).toBe("999");
     expect(groupedNumber(1000)).toBe("1 000");
     expect(groupedNumber(-2184)).toBe("-2 184");
+  });
+});
+
+describe("coarseAge", () => {
+  const SECOND = 1_000;
+  const MINUTE = 60 * SECOND;
+  const HOUR = 60 * MINUTE;
+  const DAY = 24 * HOUR;
+
+  it("keeps to one unit", () => {
+    expect(coarseAge(4 * SECOND)).toBe("4s");
+    expect(coarseAge(12 * MINUTE)).toBe("12m");
+    expect(coarseAge(3 * HOUR + 20 * MINUTE)).toBe("3h");
+    expect(coarseAge(2 * DAY + 4 * HOUR)).toBe("2d");
+    expect(coarseAge(35 * DAY)).toBe("5w");
+  });
+
+  it("never reads as a stopwatch", () => {
+    // The case that prompted it: `duration` renders three whole days as
+    // "3d 0h", which on a "last used" line reads like a timer, not a date.
+    expect(duration(3 * DAY)).toBe("3d 0h");
+    expect(coarseAge(3 * DAY)).toBe("3d");
+  });
+
+  it("renders nonsense as the placeholder", () => {
+    expect(coarseAge(-1)).toBe(EMPTY);
+    expect(coarseAge(Number.NaN)).toBe(EMPTY);
+  });
+});
+
+describe("ageSince", () => {
+  it("measures back from the given moment, not the wall clock", () => {
+    const now = 1_000_000_000;
+    expect(ageSince(now - 90 * 60_000, now)).toBe("1h");
+    expect(ageSince(now, now)).toBe("0s");
   });
 });

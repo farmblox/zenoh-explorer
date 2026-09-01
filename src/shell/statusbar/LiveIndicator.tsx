@@ -2,7 +2,7 @@ import { Zid } from "@/components/domain";
 import { StatusDot } from "@/components/ui";
 import type { SessionSummary } from "@/ipc";
 import { cn } from "@/lib/cn";
-import { focusRingOnChrome, transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 import { useLastChange, useTopologyStore } from "@/stores";
 
 export interface LiveIndicatorProps {
@@ -42,7 +42,7 @@ export function LiveIndicator({ session }: LiveIndicatorProps) {
         className={cn(
           "rounded-inner -mx-1 flex shrink-0 items-center px-1",
           "hover:text-ink",
-          focusRingOnChrome,
+          focusRing,
           transitionFast,
         )}
       >

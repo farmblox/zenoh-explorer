@@ -24,7 +24,7 @@
     color: var(--ink);
     font-family: var(--font-sans);
     font-size: var(--text-small);
-    /* 450, not 400. IBM Plex Sans is variable, so this is a real instance
+    /* 490, not 400. IBM Plex Sans is variable, so this is a real instance
        rather than a synthesised one, and it is the single biggest reason small
        UI text stops looking thin and washed out. */
     font-weight: var(--font-weight-normal);
@@ -33,7 +33,7 @@
     letter-spacing: var(--tracking-ui);
 
     /* Grayscale antialiasing renders lighter than the default, which is why the
-       weight above is 450 rather than 400. The two go together. */
+       weight above is well past 400. The two go together. */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-optical-sizing: auto;
@@ -204,6 +204,42 @@
     /* 0.98, not 0.9. A dialog should look like it was already there and came
        into focus, not like it flew in. */
     transform: scale(0.98);
+  }
+}
+
+/* Every entrance above has a matching exit. A layer that fades in and then
+   vanishes on a hard cut is the single clearest tell that an interface has no
+   motion design — the arrival was considered and the departure was not. */
+@keyframes scale-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* A section opening. Animating the grid track is what lets it settle at its
+   content's own height rather than a guessed maximum. */
+@keyframes disclosure-open {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(2%);
   }
 }
 

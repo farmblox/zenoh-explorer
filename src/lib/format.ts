@@ -81,6 +81,40 @@ export function duration(ms: number): string {
   return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 }
 
+/**
+ * Elapsed time to ONE unit: `4s`, `12m`, `3h`, `2d`, `5w`.
+ *
+ * For an age nobody needs to the minute — when a connection was last used, how
+ * old a saved thing is. `duration` keeps a second unit because "3h 20m" is a
+ * real answer to "how long has this been up"; "3d 0h ago" is not a real answer
+ * to "when did I last use this", it is a stopwatch reading pretending to be a
+ * date.
+ */
+export function coarseAge(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return EMPTY;
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 14) return `${days}d`;
+  return `${Math.floor(days / 7)}w`;
+}
+
+/**
+ * How long ago, to one unit: `4m`, `3h`, `2d`.
+ *
+ * Takes `now` as a defaulted argument rather than reading the clock inside a
+ * component. Same reason as `relativeTime`: `Date.now()` called during render
+ * is an impure read that makes the output depend on when React happened to
+ * re-run, and the lint rightly refuses it.
+ */
+export function ageSince(epochMs: number, now = Date.now()): string {
+  return coarseAge(now - epochMs);
+}
+
 /** How long ago, for "last seen" columns: `just now`, `4m ago`. */
 export function relativeTime(epochMs: number, now = Date.now()): string {
   const delta = now - epochMs;

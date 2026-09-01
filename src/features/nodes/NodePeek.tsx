@@ -12,7 +12,7 @@ import {
   type Hop,
 } from "@/features/topology";
 import { profileFromLocator } from "@/features/connect";
-import { useAsync, useDismiss } from "@/hooks";
+import { useAsync, useDismiss, usePresence } from "@/hooks";
 import {
   keyspace,
   type NodeDeclaration,
@@ -25,7 +25,12 @@ import { groupedNumber } from "@/lib/format";
 import { focusRing, transitionFast } from "@/lib/states";
 import { useSessionStore, useUiStore } from "@/stores";
 
+/** How long the exit animation runs. Mirrors `--duration-exit`. */
+const EXIT_MS = 120;
+
 export interface NodePeekProps {
+  /** `false` while it animates away, still holding the node it was showing. */
+  open: boolean;
   node: NodeSummary;
   snapshot: TopologySnapshot;
   /** Needed to ask the index what this node declared. */
@@ -72,9 +77,11 @@ const SURFACED_METADATA = new Set(["name", "location", "version"]);
  * every count on both comes from `lib/neighbours`, so they cannot come to
  * disagree about how many links a node has.
  */
-export function NodePeek({ node, snapshot, sessionId, onClose, onOpenNode }: NodePeekProps) {
+export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode }: NodePeekProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  useDismiss(panelRef, true, onClose);
+  useDismiss(panelRef, open, onClose);
+
+  const { mounted, state } = usePresence(open, EXIT_MS);
 
   // Read from the local index, so opening a peek costs no network round trip.
   const { data: declared } = useAsync(
@@ -91,6 +98,8 @@ export function NodePeek({ node, snapshot, sessionId, onClose, onOpenNode }: Nod
       : null;
   // Only a string is a version. Zenoh writes one, but metadata is free-form and
   // `String({})` would put "[object Object]" on the header line.
+  if (!mounted) return null;
+
   const version = typeof meta?.["version"] === "string" ? meta["version"] : null;
 
   // Whatever the header has not already said. Dumping the whole object meant the
@@ -107,18 +116,30 @@ export function NodePeek({ node, snapshot, sessionId, onClose, onOpenNode }: Nod
     <>
       {/* Dims the table without hiding it, so the row you came from is still
           where you left it. */}
-      <div className="animate-fade-in absolute inset-0 z-30 bg-black/55" aria-hidden />
+      <div
+        aria-hidden
+        data-state={state}
+        className={cn(
+          "bg-scrim absolute inset-0 z-30",
+          "motion-safe:data-[state=open]:animate-fade-in",
+          "motion-safe:data-[state=closed]:animate-[var(--animate-fade-out)]",
+        )}
+      />
 
       <div
         ref={panelRef}
         role="dialog"
+        data-state={state}
         aria-label={`${nodeLabel(node)} details`}
         className={cn(
-          "animate-slide-in-right absolute inset-y-0 right-0 z-40 flex flex-col",
+          "absolute inset-y-0 right-0 z-40 flex flex-col",
+          "motion-safe:data-[state=open]:animate-slide-in-right",
+          "motion-safe:data-[state=closed]:animate-[var(--animate-slide-out-right)]",
           "border-line bg-surface-1 w-[min(940px,80%)] border-l",
           // Deeper and wider than a popover's lift: this is a layer over the
-          // whole view, not a panel attached to a control.
-          "shadow-[-24px_0_64px_-8px_rgb(0_0_0/0.6)]",
+          // whole view, not a panel attached to a control. Themed, because a
+          // black at 60% is a lift on a dark ground and a bruise on a pale one.
+          "shadow-panel",
         )}
       >
         <header className="border-line shrink-0 border-b px-6 pt-5 pb-4">

@@ -52,6 +52,11 @@
      structural work, a heavy border would only add noise. */
   --line: rgb(255 255 255 / 0.09);
   --line-soft: rgb(255 255 255 / 0.05);
+  /* The edge of something floating. Stronger than a structural hairline
+     because on this ground a drop shadow cannot do the lifting: a black shadow
+     over a near-black page is invisible, so the border IS the elevation. In the
+     light theme the shadow works and this stays close to the plain line. */
+  --line-elevated: rgb(255 255 255 / 0.16);
 
   /* Accent. `on-accent` is what sits legibly on a filled accent surface. */
   --accent: #64b0ff;
@@ -81,12 +86,27 @@
   --overlay-hover: rgb(255 255 255 / 0.06);
   --overlay-press: rgb(255 255 255 / 0.03);
 
+  /* The fill on the thing you are ON — a nav row, the open tab.
+     
+     Translucent and directional rather than a rung on the surface ladder,
+     because emphasis flips between themes: on a dark ground the thing you are
+     on is LIGHTER than what surrounds it, on a light ground it is DARKER. A
+     fixed rung can only be right in one of them, and `bg-surface-2` for
+     "selected" made a light-mode nav row white on a near-white rail, which is
+     no emphasis at all.
+     
+     Translucent also means it lands correctly on any ground — the rail, a card,
+     the title bar — without each caller knowing what it is sitting on. */
+  --selected: rgb(255 255 255 / 0.09);
+
   /* Floating layers are defined by a HAIRLINE, not by a shadow. The 1px border
      does the separating; the shadow is only enough to say "this is above the
      page" and should be almost impossible to point at. Controls get neither —
      they stay completely flat. */
   --shadow-popover: 0 4px 16px -6px rgb(0 0 0 / 0.45);
   --shadow-dialog: 0 16px 48px -16px rgb(0 0 0 / 0.55);
+  /* A layer that slides in from an edge, so the lift is all on one side. */
+  --shadow-panel: -24px 0 64px -8px rgb(0 0 0 / 0.6);
   --scrim: rgb(0 0 0 / 0.62);
 
   color-scheme: dark;
@@ -103,46 +123,91 @@
  * selector, and it removes the theme flash entirely.
  */
 :root[data-theme="light"] {
-  /* Cards are white on a tinted pane, rather than white on near-white. That
-     one change is most of why light mode now reads as layered. */
-  --surface-0: #dde2e9;
-  --surface-1: #f0f3f6;
+  /* White-forward, the way the good light UIs do it: every plane sits within a
+     few per cent of white and the HAIRLINE does the separating. The previous
+     pass went the other way — a tinted chrome plane with real fill steps — and
+     it came out heavy and grey.
+     
+     That works here because the content pane is already an inset card with its
+     own border and rounded left corners, so it stays legible against the chrome
+     without needing to be a different shade.
+     
+     The greys are NEUTRAL. The earlier ones carried the dark theme's cool hue,
+     and a saturation that reads as depth at 6% lightness reads as pale blue at
+     96% — which is most of what made it look off. Hue now belongs to the accent
+     and the status colours, and to nothing else. */
+  --surface-0: #f4f4f5;
+  --surface-1: #fafafa;
   --surface-2: #ffffff;
-  --surface-3: #dfe5ec;
-  --surface-hover: #d3dae3;
+  --surface-3: #efeff1;
+  --surface-hover: #e7e7ea;
 
-  --ink: #11141a;
-  --ink-muted: #454d59;
-  --ink-faint: #545c68;
-  --ink-disabled: #878e98;
+  --ink: #202024;
+  --ink-muted: #4d4e54;
+  /* Tuned against the DARKEST ground it lands on, not against white.
+     
+     At #6e7077 it cleared 4.9 on a white card and dropped to 3.9 on a selected
+     sidebar row — chrome with the selection overlay over it. Measuring a text
+     colour against the lightest surface in the theme flatters it; almost every
+     use is somewhere else. */
+  --ink-faint: #63666d;
+  --ink-disabled: #9a9da4;
 
-  --line: rgb(8 11 16 / 0.11);
-  --line-soft: rgb(8 11 16 / 0.06);
+  /* Doing the work the fills no longer do. */
+  --line: rgb(32 32 36 / 0.12);
+  --line-soft: rgb(32 32 36 / 0.06);
+  --line-elevated: rgb(32 32 36 / 0.14);
 
-  --accent: #0f5bc4;
-  --accent-strong: #0b4796;
-  --accent-subtle: rgb(15 91 196 / 0.13);
+  /* The product's blue, not the reference's indigo: the accent is shared with
+     the dark theme, and giving each theme its own hue would make them read as
+     two different applications. */
+  --accent: #1565d8;
+  --accent-strong: #0d4aa8;
+  --accent-subtle: rgb(21 101 216 / 0.11);
   --on-accent: #ffffff;
 
-  --ok: #0f6244;
-  --ok-subtle: rgb(15 98 68 / 0.13);
-  --warn: #734a00;
-  --warn-subtle: rgb(115 74 0 / 0.13);
-  --danger: #a92418;
-  --danger-subtle: rgb(169 36 24 / 0.13);
+  /* Aimed at about 5:1 on white, not 7.5:1.
+     
+     Every status colour here used to clear 7:1, which sounds like diligence and
+     is why they looked muddy: a yellow dark enough for 7.5:1 is brown, and
+     `#734a00` was exactly that. AA asks 4.5 of body text. Sitting just above it
+     keeps the hue, and the hue is the whole signal — nobody reads a warning by
+     its luminance.
+     
+     The subtle fills are mixed from the VIVID hue rather than from the darkened
+     text. A wash of brown is dirt; a wash of amber is warm. */
+  /* On its own tinted chip, not on white — `#0e7a52` read 4.47 against
+     `--ok-subtle`, which is where the word "on" actually sits. */
+  --ok: #0c6b48;
+  --ok-subtle: rgb(16 185 129 / 0.15);
+  --warn: #b45309;
+  --warn-subtle: rgb(245 158 11 / 0.18);
+  --danger: #d32f2f;
+  --danger-subtle: rgb(239 68 68 / 0.12);
 
-  --wire-soft: rgb(8 11 16 / 0.32);
-  --wire: rgb(8 11 16 / 0.46);
-  --wire-strong: rgb(8 11 16 / 0.64);
-  --track: rgb(8 11 16 / 0.28);
-  --fill: rgb(8 11 16 / 0.03);
+  /* Dark ink on a pale ground reads heavier than pale ink on a dark one at the
+     same alpha, so these sit well below their dark counterparts. At the dark
+     theme's weights the graph looked drawn in marker pen. */
+  --wire-soft: rgb(32 32 36 / 0.18);
+  --wire: rgb(32 32 36 / 0.3);
+  --wire-strong: rgb(32 32 36 / 0.45);
+  --track: rgb(32 32 36 / 0.2);
+  --fill: rgb(32 32 36 / 0.03);
 
-  --overlay-hover: rgb(8 11 16 / 0.05);
-  --overlay-press: rgb(8 11 16 / 0.09);
+  --overlay-hover: rgb(32 32 36 / 0.04);
+  --overlay-press: rgb(32 32 36 / 0.08);
 
-  --shadow-popover: 0 4px 16px -6px rgb(9 12 18 / 0.1);
-  --shadow-dialog: 0 16px 48px -16px rgb(9 12 18 / 0.14);
-  --scrim: rgb(9 12 18 / 0.42);
+  /* Darker than its ground, which is the direction emphasis runs on a light
+     theme. See the dark block for why this is a token and not a surface rung. */
+  --selected: rgb(32 32 36 / 0.07);
+
+  /* Soft and close. On a near-white ground a heavy shadow reads as grime. */
+  --shadow-popover:
+    0 10px 28px -8px rgb(32 32 36 / 0.2), 0 3px 8px -3px rgb(32 32 36 / 0.12),
+    0 0 0 0.5px rgb(32 32 36 / 0.05);
+  --shadow-dialog: 0 20px 52px -18px rgb(32 32 36 / 0.24), 0 4px 14px -6px rgb(32 32 36 / 0.1);
+  --shadow-panel: -18px 0 44px -14px rgb(32 32 36 / 0.15);
+  --scrim: rgb(32 32 36 / 0.2);
 
   color-scheme: light;
 }
@@ -162,6 +227,7 @@
 
   --color-line: var(--line);
   --color-line-soft: var(--line-soft);
+  --color-line-elevated: var(--line-elevated);
 
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
@@ -181,6 +247,12 @@
   --color-track: var(--track);
   --color-fill: var(--fill);
 
+  --color-selected: var(--selected);
+  /* Registered so `bg-overlay-hover` is a real utility. A token that exists in
+     `:root` but not here produces a class name Tailwind emits nothing for —
+     which fails silently, and took the sidebar's hover with it. */
+  --color-overlay-hover: var(--overlay-hover);
+  --color-overlay-press: var(--overlay-press);
   --color-scrim: var(--scrim);
 
   /* Typography. IBM Plex Sans for the interface; Geist Mono anywhere a value
@@ -207,18 +279,29 @@
      and 550 are real instances, not synthesised — and 450 is the single change
      that most makes small UI text stop looking washed out. The rule that goes
      with it: anything at --text-micro or --text-tiny is at least `medium`. */
-  --font-weight-normal: 450;
-  --font-weight-medium: 550;
-  --font-weight-semibold: 600;
-  --font-weight-strong: 650;
+  --font-weight-normal: 490;
+  --font-weight-medium: 580;
+  --font-weight-semibold: 620;
+  --font-weight-strong: 680;
 
-  --radius-control: 0.375rem; /* 6px  — buttons, inputs */
-  --radius-inner: 0.25rem; /* 4px  — things nested inside a control */
-  --radius-panel: 0.625rem; /* 10px — panels, cards and the content pane */
-  --radius-dialog: 0.75rem; /* 12px — dialogs and the command palette */
+  /* 6 / 8 / 12 / 16. Softer than it was at 4/6/10/12, which was tight enough
+     to read as a utility rather than a product — the corner radius is one of
+     the first things that places an interface, and small radii place it in
+     the terminal.
+     
+     The ramp is proportional to what it wraps: a chip inside a control is 6, a
+     control is 8, the surface holding controls is 12, and a layer floating over
+     the whole app is 16. Nesting follows the same rule the concentric-radius
+     trick does — an inner corner is the outer one minus the gap between them,
+     which is why the panel footer uses `calc(var(--radius-panel) - 1px)`. */
+  --radius-inner: 0.375rem; /* 6px  — chips, badges, things inside a control */
+  --radius-control: 0.5rem; /* 8px  — buttons, inputs, rows */
+  --radius-panel: 0.75rem; /* 12px — panels, cards and the content pane */
+  --radius-dialog: 1rem; /* 16px — dialogs, popovers and the palette */
 
   --shadow-popover: var(--shadow-popover);
   --shadow-dialog: var(--shadow-dialog);
+  --shadow-panel: var(--shadow-panel);
 
   /* Tracking. Interface type at these sizes is set slightly tight; the larger
      it gets the tighter it goes. Loose default tracking is one of the clearest
@@ -239,9 +322,15 @@
 
   --duration-snap: 150ms; /* arriving: hover on, press down. Front-loaded ease */
   --duration-fast: 200ms; /* leaving: hover off, and state changes generally */
+  --duration-exit: 120ms; /* a layer dismissing itself */
   --duration-base: 180ms; /* menus, disclosure, entrances */
 
   --animate-fade-in: fade-in var(--duration-base) var(--ease-out);
   --animate-scale-in: scale-in var(--duration-base) var(--ease-out);
   --animate-slide-in-right: slide-in-right var(--duration-base) var(--ease-out);
+  /* Exits are quicker than entrances and evenly eased. A layer should arrive
+     with some ceremony and leave without any. */
+  --animate-scale-out: scale-out var(--duration-exit) var(--ease-standard) forwards;
+  --animate-fade-out: fade-out var(--duration-exit) var(--ease-standard) forwards;
+  --animate-slide-out-right: slide-out-right var(--duration-exit) var(--ease-standard) forwards;
 }

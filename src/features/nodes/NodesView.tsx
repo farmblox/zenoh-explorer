@@ -171,6 +171,14 @@ export function NodesView() {
     return tally;
   }, [snapshot]);
 
+  const openNode = snapshot?.nodes.find((node) => node.zid === openZid) ?? null;
+
+  // The peek keeps showing the node it had while it animates away. Without
+  // this it would empty out the instant you closed it and slide off blank.
+  const [lastNode, setLastNode] = useState<NodeSummary | null>(openNode);
+  if (openNode !== null && openNode !== lastNode) setLastNode(openNode);
+  const peekNode = openNode ?? lastNode;
+
   const open = useCallback((row: Row) => setOpenZid(row.node.zid), []);
   const close = useCallback(() => setOpenZid(null), []);
 
@@ -183,8 +191,6 @@ export function NodesView() {
       />
     );
   }
-
-  const openNode = snapshot?.nodes.find((node) => node.zid === openZid) ?? null;
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -261,9 +267,10 @@ export function NodesView() {
           }
         />
 
-        {openNode && snapshot ? (
+        {peekNode && snapshot ? (
           <NodePeek
-            node={openNode}
+            open={openNode !== null}
+            node={peekNode}
             snapshot={snapshot}
             sessionId={sessionId}
             onClose={close}
