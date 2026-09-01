@@ -104,7 +104,7 @@ export default tseslint.config(
     // The E2E suite and its config run under their own tsconfig with the wdio
     // globals. Those are loosely typed by design, so type-aware rules here
     // report noise rather than bugs.
-    files: ["e2e/**/*.ts", "wdio.conf.ts"],
+    files: ["e2e/**/*.ts", "wdio.conf.ts", "wdio.capture.ts"],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: { globals: { ...globals.node, ...globals.mocha } },
   },

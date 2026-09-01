@@ -193,3 +193,7 @@ a few more steps, all listed there.
 
 Eclipse Zenoh is a trademark of the Eclipse Foundation. This project is not
 affiliated with or endorsed by them.
+
+The topology graph is drawn with [React Flow](https://reactflow.dev) by xyflow,
+and laid out by [dagre](https://github.com/dagrejs/dagre). Both are MIT
+licensed. Every other dependency is in `package.json` and `Cargo.toml`.
