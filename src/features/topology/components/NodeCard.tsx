@@ -1,7 +1,6 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 
 import { NodeKindIcon } from "@/components/domain";
-import { Meter } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { rate as formatRate } from "@/lib/format";
 import { focusRing, transitionFast } from "@/lib/states";
@@ -17,8 +16,6 @@ export type NodeCardData = {
   readonly locator: string | null;
   /** Messages per second, when the node reports it. */
   readonly rate: number | null;
-  /** This node's share of the busiest node's links, 0 to 1. */
-  readonly share: number | null;
   /** What the node has declared, already phrased. */
   readonly declarations: string | null;
   /**
@@ -90,20 +87,21 @@ export function NodeCard({
             : "border-line hover:border-ink-faint",
       )}
     >
-      {/* Visible, unlike most React Flow handles: on a read-only graph they are
-          not connection points but a legible statement of where an edge meets
-          the card, which keeps a fan of edges from appearing to touch the text. */}
+      {/* Invisible. React Flow needs a handle to anchor an edge to, but drawing
+          one puts a dot on every side of every card whether an edge lands there
+          or not — and a port with nothing attached reads as debris. The edge
+          meeting the card's edge already shows where it attaches. */}
       <Handle
         type="target"
         position={targetPosition}
         isConnectable={false}
-        className="!border-line !bg-surface-3 !size-2 !rounded-full !border"
+        className="!size-0 !min-h-0 !min-w-0 !border-0 !bg-transparent"
       />
       <Handle
         type="source"
         position={sourcePosition}
         isConnectable={false}
-        className="!border-line !bg-surface-3 !size-2 !rounded-full !border"
+        className="!size-0 !min-h-0 !min-w-0 !border-0 !bg-transparent"
       />
 
       <div
@@ -123,51 +121,40 @@ export function NodeCard({
           selected={selected}
         />
 
-        <span className="text-small text-ink min-w-0 flex-1 truncate font-normal">
-          {data.label}
-        </span>
+        <span className="text-small text-ink min-w-0 flex-1 truncate">{data.label}</span>
 
-        <span
-          className={cn("numeric text-tiny shrink-0", data.alert ? "text-warn" : "text-ink-muted")}
-        >
-          {data.rate === null ? data.linkCount : formatRate(data.rate)}
-        </span>
+        {/* Only a RATE goes here, never a bare count. A number in the corner of
+            a card has to explain itself, and "4.2k/s" does where "4" does not —
+            especially beside a graph that already draws the links it would be
+            counting. Empty until the admin space reports throughput. */}
+        {data.rate !== null ? (
+          <span className="numeric text-tiny text-ink-muted shrink-0">{formatRate(data.rate)}</span>
+        ) : null}
 
+        {/* The one thing the graph around it cannot show. */}
         {data.alert && !selected ? (
-          <span className="bg-warn size-[7px] shrink-0 rounded-full" title={data.alert} />
+          <span
+            className="bg-warn size-[7px] shrink-0 rounded-full"
+            title={data.alert}
+            aria-label={data.alert}
+          />
         ) : null}
       </div>
 
       {selected ? (
         <div className="animate-fade-in">
-          <div className={cn("flex items-baseline gap-2.5", GUTTER)}>
-            <span className="text-tiny text-ink-muted min-w-0 flex-1 truncate">
-              {data.declarations ?? `${data.linkCount} links`}
-            </span>
-            {data.share !== null ? (
-              <span className="numeric text-tiny text-ink-faint shrink-0">
-                {Math.round(data.share * 100)}%
-              </span>
-            ) : null}
+          {/* What it is, and what is wrong with it. There was a share bar here
+              measuring this node's links against the busiest node's, which made
+              every router read 100% and dressed an invented ratio as a
+              measurement. The counts that ARE real live in the inspector. */}
+          <div className={cn("flex flex-col gap-1.5", GUTTER)}>
+            <p className="text-tiny text-ink-muted truncate">{data.declarations}</p>
+            {data.alert ? <p className="text-tiny text-warn truncate">{data.alert}</p> : null}
           </div>
-
-          {data.share !== null ? (
-            <Meter
-              value={data.share}
-              size="xs"
-              tone="accent"
-              label={`${data.label} share of the region's links`}
-              className="mx-3.5 mt-2"
-            />
-          ) : null}
-
-          {data.alert ? (
-            <p className={cn("text-tiny text-warn pt-2.5", GUTTER)}>{data.alert}</p>
-          ) : null}
 
           <div
             className={cn(
-              "border-line-soft bg-surface-1 mt-3 flex items-center gap-2.5 border-t py-2",
+              "border-line-soft bg-surface-1 mt-3 flex items-center gap-2.5 border-t py-2.5",
               "rounded-b-[calc(var(--radius-panel)-1px)]",
               GUTTER,
             )}

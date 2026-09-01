@@ -129,8 +129,6 @@ function buildNodeCards(
     degree.set(link.from, (degree.get(link.from) ?? 0) + 1);
     degree.set(link.to, (degree.get(link.to) ?? 0) + 1);
   }
-  const busiest = Math.max(1, ...degree.values());
-
   return nodes.map((node) => {
     const linkCount = degree.get(node.zid) ?? 0;
     return {
@@ -153,9 +151,6 @@ function buildNodeCards(
         // Not reported by the admin space yet. An explicit null rather than an
         // invented number: a rate the tool made up is worse than no rate.
         rate: null,
-        // Link count is a real measure of a node's place in the graph, and the
-        // one we can compute honestly today.
-        share: linkCount > 0 ? linkCount / busiest : null,
         declarations: `${linkCount} ${linkCount === 1 ? "link" : "links"} · ${node.kind}`,
         firsthand: isFirsthand(node.source),
         alert: describeNodeAlert(node, links),
@@ -196,14 +191,18 @@ function buildEdges(
   });
 }
 
-/** What is wrong with a node, in one phrase, or null when nothing is. */
+/**
+ * What is wrong with a node, in as few words as carry it.
+ *
+ * Terse on purpose: this sits on a card whose subject is the node's NAME, and
+ * an eight-word sentence there wraps to two lines and becomes the loudest thing
+ * on it. The inspector has room to explain what "unconfirmed" means; the card
+ * only has to say that something is.
+ */
 function describeNodeAlert(node: NodeSummary, links: readonly LinkSummary[]): string | null {
   const touching = links.filter((link) => link.from === node.zid || link.to === node.zid);
-  if (touching.length === 0 && !node.isLocal) return "no links reported";
+  if (touching.length === 0 && !node.isLocal) return "no links";
 
   const unconfirmed = touching.filter((link) => !link.bidirectional).length;
-  if (unconfirmed > 0) {
-    return `${unconfirmed} link${unconfirmed === 1 ? "" : "s"} confirmed by one end only`;
-  }
-  return null;
+  return unconfirmed > 0 ? `${unconfirmed} link${unconfirmed === 1 ? "" : "s"} unconfirmed` : null;
 }

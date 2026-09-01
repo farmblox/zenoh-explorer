@@ -189,14 +189,14 @@ async fn declare(session: &Session, name: &str, index: usize) -> zenoh::Result<(
 
     // A few nodes watch everything, which is what produces the fan-in a real
     // deployment has — and gives some keys a listener count above one.
-    if index % 3 == 0 {
+    if index.is_multiple_of(3) {
         session
             .declare_subscriber("fleet/*/telemetry/**")
             .callback(|_| {})
             .background()
             .await?;
     }
-    if index % 4 == 0 {
+    if index.is_multiple_of(4) {
         session
             .declare_subscriber("vision/**")
             .callback(|_| {})
@@ -230,17 +230,21 @@ fn publish(session: &Session, name: &str, index: usize, rate: u32) {
 
             // Several keys per node, so the tree has depth and a tap on a
             // wildcard sees more than one thing.
+            // Wrapped before the cast: a counter this generous never reaches
+            // f64's mantissa in practice, but the wrap keeps the numbers in a
+            // readable range as well as making the cast exact.
+            let phase = f64::from(u32::try_from(seq % 3_600).unwrap_or(0)) / 10.0;
             let pose = serde_json::json!({
                 "seq": seq,
-                "x": (seq as f64 / 10.0).sin() * 12.0,
-                "y": (seq as f64 / 10.0).cos() * 12.0,
+                "x": phase.sin() * 12.0,
+                "y": phase.cos() * 12.0,
             });
             let _ = session
                 .put(format!("fleet/{name}/telemetry/pose"), pose.to_string())
                 .encoding(zenoh::bytes::Encoding::APPLICATION_JSON)
                 .await;
 
-            if seq % 10 == 0 {
+            if seq.is_multiple_of(10) {
                 let battery = serde_json::json!({ "percent": 100 - (seq / 10) % 100 });
                 let _ = session
                     .put(format!("fleet/{name}/telemetry/battery"), battery.to_string())
@@ -250,7 +254,7 @@ fn publish(session: &Session, name: &str, index: usize, rate: u32) {
 
             // Only some nodes touch the vision tree, so it stays visibly
             // quieter than the fleet one.
-            if index % 4 == 0 && seq % 5 == 0 {
+            if index.is_multiple_of(4) && seq.is_multiple_of(5) {
                 let _ = session
                     .put(
                         format!("vision/{name}/frames/meta"),

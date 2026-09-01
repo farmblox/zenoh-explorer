@@ -19,7 +19,7 @@ export interface NodeKindIconProps {
 
 const SIZES: Record<NodeKindIconSize, string> = {
   sm: "size-4 text-micro border",
-  md: "size-[21px] text-tiny border",
+  md: "size-[18px] text-micro border",
 };
 
 /**

@@ -32,9 +32,9 @@ export const REGION_SIZE = { width: 272, height: 212 } as const;
  * these to reserve the right space, so they live here rather than in the card.
  */
 export const NODE_SIZE = {
-  router: { width: 200, height: 46 },
-  peer: { width: 190, height: 46 },
-  client: { width: 170, height: 38 },
+  router: { width: 196, height: 38 },
+  peer: { width: 184, height: 38 },
+  client: { width: 168, height: 34 },
 } as const;
 
 /** Gap between region cards. */
