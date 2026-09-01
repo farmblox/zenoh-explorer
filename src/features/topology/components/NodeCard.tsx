@@ -3,6 +3,7 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { NodeKindIcon } from "@/components/domain";
 import { Meter } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { focusRing, transitionFast } from "@/lib/states";
 import { rate as formatRate, shortZid } from "@/lib/format";
 import { NODE_SIZE } from "../lib/layout";
 
@@ -20,6 +21,12 @@ export type NodeCardData = {
   readonly share: number | null;
   /** What the node has declared, already phrased — "14 subs · 3 queryables". */
   readonly declarations: string | null;
+  /**
+   * `false` when the node was only reported by somebody else — a scout reply or
+   * a link-state entry — rather than describing itself or holding a session
+   * with us.
+   */
+  readonly firsthand: boolean;
   /** Set when something about this node needs attention. */
   readonly alert: string | null;
   /** Opens the full inspector. */
@@ -54,8 +61,17 @@ export function NodeCard({ data, selected }: NodeProps<NodeCardNode>) {
       // Width is fixed by role; height is fixed only while collapsed, so the
       // expansion grows downwards and no neighbour shifts sideways.
       style={{ width: size.width, ...(selected ? {} : { height: size.height }) }}
+      title={
+        data.firsthand
+          ? undefined
+          : "Reported by another node — the explorer has not heard from this one directly"
+      }
       className={cn(
         "rounded-panel bg-surface-2 border",
+        // Dashed means hearsay, the same thing it means on a link we could only
+        // confirm from one end. One vocabulary for "we are less sure of this",
+        // whether it is drawn as a node or an edge.
+        data.firsthand ? "border-solid" : "border-dashed",
         "transition-[border-color,box-shadow] duration-(--duration-fast) ease-(--ease-standard)",
         selected
           ? "border-accent shadow-[0_0_0_3px_var(--accent-subtle)]"
@@ -149,7 +165,11 @@ function CardAction({ onClick, children }: { onClick: () => void; children: stri
         event.stopPropagation();
         onClick();
       }}
-      className="text-tiny text-accent hover:text-accent-strong font-medium transition-colors duration-(--duration-fast)"
+      className={cn(
+        "rounded-inner text-tiny text-accent hover:text-accent-strong font-medium",
+        focusRing,
+        transitionFast,
+      )}
     >
       {children}
     </button>

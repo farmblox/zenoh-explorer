@@ -118,7 +118,7 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
         }
       />
 
-      <Toolbar className="px-5 py-3">
+      <Toolbar>
         <Input
           value={keyExpr}
           onChange={(event) => setKeyExpr(event.target.value)}

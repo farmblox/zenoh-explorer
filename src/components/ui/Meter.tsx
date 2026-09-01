@@ -121,7 +121,9 @@ export function Mix({ segments, size = "sm", legend, className }: MixProps) {
               key={segment.key}
               className="text-tiny text-ink-faint flex items-center gap-1.5 font-medium whitespace-nowrap"
             >
-              <span className={cn("size-[7px] shrink-0 rounded-[2px]", TONES[segment.tone])} />
+              {/* A short bar, not a square: the key describes a segment of the
+                  meter above it, and should look like one. */}
+              <span className={cn("h-[3px] w-2.5 shrink-0 rounded-full", TONES[segment.tone])} />
               {segment.label} {segment.value}
             </span>
           ))}

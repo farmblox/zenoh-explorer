@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 import { Popover, type PopoverAlign, type PopoverSide } from "./Popover";
 
 export interface MenuItem<T extends string = string> {
@@ -80,6 +80,7 @@ export function Menu<T extends string>({
               className={cn(
                 "rounded-inner text-small tracking-ui flex h-8 w-full items-center gap-2.5 px-2.5 text-left",
                 "disabled:text-ink-disabled disabled:pointer-events-none",
+                focusRing,
                 transitionFast,
                 item.selected
                   ? "bg-accent-subtle text-ink"

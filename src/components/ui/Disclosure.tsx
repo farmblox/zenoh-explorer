@@ -2,7 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 
 export interface DisclosureProps {
   /** Always-visible label for the closed state. */
@@ -61,6 +61,7 @@ export function Disclosure({
         className={cn(
           "rounded-inner text-small flex w-full items-center gap-2 px-2 py-1.5",
           "text-ink-muted hover:bg-surface-2 hover:text-ink font-medium",
+          focusRing,
           transitionFast,
         )}
       >

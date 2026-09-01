@@ -193,6 +193,13 @@
   --text-base: 0.9375rem; /* 15px  — node titles, emphasised rows */
   --text-title: 1.125rem; /* 18px  — the one view title per screen */
 
+  /* Measured values, set large enough to be read across a desk.
+     A counter is CONTENT in this app, not a label with a number in it, so the
+     display sizes belong in the scale rather than being inlined per tile. Both
+     are monospace and tracked tight — a column of figures has to line up. */
+  --text-metric: 1.375rem; /* 22px — a counter tile */
+  --text-metric-lg: 1.5rem; /* 24px — the one counter a screen leads with */
+
   /* Weights, shifted up half a step. IBM Plex Sans is a variable font, so 450
      and 550 are real instances, not synthesised — and 450 is the single change
      that most makes small UI text stop looking washed out. The rule that goes

@@ -17,6 +17,21 @@ export const GRAPH_MODES = [
   { value: "flat", label: "Flat" },
 ] as const satisfies ReadonlyArray<{ value: GraphMode; label: string }>;
 
+/**
+ * Whether we know this node first-hand.
+ *
+ * `adminSpace` means the node described itself; `transport` means we hold a
+ * session to it. Everything else is hearsay — somebody else told us it exists,
+ * and it may not be reachable, may have gone away, or may never have been what
+ * was claimed.
+ *
+ * The graph draws the difference, because a topology tool that renders a rumour
+ * identically to a fact is worse than one that shows less.
+ */
+export function isFirsthand(source: DiscoverySource): boolean {
+  return source === "adminSpace" || source === "transport";
+}
+
 /** Nodes attached to no router at all. */
 export const UNROUTED = "no router";
 

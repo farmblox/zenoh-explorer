@@ -2,6 +2,7 @@ import { useCallback, useId, useRef, useState, type ReactNode } from "react";
 
 import { useDismiss } from "@/hooks";
 import { cn } from "@/lib/cn";
+import { focusRing } from "@/lib/states";
 
 /** Which edge of the trigger the panel grows from. */
 export type PopoverSide = "top" | "bottom";
@@ -69,7 +70,10 @@ export function Popover({
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((current) => !current)}
-        className={triggerClassName}
+        // The ring is the component's, not the caller's: a trigger that is only
+        // focusable-looking when someone remembers to pass a class is a trigger
+        // that will be invisible to the keyboard somewhere.
+        className={cn(focusRing, triggerClassName)}
       >
         {trigger}
       </button>

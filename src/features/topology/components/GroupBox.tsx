@@ -33,7 +33,7 @@ export function GroupBox({ data }: NodeProps<GroupBoxNode>) {
   return (
     <div
       style={{ width: data.width, height: data.height }}
-      className="border-line bg-fill pointer-events-none rounded-[12px] border border-dashed"
+      className="border-line bg-fill rounded-dialog pointer-events-none border border-dashed"
     >
       <div
         className={cn(

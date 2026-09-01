@@ -35,7 +35,7 @@ export function RouteTracePanel({ from, snapshot, onClose }: RouteTracePanelProp
       label="Resize the route trace"
       className="border-line bg-surface-0 border-l"
     >
-      <header className="border-line shrink-0 border-b px-[18px] py-3.5">
+      <header className="border-line shrink-0 border-b px-4 py-3.5">
         <div className="flex items-center gap-2.5">
           <h2 className="text-small text-ink font-medium">Route trace</h2>
           <span className="flex-1" />
@@ -61,7 +61,7 @@ export function RouteTracePanel({ from, snapshot, onClose }: RouteTracePanelProp
 
       <ScrollArea className="flex-1">
         {route.unreachable ? (
-          <p className="text-tiny text-ink-faint px-[18px] py-4 leading-relaxed">
+          <p className="text-tiny text-ink-faint px-4 py-4 leading-relaxed">
             Nothing links this node back to the explorer in the current snapshot. Either the path
             runs through a node whose admin space is switched off, or the node was discovered by a
             scout reply and holds no session we can see.
@@ -76,7 +76,7 @@ export function RouteTracePanel({ from, snapshot, onClose }: RouteTracePanelProp
                 <li key={hop.node.zid}>
                   <div
                     className={cn(
-                      "flex h-10 items-center gap-3 px-[18px]",
+                      "flex h-10 items-center gap-3 px-4",
                       hop.unconfirmed && "bg-warn-subtle/40",
                     )}
                   >
@@ -106,7 +106,7 @@ export function RouteTracePanel({ from, snapshot, onClose }: RouteTracePanelProp
                     </span>
                   </div>
 
-                  <div className="text-tiny text-ink-faint flex items-center gap-2 px-[18px] pb-2.5 pl-[47px]">
+                  <div className="text-tiny text-ink-faint flex items-center gap-2 px-4 pb-2.5 pl-11">
                     {hop.protocol ? <Badge mono>{hop.protocol}</Badge> : null}
                     {hop.unconfirmed ? (
                       <span className="text-warn">only one end reported this link</span>

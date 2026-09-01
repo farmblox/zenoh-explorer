@@ -69,7 +69,7 @@ export function MeshList({ nodes, rates, selectedZid, onSelect }: MeshListProps)
       label="Resize the node list"
       className="border-line bg-surface-0 border-r"
     >
-      <div className="border-line space-y-2.5 border-b p-3.5">
+      <div className="border-line space-y-2.5 border-b px-4 py-3.5">
         <Input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}

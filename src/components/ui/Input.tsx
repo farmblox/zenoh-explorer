@@ -60,6 +60,8 @@ export function Input({
   containerClassName,
   ...props
 }: InputProps) {
+  const { disabled } = props;
+
   return (
     <div
       className={cn(
@@ -69,18 +71,29 @@ export function Input({
         // A halo drawn as a shadow, so focus never shifts a neighbour by the
         // pixel a thicker border would add.
         fieldRest,
-        invalid ? fieldInvalid : fieldFocus,
+        // A disabled field has to LOOK disabled. The keyspace toolbar locks the
+        // key expression while a subscription is running, and a field that
+        // still reads as editable there is the app lying about its own state.
+        disabled ? "bg-surface-1 text-ink-disabled" : invalid ? fieldInvalid : fieldFocus,
         containerClassName,
       )}
     >
       {prefix ? (
-        <span className="text-tiny text-ink-faint shrink-0 font-medium">{prefix}</span>
+        <span
+          className={cn(
+            "text-tiny shrink-0 font-medium",
+            disabled ? "text-ink-disabled" : "text-ink-faint",
+          )}
+        >
+          {prefix}
+        </span>
       ) : null}
       <input
         aria-invalid={invalid || undefined}
         className={cn(
           "text-small text-ink min-w-0 flex-1 bg-transparent outline-none",
           "placeholder:text-ink-faint",
+          "disabled:text-ink-disabled disabled:cursor-not-allowed",
           mono && "numeric",
           className,
         )}

@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { StatusDot } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { focusRingOnChrome, transitionFast } from "@/lib/states";
 import { groupedNumber } from "@/lib/format";
 import { useActiveSession, useTopology, useUiStore } from "@/stores";
 import { LiveIndicator } from "./LiveIndicator";
@@ -31,7 +32,9 @@ export function StatusBar() {
   return (
     <footer
       className={cn(
-        "bg-surface-0 flex h-8 shrink-0 items-center gap-3 px-[18px]",
+        // 20px matches where the sidebar's item labels start, so the two
+        // pieces of window chrome share a left edge.
+        "bg-surface-0 flex h-8 shrink-0 items-center gap-3 px-5",
         "text-tiny text-ink-muted font-medium",
       )}
     >
@@ -79,7 +82,11 @@ export function StatusBar() {
             type="button"
             onClick={toggle}
             aria-expanded={expanded}
-            className="hover:text-ink flex shrink-0 items-center gap-1 transition-colors"
+            className={cn(
+              "rounded-inner hover:text-ink -mx-1 flex shrink-0 items-center gap-1 px-1",
+              focusRingOnChrome,
+              transitionFast,
+            )}
           >
             {expanded ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
             {expanded ? "Less" : "Details"}

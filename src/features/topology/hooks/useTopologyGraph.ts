@@ -4,7 +4,7 @@ import { Position, type Edge, type Node } from "@xyflow/react";
 import type { LinkSummary, NodeSummary, TopologySnapshot } from "@/ipc";
 import { groupedNumber } from "@/lib/format";
 import { classifyEdge } from "../lib/edgeStyle";
-import { groupLabel, groupNodes, type GraphMode } from "../lib/graphMode";
+import { groupLabel, groupNodes, isFirsthand, type GraphMode } from "../lib/graphMode";
 import { buildRegionDetail, buildRegionView, label } from "../lib/grouping";
 import { layoutGrouped, layoutRegionNodes, layoutRegions, layoutTree } from "../lib/layout";
 import type { LayoutMode } from "../lib/layout";
@@ -213,6 +213,7 @@ function buildNodeCards(
         // one we can compute honestly today.
         share: linkCount > 0 ? linkCount / busiest : null,
         declarations: `${linkCount} ${linkCount === 1 ? "link" : "links"} · ${node.kind}`,
+        firsthand: isFirsthand(node.source),
         alert: describeNodeAlert(node, links),
         onInspect: actions.onInspect,
         onTrace: actions.onTrace,

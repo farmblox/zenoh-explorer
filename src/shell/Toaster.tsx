@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 import { useToastStore, type Toast, type ToastTone } from "@/stores";
 
 const TONES: Record<ToastTone, { icon: typeof Info; accent: string; iconClass: string }> = {
@@ -77,7 +77,11 @@ function ToastCard({ toast }: { toast: Toast }) {
               <button
                 type="button"
                 onClick={() => setShowDetail((open) => !open)}
-                className={cn("text-tiny text-ink-faint hover:text-ink", transitionFast)}
+                className={cn(
+                  "rounded-inner text-tiny text-ink-faint hover:text-ink",
+                  focusRing,
+                  transitionFast,
+                )}
               >
                 {showDetail ? "Hide details" : "Show details"}
               </button>

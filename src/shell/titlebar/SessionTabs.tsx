@@ -3,6 +3,7 @@ import { Plus, X } from "lucide-react";
 import { StatusDot } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { groupedNumber } from "@/lib/format";
+import { transitionFast } from "@/lib/states";
 import { useSessionStore, useUiStore } from "@/stores";
 
 /**
@@ -32,7 +33,7 @@ export function SessionTabs() {
             key={session.id}
             className={cn(
               "group flex h-7 shrink-0 items-center gap-2 rounded-full pr-1.5 pl-3.5",
-              "transition-colors duration-(--duration-fast)",
+              transitionFast,
               active ? "bg-surface-2" : "hover:bg-surface-2/60",
             )}
           >
@@ -96,7 +97,8 @@ export function SessionTabs() {
         aria-label="Connect to a network"
         className={cn(
           "flex size-7 shrink-0 items-center justify-center rounded-full",
-          "text-ink-faint hover:bg-surface-2 hover:text-ink transition-colors",
+          "text-ink-faint hover:bg-surface-2 hover:text-ink",
+          transitionFast,
         )}
       >
         <Plus size={15} />

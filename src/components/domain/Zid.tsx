@@ -2,6 +2,7 @@ import { Check, Copy } from "lucide-react";
 
 import { useCopy } from "@/hooks";
 import { cn } from "@/lib/cn";
+import { focusRing, transitionFast } from "@/lib/states";
 import { shortZid } from "@/lib/format";
 
 export interface ZidProps {
@@ -36,7 +37,11 @@ export function Zid({ zid, full, copyable, className }: ZidProps) {
           type="button"
           onClick={() => void copy(zid)}
           aria-label={copied ? "Copied" : "Copy id"}
-          className="text-ink-faint hover:text-ink shrink-0 transition-colors"
+          className={cn(
+            "rounded-inner text-ink-faint hover:text-ink shrink-0",
+            focusRing,
+            transitionFast,
+          )}
         >
           {copied ? <Check size={12} className="text-ok" /> : <Copy size={12} />}
         </button>

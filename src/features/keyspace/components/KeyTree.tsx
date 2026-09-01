@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { Spinner } from "@/components/ui";
 import type { KeyNode } from "@/ipc";
 import { cn } from "@/lib/cn";
+import { focusRing, transitionFast } from "@/lib/states";
 import { compactNumber } from "@/lib/format";
 import type { KeyTreeState } from "../hooks/useKeyTree";
 
@@ -73,7 +74,11 @@ export function KeyTree({ tree, selected, onSelect }: KeyTreeProps) {
           style={{ paddingLeft: depth * 14 + 8 }}
           className={cn(
             "rounded-inner flex h-8 cursor-pointer items-center gap-1.5 pr-2.5",
-            "transition-colors duration-(--duration-fast)",
+            // The row is the focusable element — the caret is `tabIndex={-1}`,
+            // because a tree is navigated with arrow keys, not by tabbing
+            // through two controls per node.
+            focusRing,
+            transitionFast,
             selected === node.key ? "bg-accent-subtle" : "hover:bg-surface-2",
           )}
         >

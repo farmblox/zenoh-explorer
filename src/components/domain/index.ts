@@ -9,6 +9,8 @@ export { KeyExpr } from "./KeyExpr";
 export type { KeyExprProps } from "./KeyExpr";
 
 export { NodeKindIcon } from "./NodeKindIcon";
+export { NODE_KINDS, NODE_ROLES } from "./nodeRoles";
+export type { NodeRole } from "./nodeRoles";
 export type { NodeKindIconProps } from "./NodeKindIcon";
 
 export { Zid } from "./Zid";

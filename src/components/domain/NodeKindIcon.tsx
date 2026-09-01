@@ -1,5 +1,6 @@
 import type { NodeKind } from "@/ipc";
 import { cn } from "@/lib/cn";
+import { NODE_ROLES } from "./nodeRoles";
 
 /** How prominent the glyph should be. */
 export type NodeKindIconSize = "sm" | "md";
@@ -14,34 +15,22 @@ export interface NodeKindIconProps {
   className?: string;
 }
 
-/**
- * Shape and letter per role.
- *
- * Two channels, not one. A router is a rounded square, a peer a circle, a
- * client a dashed circle — so the role survives being scanned at a glance in a
- * dense graph, and survives being printed in greyscale or read by someone who
- * cannot separate the colours.
- */
-const ROLE: Record<NodeKind, { letter: string; label: string; shape: string }> = {
-  router: { letter: "R", label: "Router", shape: "rounded-inner border-solid" },
-  peer: { letter: "P", label: "Peer", shape: "rounded-full border-solid" },
-  client: { letter: "C", label: "Client", shape: "rounded-full border-dashed" },
-};
-
 const SIZES: Record<NodeKindIconSize, string> = {
-  sm: "size-4 text-[0.625rem] border",
+  sm: "size-4 text-micro border",
   md: "size-[21px] text-tiny border",
 };
 
 /**
  * The badge identifying a node's role.
  *
- * Used by the graph node, the side list and the inspector, so the three always
- * agree. A letter rather than an icon: at this size three distinguishable
- * glyphs read faster than three similar pictures, and they can be spoken aloud.
+ * Used by the graph node, the side list, the inspector and the legend, so all
+ * four always agree — the shapes come from `nodeRoles`, not from here.
+ *
+ * A letter rather than an icon: at this size three distinguishable glyphs read
+ * faster than three similar pictures, and they can be spoken aloud.
  */
 export function NodeKindIcon({ kind, size = "md", local, alert, className }: NodeKindIconProps) {
-  const role = ROLE[kind];
+  const role = NODE_ROLES[kind];
 
   return (
     <span

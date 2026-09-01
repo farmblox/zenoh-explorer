@@ -124,7 +124,7 @@ export function ConfigView() {
         }
       />
 
-      <Toolbar className="px-5 py-3">
+      <Toolbar>
         <Input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}

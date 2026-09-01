@@ -11,6 +11,12 @@ export interface ToolbarProps {
 /**
  * The control strip a view puts above its content.
  *
+ * `px-5` is not a free choice: it is the content pane's gutter, shared with
+ * `ViewHeader` above and `DataTable` below. Everything inside the pane starts
+ * at the same x, so a view title, a filter field and a table's first column
+ * form one edge down the screen. Four pixels of drift here is the difference
+ * between a screen that looks built and one that looks assembled.
+ *
  * Separated by the softer of the two hairlines: it belongs to the content below
  * it, not to the header above, and a full-strength rule here would read as a
  * second header.
@@ -19,7 +25,7 @@ export function Toolbar({ children, className }: ToolbarProps) {
   return (
     <div
       className={cn(
-        "border-line-soft flex shrink-0 items-center gap-2.5 border-b px-6 py-3.5",
+        "border-line-soft flex shrink-0 items-center gap-2.5 border-b px-5 py-3.5",
         className,
       )}
     >

@@ -10,8 +10,8 @@ export type StatTone = "ink" | "accent" | "ok" | "warn" | "danger";
 
 const VALUE_SIZES: Record<StatSize, string> = {
   sm: "text-base",
-  md: "text-[1.375rem]",
-  lg: "text-[1.5rem]",
+  md: "text-metric",
+  lg: "text-metric-lg",
 };
 
 const TONES: Record<StatTone, string> = {

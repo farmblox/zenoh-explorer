@@ -4,7 +4,7 @@ import { Badge, Button } from "@/components/ui";
 import { pickCertificate } from "@/ipc";
 import type { CertSource } from "@/ipc";
 import { cn } from "@/lib/cn";
-import { transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 
 export interface CertFieldProps {
   label: string;
@@ -61,7 +61,11 @@ export function CertField({ label, hint, value, onChange, secret }: CertFieldPro
             type="button"
             onClick={() => onChange(null)}
             aria-label={`Clear ${label}`}
-            className={cn("text-ink-faint hover:text-ink shrink-0", transitionFast)}
+            className={cn(
+              "rounded-inner text-ink-faint hover:text-ink shrink-0",
+              focusRing,
+              transitionFast,
+            )}
           >
             <X size={13} />
           </button>

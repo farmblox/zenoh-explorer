@@ -2,7 +2,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 
 export interface DialogProps {
   open: boolean;
@@ -103,6 +103,7 @@ export function Dialog({
               className={cn(
                 "rounded-inner text-ink-faint hover:bg-surface-3 hover:text-ink",
                 "flex size-7 shrink-0 items-center justify-center",
+                focusRing,
                 transitionFast,
               )}
             >
