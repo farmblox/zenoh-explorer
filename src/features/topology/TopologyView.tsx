@@ -1,10 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Network } from "lucide-react";
 import { ReactFlowProvider } from "@xyflow/react";
 
 import { EmptyState, Spinner } from "@/components/ui";
 import { groupedNumber } from "@/lib/format";
-import { useActiveSession, useActiveSessionId, useTopology } from "@/stores";
+import { useActiveSession, useActiveSessionId, useTopology, useTopologyStore } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
 import { CanvasBadge } from "./components/CanvasBadge";
 import { CoverageBanner } from "./components/CoverageBanner";
@@ -50,6 +50,19 @@ export function TopologyView() {
   }, []);
 
   const closeTrace = useCallback(() => setTraceFrom(null), []);
+
+  // Ask once if this session has no snapshot yet.
+  //
+  // The backend probes on its own the moment a session opens and pushes the
+  // result, so in the normal case this never fires. It exists because "the
+  // graph arrives as an event" has one failure mode with no way out: an event
+  // that lands before the frontend is listening leaves the view blank forever,
+  // and the only recovery was for the user to know about a button. One query on
+  // mount is a cheap floor under that.
+  const resync = useTopologyStore((state) => state.resync);
+  useEffect(() => {
+    if (sessionId && awaiting) void resync(sessionId);
+  }, [sessionId, awaiting, resync]);
 
   const actions = useMemo(
     () => ({

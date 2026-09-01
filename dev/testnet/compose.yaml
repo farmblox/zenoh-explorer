@@ -1,0 +1,36 @@
+# A throwaway Zenoh network for working on the explorer.
+#
+# Three routers rather than one, because most of what this app shows only
+# exists between nodes: trunks, regions, link-state, a partial view. A single
+# router gives you a graph with one box in it.
+#
+# Ports avoid 7447 so this can run alongside a real router.
+name: zenoh-explorer-testnet
+
+services:
+  router-a:
+    image: eclipse/zenoh:1.10.0
+    command: -c /etc/zenoh/config.json5
+    volumes:
+      - ./router-a.json5:/etc/zenoh/config.json5:ro
+    ports:
+      - "7448:7447" # connect the explorer here
+      - "8000:8000" # REST, for publishing test data
+  router-b:
+    image: eclipse/zenoh:1.10.0
+    command: -c /etc/zenoh/config.json5
+    volumes:
+      - ./router-b.json5:/etc/zenoh/config.json5:ro
+    ports:
+      - "7449:7447"
+      - "8001:8000"
+    depends_on: [router-a]
+
+  router-c:
+    image: eclipse/zenoh:1.10.0
+    command: -c /etc/zenoh/config.json5
+    volumes:
+      - ./router-c.json5:/etc/zenoh/config.json5:ro
+    ports:
+      - "7450:7447"
+    depends_on: [router-a]

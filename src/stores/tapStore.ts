@@ -185,14 +185,22 @@ function commit(): void {
       }
 
       const incoming = batches.flatMap((b) => b.samples);
-      const merged = entry.samples.concat(incoming);
-      const overflow = Math.max(0, merged.length - WINDOW_SIZE);
+
+      // Trim what is about to fall out of the window BEFORE joining, so the
+      // copy is proportional to what arrived plus what survives, rather than
+      // building a longer array and then discarding the front of it.
+      const keep = Math.max(0, WINDOW_SIZE - incoming.length);
+      const dropped = Math.max(0, entry.samples.length - keep);
+      const samples =
+        dropped > 0
+          ? [...entry.samples.slice(dropped), ...incoming]
+          : [...entry.samples, ...incoming];
 
       bySession[sessionId] = {
         ...entry,
         ...totals,
-        samples: overflow > 0 ? merged.slice(overflow) : merged,
-        evicted: entry.evicted + overflow,
+        samples,
+        evicted: entry.evicted + dropped,
       };
     }
 
@@ -203,4 +211,10 @@ function commit(): void {
 /** The current session's tap entry. */
 export function useTap(sessionId: SessionId | null): TapEntry {
   return useTapStore((state) => (sessionId ? (state.bySession[sessionId] ?? EMPTY) : EMPTY));
+}
+
+// Exposed only in development, so the design harness can flood the window and
+// check the table virtualizes. Stripped from production by the bundler.
+if (import.meta.env.DEV) {
+  (globalThis as { __ZUSTAND_TAP__?: typeof useTapStore }).__ZUSTAND_TAP__ = useTapStore;
 }

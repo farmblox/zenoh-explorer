@@ -38,12 +38,14 @@ export type NodeCardData = {
 
 export type NodeCardNode = Node<NodeCardData, "zenohNode">;
 
-/** Inner padding per role, matching the card heights in `NODE_SIZE`. */
-const PADDING = {
-  router: "px-[13px] py-3",
-  peer: "px-[13px] py-3",
-  client: "px-3 py-[9px]",
-} as const;
+/**
+ * The card's inner gutter.
+ *
+ * One value, not one per role: the roles differ in how much room they get, not
+ * in how far their contents sit from the edge, and three gutters made the
+ * glyphs fail to line up between a router and the client beneath it.
+ */
+const GUTTER = "px-3.5";
 
 /**
  * One Zenoh node.
@@ -105,8 +107,14 @@ export function NodeCard({
       />
 
       <div
-        className={cn("flex items-center gap-2.5", PADDING[data.kind], selected && "pb-2.5")}
-        style={selected ? undefined : { height: size.height }}
+        className={cn(
+          "flex items-center gap-2.5",
+          GUTTER,
+          // Collapsed, the card sets the height and the row fills it. Setting
+          // the height here as well left the padding fighting it, which is what
+          // made the single row look loose in a box that was already snug.
+          selected ? "pt-3 pb-2.5" : "h-full",
+        )}
       >
         <NodeKindIcon
           kind={data.kind}
@@ -132,7 +140,7 @@ export function NodeCard({
 
       {selected ? (
         <div className="animate-fade-in">
-          <div className="flex items-baseline gap-2.5 px-[13px]">
+          <div className={cn("flex items-baseline gap-2.5", GUTTER)}>
             <span className="text-tiny text-ink-muted min-w-0 flex-1 truncate">
               {data.declarations ?? `${data.linkCount} links`}
             </span>
@@ -149,13 +157,21 @@ export function NodeCard({
               size="xs"
               tone="accent"
               label={`${data.label} share of the region's links`}
-              className="mx-[13px] mt-2"
+              className="mx-3.5 mt-2"
             />
           ) : null}
 
-          {data.alert ? <p className="text-tiny text-warn px-[13px] pt-2.5">{data.alert}</p> : null}
+          {data.alert ? (
+            <p className={cn("text-tiny text-warn pt-2.5", GUTTER)}>{data.alert}</p>
+          ) : null}
 
-          <div className="border-line-soft bg-surface-1 mt-3 flex items-center gap-2.5 rounded-b-[calc(var(--radius-panel)-1px)] border-t px-[13px] py-2">
+          <div
+            className={cn(
+              "border-line-soft bg-surface-1 mt-3 flex items-center gap-2.5 border-t py-2",
+              "rounded-b-[calc(var(--radius-panel)-1px)]",
+              GUTTER,
+            )}
+          >
             <CardAction onClick={() => data.onInspect?.(data.zid)}>Inspect</CardAction>
             <span className="bg-line h-3 w-px" aria-hidden />
             <CardAction onClick={() => data.onTrace?.(data.zid)}>Trace route</CardAction>

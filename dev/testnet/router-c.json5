@@ -1,0 +1,9 @@
+{
+  // Deliberately has NO adminspace, so the explorer has a node it can see as a
+  // transport but cannot read — which is the "partial view" case, and worth
+  // being able to reproduce on demand.
+  mode: "router",
+  listen: { endpoints: ["tcp/0.0.0.0:7447"] },
+  connect: { endpoints: ["tcp/router-a:7447"] },
+  adminspace: { enabled: false },
+}

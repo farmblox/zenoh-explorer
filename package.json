@@ -33,12 +33,16 @@
     "test:e2e": "wdio run wdio.conf.ts",
     "test:rust": "cargo test --workspace",
     "test:watch": "vitest",
+    "testnet": "docker compose -f dev/testnet/compose.yaml up -d",
+    "testnet:down": "docker compose -f dev/testnet/compose.yaml down",
+    "testnet:seed": "bash dev/testnet/seed.sh",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.1",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource-variable/ibm-plex-sans": "^5.3.0",
+    "@tanstack/react-virtual": "^3.14.10",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.3",
     "@tauri-apps/plugin-deep-link": "^2.4.10",

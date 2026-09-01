@@ -62,6 +62,7 @@ export function SampleTable({ samples, selected, onSelect }: SampleTableProps) {
   return (
     <DataTable
       id="keyspace-samples"
+      follow
       columns={COLUMNS}
       rows={samples}
       rowKey={(row) => row.seq}

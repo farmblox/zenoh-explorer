@@ -1,12 +1,28 @@
-import type { ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { ArrowDown } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { resizeHandle, resizeHandleLine, transitionFast } from "@/lib/states";
-import { ScrollArea } from "./ScrollArea";
+import { focusRing, resizeHandle, resizeHandleLine, transitionFast } from "@/lib/states";
 import { useColumnWidths } from "./useColumnWidths";
 
 /** How much one arrow-key press moves a column edge. */
 const KEYBOARD_STEP = 16;
+
+/**
+ * Row height, in pixels.
+ *
+ * Fixed, and a number rather than a class, because the virtualizer has to know
+ * it to place a row without measuring one. Every row being the same height is
+ * also what lets a table of a million rows scroll smoothly.
+ */
+const ROW_HEIGHT = 36;
+
+/** Rows kept mounted beyond the viewport, so a fast scroll finds them ready. */
+const OVERSCAN = 12;
+
+/** How close to the bottom still counts as "at the bottom", in pixels. */
+const PINNED_SLACK = 24;
 
 /** One column: how to size it, what to title it, how to render a cell. */
 export interface Column<Row> {
@@ -40,6 +56,15 @@ export interface DataTableProps<Row> {
   selectedKey?: string | number | null;
   /** Rendered in place of the body when there are no rows. */
   empty?: ReactNode;
+  /**
+   * Keeps the newest rows in view as they arrive.
+   *
+   * For a table fed by a live stream. Following stops the moment the reader
+   * scrolls away from the bottom — a table that yanks itself back while you are
+   * reading is worse than one that never followed — and resumes when they
+   * return to it, or press the button this puts on screen.
+   */
+  follow?: boolean;
   className?: string;
 }
 
@@ -58,9 +83,54 @@ export function DataTable<Row>({
   onSelect,
   selectedKey,
   empty,
+  follow = false,
   className,
 }: DataTableProps<Row>) {
   const columnWidths = useColumnWidths(id);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  /** Whether the reader is still at the bottom, and so still being followed. */
+  const [pinned, setPinned] = useState(true);
+
+  // React Compiler cannot memoize a hook that returns functions, so it skips
+  // this component. That is the right trade here rather than a problem to fix:
+  // only the visible slice of rows is ever mounted, so re-rendering the table
+  // costs a few dozen nodes — which is the whole reason the virtualizer is
+  // here. Memoising it would save less than measuring it would cost.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: OVERSCAN,
+  });
+
+  // Whether following is on is the reader's business, decided by where they
+  // have scrolled to rather than by a mode they have to remember to set.
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element || !follow) return;
+
+    const onScroll = () => {
+      const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
+      setPinned(distance <= PINNED_SLACK);
+    };
+
+    element.addEventListener("scroll", onScroll, { passive: true });
+    return () => element.removeEventListener("scroll", onScroll);
+  }, [follow]);
+
+  // Ride the tail while pinned. Keyed on the row count, so it runs when rows
+  // arrive rather than on every render.
+  useEffect(() => {
+    if (!follow || !pinned || rows.length === 0) return;
+    virtualizer.scrollToIndex(rows.length - 1, { align: "end" });
+  }, [follow, pinned, rows.length, virtualizer]);
+
+  const jumpToLatest = useCallback(() => {
+    setPinned(true);
+    if (rows.length > 0) virtualizer.scrollToIndex(rows.length - 1, { align: "end" });
+  }, [rows.length, virtualizer]);
 
   // Column headers describe cells. With no rows there are none, so the header
   // is a label for nothing — and an empty state reads as a stray caption under
@@ -99,9 +169,13 @@ export function DataTable<Row>({
               <span
                 key={column.id}
                 role="columnheader"
-                className={cn("relative truncate", column.align === "right" && "text-right")}
+                // NOT `truncate` here: that sets `overflow: hidden`, which
+                // clips the resize handle sitting just outside this cell and
+                // makes it both invisible and impossible to grab. The label
+                // truncates on its own element instead.
+                className={cn("relative min-w-0", column.align === "right" && "text-right")}
               >
-                {column.header}
+                <span className="block truncate">{column.header}</span>
 
                 {resizable ? (
                   <span
@@ -154,47 +228,79 @@ export function DataTable<Row>({
       {showEmpty ? (
         <div className="flex-1">{empty}</div>
       ) : (
-        <ScrollArea className="flex-1">
-          {rows.map((row) => {
-            const key = rowKey(row);
-            const selected = selectedKey != null && key === selectedKey;
-            return (
-              <div
-                key={key}
-                role="row"
-                tabIndex={onSelect ? 0 : undefined}
-                aria-selected={onSelect ? selected : undefined}
-                onClick={onSelect ? () => onSelect(row) : undefined}
-                onKeyDown={
-                  onSelect
-                    ? (event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          onSelect(row);
+        <div ref={scrollRef} className="scroll-thin relative min-h-0 flex-1 overflow-y-auto">
+          {/* One tall spacer holding every row's worth of height, with only the
+              visible slice actually in the DOM. */}
+          <div style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((item) => {
+              const row = rows[item.index];
+              if (row === undefined) return null;
+              const key = rowKey(row);
+              const selected = selectedKey != null && key === selectedKey;
+
+              return (
+                <div
+                  key={key}
+                  role="row"
+                  tabIndex={onSelect ? 0 : undefined}
+                  aria-selected={onSelect ? selected : undefined}
+                  aria-rowindex={item.index + 1}
+                  onClick={onSelect ? () => onSelect(row) : undefined}
+                  onKeyDown={
+                    onSelect
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onSelect(row);
+                          }
                         }
-                      }
-                    : undefined
-                }
-                style={{ gridTemplateColumns: template }}
-                className={cn(
-                  "border-line-soft text-small grid h-9 items-center gap-4 border-b px-5",
-                  onSelect && cn("cursor-pointer", transitionFast),
-                  selected ? "bg-accent-subtle" : onSelect && "hover:bg-surface-2",
-                )}
-              >
-                {columns.map((column) => (
-                  <div
-                    key={column.id}
-                    role="cell"
-                    className={cn("truncate", column.align === "right" && "text-right")}
-                  >
-                    {column.cell(row)}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </ScrollArea>
+                      : undefined
+                  }
+                  style={{
+                    gridTemplateColumns: template,
+                    height: ROW_HEIGHT,
+                    // Positioned rather than laid out, so adding a row never
+                    // reflows the ones already on screen.
+                    transform: `translateY(${item.start}px)`,
+                  }}
+                  className={cn(
+                    "border-line-soft text-small absolute inset-x-0 top-0 grid items-center gap-4 border-b px-5",
+                    onSelect && cn("cursor-pointer", transitionFast),
+                    selected ? "bg-accent-subtle" : onSelect && "hover:bg-surface-2",
+                  )}
+                >
+                  {columns.map((column) => (
+                    <div
+                      key={column.id}
+                      role="cell"
+                      className={cn("truncate", column.align === "right" && "text-right")}
+                    >
+                      {column.cell(row)}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Only offered once following has actually stopped, so it is never a
+              button that does nothing. */}
+          {follow && !pinned ? (
+            <button
+              type="button"
+              onClick={jumpToLatest}
+              className={cn(
+                "rounded-control border-line bg-surface-2 text-tiny text-ink absolute right-4 bottom-4",
+                "shadow-popover flex items-center gap-1.5 border px-2.5 py-1.5 font-medium",
+                focusRing,
+                transitionFast,
+              )}
+            >
+              <ArrowDown size={12} />
+              Jump to latest
+            </button>
+          ) : null}
+        </div>
       )}
     </div>
   );
