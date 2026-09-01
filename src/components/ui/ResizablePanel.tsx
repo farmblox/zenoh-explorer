@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
+import { resizeHandle, resizeHandleLine } from "@/lib/states";
 
 /** Which edge the panel is attached to — the opposite edge gets the handle. */
 export type PanelSide = "left" | "right";
@@ -136,17 +137,9 @@ export function ResizablePanel({
         }}
         title="Drag to resize · double-click to reset"
         className={cn(
-          // Wider than it looks: the hit area is 9px, the line is 1px. Grabbing
-          // a one-pixel target is the difference between a resizable panel and
-          // a panel that is technically resizable.
-          "absolute top-0 bottom-0 z-20 w-[9px] cursor-col-resize",
-          "focus-visible:outline-none",
+          resizeHandle,
           side === "left" ? "-right-[5px]" : "-left-[5px]",
-          "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2",
-          "after:transition-[background-color] after:duration-(--duration-fast)",
-          dragging
-            ? "after:bg-accent"
-            : "hover:after:bg-accent/60 focus-visible:after:bg-accent after:bg-transparent",
+          dragging ? resizeHandleLine.active : resizeHandleLine.idle,
         )}
       />
     </div>

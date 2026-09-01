@@ -71,5 +71,25 @@ export const fieldFocus =
   "focus-within:border-accent focus-within:shadow-[0_0_0_3px_var(--accent-subtle)]";
 export const fieldInvalid = "border-danger shadow-[0_0_0_3px_var(--danger-subtle)]";
 
+/**
+ * A draggable divider — a panel edge or a column boundary.
+ *
+ * The hit area is nine pixels and the line inside it is one. Grabbing a
+ * one-pixel target is the difference between a resizable thing and a thing that
+ * is technically resizable, and the two places this appears have to feel the
+ * same or one of them feels broken.
+ */
+export const resizeHandle = cn(
+  "absolute top-0 bottom-0 z-20 w-[9px] cursor-col-resize focus-visible:outline-none",
+  "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2",
+  "after:transition-[background-color] after:duration-(--duration-fast)",
+);
+
+/** The divider's line, at rest and while being dragged. */
+export const resizeHandleLine = {
+  idle: "after:bg-transparent hover:after:bg-accent/60 focus-visible:after:bg-accent",
+  active: "after:bg-accent",
+} as const;
+
 /** Everything an interactive control shares. */
 export const controlBase = cn(transitionFast, focusRing, "tracking-ui");

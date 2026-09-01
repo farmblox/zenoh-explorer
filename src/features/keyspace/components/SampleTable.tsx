@@ -61,6 +61,7 @@ const COLUMNS: readonly Column<SampleRecord>[] = [
 export function SampleTable({ samples, selected, onSelect }: SampleTableProps) {
   return (
     <DataTable
+      id="keyspace-samples"
       columns={COLUMNS}
       rows={samples}
       rowKey={(row) => row.seq}

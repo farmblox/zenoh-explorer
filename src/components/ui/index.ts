@@ -81,3 +81,6 @@ export type { ListRowProps, ListRowSize } from "./ListRow";
 
 export { SectionLabel } from "./SectionLabel";
 export type { SectionLabelProps } from "./SectionLabel";
+
+export { MIN_COLUMN_WIDTH, useColumnWidths } from "./useColumnWidths";
+export type { ColumnWidths } from "./useColumnWidths";

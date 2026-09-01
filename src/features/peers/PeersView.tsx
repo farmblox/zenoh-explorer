@@ -12,6 +12,7 @@ const COLUMNS: readonly Column<TransportSummary>[] = [
     id: "kind",
     header: "",
     width: 32,
+    resizable: false,
     cell: (row) => <NodeKindIcon kind={row.kind} />,
   },
   { id: "zid", header: "Zid", width: 200, cell: (row) => <Zid zid={row.zid} copyable /> },
@@ -77,6 +78,7 @@ export function PeersView() {
         }
       />
       <DataTable
+        id="peers"
         columns={COLUMNS}
         rows={data ?? []}
         rowKey={(row) => row.zid}

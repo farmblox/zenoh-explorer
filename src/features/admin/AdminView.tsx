@@ -137,6 +137,7 @@ export function AdminView() {
       ) : null}
 
       <DataTable
+        id="admin-replies"
         columns={COLUMNS}
         rows={data ?? []}
         rowKey={(row) => `${row.keyExpr}:${row.seq}`}

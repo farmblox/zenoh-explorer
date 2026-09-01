@@ -8,7 +8,13 @@ import { relativeTime } from "@/lib/format";
 import { ViewHeader } from "@/shell/ViewHeader";
 
 const COLUMNS: readonly Column<ScoutedNode>[] = [
-  { id: "kind", header: "", width: 32, cell: (row) => <NodeKindIcon kind={row.kind} /> },
+  {
+    id: "kind",
+    header: "",
+    width: 32,
+    resizable: false,
+    cell: (row) => <NodeKindIcon kind={row.kind} />,
+  },
   { id: "zid", header: "Zid", width: 220, cell: (row) => <Zid zid={row.zid} copyable /> },
   {
     id: "locators",
@@ -54,6 +60,7 @@ export function ScoutingView() {
         }
       />
       <DataTable
+        id="scouting"
         columns={COLUMNS}
         rows={data ?? []}
         rowKey={(row) => row.zid}
