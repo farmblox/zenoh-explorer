@@ -4,7 +4,7 @@ import { NodeKindIcon } from "@/components/domain";
 import { Meter } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { focusRing, transitionFast } from "@/lib/states";
-import { rate as formatRate, shortZid } from "@/lib/format";
+import { rate as formatRate } from "@/lib/format";
 import { NODE_SIZE } from "../lib/layout";
 
 /** What a node card needs to render. React Flow requires an index signature. */
@@ -38,9 +38,6 @@ export type NodeCardData = {
 
 export type NodeCardNode = Node<NodeCardData, "zenohNode">;
 
-/** All four sides, so an edge leaves whichever way is shortest. */
-const HANDLE_POSITIONS = [Position.Top, Position.Right, Position.Bottom, Position.Left] as const;
-
 /**
  * One Zenoh node.
  *
@@ -53,7 +50,12 @@ const HANDLE_POSITIONS = [Position.Top, Position.Right, Position.Bottom, Positio
  * detail stays anchored to the node it describes, and nothing it covers was
  * something you were looking at.
  */
-export function NodeCard({ data, selected }: NodeProps<NodeCardNode>) {
+export function NodeCard({
+  data,
+  selected,
+  sourcePosition = Position.Right,
+  targetPosition = Position.Left,
+}: NodeProps<NodeCardNode>) {
   const size = NODE_SIZE[data.kind];
 
   return (
@@ -75,41 +77,41 @@ export function NodeCard({ data, selected }: NodeProps<NodeCardNode>) {
         "transition-[border-color,box-shadow] duration-(--duration-fast) ease-(--ease-standard)",
         selected
           ? "border-accent shadow-[0_0_0_3px_var(--accent-subtle)]"
-          : data.alert
-            ? "border-warn/45 hover:border-warn"
-            : data.isLocal
-              ? "border-ok/50"
-              : "border-line hover:border-ink-faint",
+          : data.isLocal
+            ? "border-ok/50"
+            : "border-line hover:border-ink-faint",
       )}
     >
-      {HANDLE_POSITIONS.map((position) => (
-        <Handle
-          key={position}
-          id={position}
-          type="source"
-          position={position}
-          isConnectable={false}
-          className="!border-line !bg-surface-3 !size-2 !border opacity-0"
-        />
-      ))}
+      {/* One of each, unnamed, positioned from the node's own props. React Flow
+          attaches an edge's tail to a `source` and its head to a `target`, and
+          falls back to the unnamed handle of each type when an edge does not
+          name one — so a node carrying only sources silently draws no edges at
+          all rather than erroring. */}
+      <Handle
+        type="target"
+        position={targetPosition}
+        isConnectable={false}
+        className="!border-0 !bg-transparent"
+      />
+      <Handle
+        type="source"
+        position={sourcePosition}
+        isConnectable={false}
+        className="!border-0 !bg-transparent"
+      />
 
       <div
         className={cn("flex items-center gap-2.5 px-3", selected ? "pt-2.5" : "h-full")}
         style={selected ? undefined : { height: size.height }}
       >
-        <NodeKindIcon kind={data.kind} local={data.isLocal} alert={data.alert !== null} />
+        <NodeKindIcon kind={data.kind} local={data.isLocal} />
 
         <span className="text-small text-ink min-w-0 flex-1 truncate" title={data.zid}>
           {data.label}
         </span>
 
-        <span
-          className={cn(
-            "numeric text-tiny shrink-0 font-medium",
-            data.alert ? "text-warn" : "text-ink-muted",
-          )}
-        >
-          {data.rate === null ? shortZid(data.zid, 4, 4) : formatRate(data.rate)}
+        <span className="numeric text-tiny text-ink-faint shrink-0">
+          {data.rate === null ? data.linkCount : formatRate(data.rate)}
         </span>
 
         {data.alert && !selected ? (
@@ -134,8 +136,8 @@ export function NodeCard({ data, selected }: NodeProps<NodeCardNode>) {
             <Meter
               value={data.share}
               size="xs"
-              tone={data.alert ? "warn" : "accent"}
-              label={`${data.label} share of traffic`}
+              tone="accent"
+              label={`${data.label} share of the region's links`}
               className="mx-3 mt-2"
             />
           ) : null}

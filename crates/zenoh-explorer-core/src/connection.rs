@@ -147,17 +147,20 @@ impl ConnectionOptions {
         push("connect/exit_on_failure", "false".to_owned());
 
         if let Some(retry) = &self.retry {
+            // The whole object in one write, not three nested keys.
+            // `connect.retry` is `Option` in Zenoh's schema, and `insert_json5`
+            // resolves a path against what already exists rather than creating
+            // it — so writing `connect/retry/period_init_ms` into a config
+            // where `retry` is unset is rejected with "unknown key". Every
+            // other nested block we touch (`scouting/multicast`,
+            // `transport/link/tls`) derives Default and is always present,
+            // which is why this is the only one that needs it.
             push(
-                "connect/retry/period_init_ms",
-                retry.period_init_ms.to_string(),
-            );
-            push(
-                "connect/retry/period_max_ms",
-                retry.period_max_ms.to_string(),
-            );
-            push(
-                "connect/retry/period_increase_factor",
-                retry.period_increase_factor.to_string(),
+                "connect/retry",
+                format!(
+                    "{{ period_init_ms: {}, period_max_ms: {}, period_increase_factor: {} }}",
+                    retry.period_init_ms, retry.period_max_ms, retry.period_increase_factor
+                ),
             );
         }
 
@@ -215,19 +218,27 @@ mod tests {
         assert_eq!(map["scouting/multicast/listen"], "false");
         // Leaves Zenoh's own timing alone.
         assert!(!map.contains_key("connect/timeout_ms"));
-        assert!(!map.contains_key("connect/retry/period_init_ms"));
+        assert!(!map.contains_key("connect/retry"));
     }
 
+    /// The backoff goes in as ONE object.
+    ///
+    /// `connect.retry` is `Option` in Zenoh's schema and `insert_json5`
+    /// resolves against what exists, so the three keys written separately are
+    /// rejected with "unknown key". `config.rs` has the test that proves Zenoh
+    /// accepts what this produces; this one pins the shape.
     #[test]
-    fn retry_emits_all_three_backoff_keys_together() {
+    fn retry_emits_the_backoff_as_a_single_object() {
         let options = ConnectionOptions {
             retry: Some(RetryConfig::default()),
             ..Default::default()
         };
         let map = entries(&options);
-        assert_eq!(map["connect/retry/period_init_ms"], "1000");
-        assert_eq!(map["connect/retry/period_max_ms"], "5000");
-        assert_eq!(map["connect/retry/period_increase_factor"], "2");
+        assert_eq!(
+            map["connect/retry"],
+            "{ period_init_ms: 1000, period_max_ms: 5000, period_increase_factor: 2 }"
+        );
+        assert!(!map.contains_key("connect/retry/period_init_ms"));
     }
 
     #[test]

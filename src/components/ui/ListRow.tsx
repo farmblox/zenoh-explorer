@@ -6,20 +6,9 @@ import { focusRing, transitionFast } from "@/lib/states";
 /** Row density. `compact` is the scanning list; `comfortable` reads as content. */
 export type ListRowSize = "compact" | "comfortable";
 
-/** What the left mark says about the row, when it says anything. */
-export type ListRowMark = "none" | "accent" | "ok" | "warn" | "danger";
-
 const SIZES: Record<ListRowSize, string> = {
-  compact: "h-[34px] px-4",
-  comfortable: "min-h-10 px-4 py-2.5",
-};
-
-const MARKS: Record<ListRowMark, string> = {
-  none: "border-l-transparent",
-  accent: "border-l-accent",
-  ok: "border-l-ok",
-  warn: "border-l-warn",
-  danger: "border-l-danger",
+  compact: "h-8 px-2.5",
+  comfortable: "min-h-9 px-2.5 py-2",
 };
 
 export interface ListRowProps {
@@ -30,10 +19,8 @@ export interface ListRowProps {
   /** Trailing value — a count, a rate, a short identifier. */
   meta?: ReactNode;
   /** Renders `meta` in the monospace face. Default, since it is usually a value. */
-  metaMono?: boolean;
+  metaMono?: boolean | undefined;
   selected?: boolean | undefined;
-  /** Colours the 2px left edge. Independent of selection, so a row can be both. */
-  mark?: ListRowMark | undefined;
   size?: ListRowSize | undefined;
   onClick?: (() => void) | undefined;
   title?: string | undefined;
@@ -43,14 +30,14 @@ export interface ListRowProps {
 /**
  * One selectable row in a side list.
  *
- * The same row appears in the node list, the config node picker and the saved
- * connections list, and it was hand-built in each. Three copies of a row is
- * three chances for its height, its hover and its selected state to drift
- * apart — and a list that behaves differently in three places is the kind of
- * thing nobody reports but everybody feels.
+ * Shaped exactly like a sidebar item: inset, `rounded-control`, selection
+ * carried by a tinted fill. The sidebar is the list people use most, so it is
+ * what a list row IS in this app — a second, full-bleed shape elsewhere would
+ * read as a different kind of thing without being one.
  *
- * The 2px left edge is a second channel alongside selection: a row can be
- * selected AND flagged, which a background colour alone cannot say.
+ * There is deliberately no status marker. Whatever a row is flagged for — the
+ * explorer's own session, a node needing attention — is already carried by the
+ * icon it renders, and a second channel repeating that is an accessory.
  */
 export function ListRow({
   icon,
@@ -58,7 +45,6 @@ export function ListRow({
   meta,
   metaMono = true,
   selected,
-  mark = "none",
   size = "compact",
   onClick,
   title,
@@ -71,21 +57,16 @@ export function ListRow({
       title={title}
       aria-current={selected ? "true" : undefined}
       className={cn(
-        "flex w-full items-center gap-2.5 border-l-2 text-left",
+        "rounded-control text-small flex w-full items-center gap-2.5 text-left",
         SIZES[size],
         focusRing,
         transitionFast,
-        selected ? "bg-accent-subtle" : "hover:bg-surface-2",
-        // Selection owns the left edge unless the row is flagged for another
-        // reason, in which case the flag is the more urgent thing to say.
-        mark === "none" && selected ? "border-l-accent" : MARKS[mark],
+        selected ? "bg-accent-subtle text-ink" : "text-ink-muted hover:bg-surface-2 hover:text-ink",
         className,
       )}
     >
       {icon}
-      <span className={cn("min-w-0 flex-1 truncate", selected ? "text-ink" : "text-ink-muted")}>
-        {children}
-      </span>
+      <span className="min-w-0 flex-1 truncate">{children}</span>
       {meta !== undefined && meta !== null ? (
         <span className={cn("text-tiny text-ink-faint shrink-0", metaMono && "numeric")}>
           {meta}

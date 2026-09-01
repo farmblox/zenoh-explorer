@@ -152,9 +152,9 @@ export function ConfigView() {
           label="Resize the node list"
           className="border-line bg-surface-0 border-r"
         >
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 p-2">
             {replies.length === 0 ? (
-              <p className="text-tiny text-ink-faint px-4 py-3 leading-relaxed">
+              <p className="text-tiny text-ink-faint px-2.5 py-2 leading-relaxed">
                 No node answered. Zenoh only publishes its configuration when
                 <span className="numeric text-ink-muted"> adminspace.enabled</span> is on and
                 <span className="numeric text-ink-muted"> adminspace.permissions.read</span> allows

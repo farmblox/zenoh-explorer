@@ -34,6 +34,14 @@ const EDGE_TYPES = { link: LinkEdge } as const;
 /** Leaves room for the floating controls without cropping the graph. */
 const FIT_PADDING = 0.2;
 
+/**
+ * Graph size at which an overview starts earning its space.
+ *
+ * Below this the whole graph fits on screen, and a minimap of something you can
+ * already see is decoration that costs a corner of the canvas.
+ */
+const MINIMAP_THRESHOLD = 14;
+
 export interface TopologyCanvasProps {
   snapshot: TopologySnapshot;
   mode: GraphMode;
@@ -41,6 +49,14 @@ export interface TopologyCanvasProps {
   selectedZid: string | null;
   layout: LayoutMode;
   actions: GraphActions;
+  /**
+   * Changes whenever a side panel opens or closes.
+   *
+   * Those panels take width from the canvas, so the frame that fitted a moment
+   * ago now hides nodes behind them. The canvas cannot see that happen — it
+   * only knows its own element resized — so the view tells it.
+   */
+  framingKey: string;
   onOpenRegion: (regionId: string) => void;
   onSelectNode: (zid: string | null) => void;
 }
@@ -60,6 +76,7 @@ export function TopologyCanvas({
   selectedZid,
   layout,
   actions,
+  framingKey,
   onOpenRegion,
   onSelectNode,
 }: TopologyCanvasProps) {
@@ -72,6 +89,8 @@ export function TopologyCanvas({
   /** Which graph the current positions belong to. */
   const levelKey = `${mode}:${level.kind === "regions" ? "regions" : level.regionId}:${layout}`;
   const previousLevel = useRef(levelKey);
+  /** Set when the graph changed and the new one still needs framing. */
+  const needsFit = useRef(false);
 
   useEffect(() => {
     const changedLevel = previousLevel.current !== levelKey;
@@ -93,12 +112,32 @@ export function TopologyCanvas({
 
     setEdges(graph.edges);
 
-    if (changedLevel) {
-      // A different graph deserves a fresh frame. Deferred so it runs after
-      // the new nodes have been measured.
-      requestAnimationFrame(() => void fitView({ padding: FIT_PADDING, maxZoom: 1 }));
-    }
-  }, [graph, levelKey, setNodes, setEdges, fitView]);
+    // A different graph deserves a fresh frame, but not yet: `setNodes` above
+    // has not committed, so fitting here would frame the graph being replaced.
+    if (changedLevel) needsFit.current = true;
+  }, [graph, levelKey, setNodes, setEdges]);
+
+  // Runs after the new nodes are on screen and measured, which is the only
+  // point at which their bounding box is real.
+  useEffect(() => {
+    if (!needsFit.current || nodes.length === 0) return;
+    needsFit.current = false;
+    const frame = requestAnimationFrame(
+      () => void fitView({ padding: FIT_PADDING, maxZoom: 1, duration: 200 }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [nodes, fitView]);
+
+  // A side panel opening narrows the canvas. Re-frame so the graph stays in the
+  // part of it you can still see, rather than sliding under the panel.
+  useEffect(() => {
+    // Waits for the panel's own layout to settle before measuring.
+    const timer = setTimeout(
+      () => void fitView({ padding: FIT_PADDING, maxZoom: 1, duration: 220 }),
+      60,
+    );
+    return () => clearTimeout(timer);
+  }, [framingKey, fitView]);
 
   const onNodeClick = useCallback<NodeMouseHandler>(
     (_event, node) => {
@@ -118,6 +157,8 @@ export function TopologyCanvas({
     return data.kind === "router" ? "var(--accent)" : "var(--track)";
   }, []);
 
+  // Attribution stays — React Flow's licence asks for it — but it moves out
+  // from under the minimap and the controls.
   const proOptions = useMemo(() => ({ hideAttribution: false }), []);
 
   return (
@@ -143,7 +184,7 @@ export function TopologyCanvas({
         elementsSelectable
         selectNodesOnDrag={false}
         proOptions={proOptions}
-        className="bg-transparent"
+        className="[&_.react-flow__attribution_a]:!text-ink-disabled bg-transparent [&_.react-flow__attribution]:!right-auto [&_.react-flow__attribution]:!left-1/2 [&_.react-flow__attribution]:!bg-transparent"
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -156,14 +197,20 @@ export function TopologyCanvas({
           showInteractive={false}
           className="!rounded-control !border-line !bg-surface-2 [&_button]:!border-line-soft [&_button]:!bg-surface-2 [&_button]:!fill-ink-muted hover:[&_button]:!bg-surface-3 !border !shadow-none [&_button]:!size-[30px]"
         />
-        <MiniMap
-          pannable
-          zoomable
-          nodeColor={minimapColor}
-          nodeStrokeWidth={0}
-          maskColor="var(--scrim)"
-          className="!rounded-control !border-line !bg-surface-0 !h-[126px] !w-[186px] !border"
-        />
+        {nodes.length > MINIMAP_THRESHOLD ? (
+          <MiniMap
+            pannable
+            zoomable
+            nodeColor={minimapColor}
+            nodeStrokeWidth={0}
+            nodeBorderRadius={2}
+            // The mask dims what is OUT of view, so it has to be lighter than
+            // the panel or the whole thing reads as one dark block.
+            maskColor="rgb(0 0 0 / 0.55)"
+            bgColor="var(--surface-1)"
+            className="!rounded-control !border-line !right-4 !bottom-4 !m-0 !h-[112px] !w-[168px] !border"
+          />
+        ) : null}
       </ReactFlow>
 
       {/* Outside the canvas, so panning and zooming never move it. */}

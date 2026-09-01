@@ -77,7 +77,7 @@ export { ResizablePanel } from "./ResizablePanel";
 export type { PanelSide, ResizablePanelProps } from "./ResizablePanel";
 
 export { ListRow } from "./ListRow";
-export type { ListRowMark, ListRowProps, ListRowSize } from "./ListRow";
+export type { ListRowProps, ListRowSize } from "./ListRow";
 
 export { SectionLabel } from "./SectionLabel";
 export type { SectionLabelProps } from "./SectionLabel";

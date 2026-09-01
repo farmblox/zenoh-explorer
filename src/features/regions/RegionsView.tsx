@@ -114,8 +114,13 @@ export function RegionsView() {
                       legend
                       segments={[
                         { key: "routers", label: "routers", value: region.routers, tone: "accent" },
-                        { key: "peers", label: "peers", value: region.peers, tone: "neutral" },
-                        { key: "clients", label: "clients", value: region.clients, tone: "ok" },
+                        { key: "peers", label: "peers", value: region.peers, tone: "accent-soft" },
+                        {
+                          key: "clients",
+                          label: "clients",
+                          value: region.clients,
+                          tone: "accent-faint",
+                        },
                       ]}
                     />
 

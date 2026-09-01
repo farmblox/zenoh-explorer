@@ -16,6 +16,8 @@ export type RegionCardData = {
   readonly containsLocal: boolean;
   /** Links leaving this region for another. */
   readonly trunks: number;
+  /** A few member names, so the card says who is in here and not only how many. */
+  readonly members: readonly string[];
   [key: string]: unknown;
 };
 
@@ -24,14 +26,20 @@ export type RegionCardNode = Node<RegionCardData, "region">;
 /**
  * A whole region, collapsed to one card.
  *
- * This is the top level of the topology view. Drawing two thousand nodes at
- * once is a picture of nothing, so the first thing you see is one card per
- * region with its composition, and you open the one you care about.
+ * The top level of the topology view. Drawing two thousand nodes at once is a
+ * picture of nothing, so the first thing you see is one card per region.
+ *
+ * The card names a few of its members rather than only counting them. "Five
+ * nodes" tells you the size of a thing you then have to open to identify;
+ * "rtr-edge-1, agv-07, agv-11 and two more" often answers the question outright,
+ * which is the difference between a summary and a lookup you have to pay for.
  */
 export function RegionCard({ data, selected }: NodeProps<RegionCardNode>) {
   // Zenoh's identifier is what gets shown; the explanation is the tooltip.
   const region = describeRegion(data.label);
   const isolated = data.trunks === 0;
+  const shown = data.members.slice(0, 3);
+  const rest = data.total - shown.length;
 
   return (
     <div
@@ -54,38 +62,45 @@ export function RegionCard({ data, selected }: NodeProps<RegionCardNode>) {
         isConnectable={false}
       />
 
-      <div className="flex-1 p-4">
-        <header className="flex items-center gap-2.5">
-          <StatusDot status={data.containsLocal ? "live" : "idle"} />
+      <div className="flex-1 p-5">
+        <header className="flex items-baseline gap-2.5">
+          <StatusDot status={data.containsLocal ? "live" : "idle"} className="translate-y-[-1px]" />
           <span
             className="text-ink numeric min-w-0 flex-1 truncate text-base font-medium"
             title={region.description}
           >
             {region.id}
           </span>
-          <span className="numeric text-small text-ink shrink-0 font-medium">
+          <span className="numeric text-metric text-ink tracking-title shrink-0 font-medium">
             {groupedNumber(data.total)}
           </span>
         </header>
 
-        <p className="text-tiny text-ink-faint mt-2 line-clamp-2" title={region.description}>
-          {region.description}
+        <p className="text-tiny text-ink-faint mt-1" title={region.description}>
+          {region.summary}
         </p>
 
         <Mix
-          className="mt-3.5"
+          className="mt-4"
           legend
           segments={[
             { key: "routers", label: "routers", value: data.routers, tone: "accent" },
-            { key: "peers", label: "peers", value: data.peers, tone: "neutral" },
-            { key: "clients", label: "clients", value: data.clients, tone: "ok" },
+            { key: "peers", label: "peers", value: data.peers, tone: "accent-soft" },
+            { key: "clients", label: "clients", value: data.clients, tone: "accent-faint" },
           ]}
         />
+
+        {shown.length > 0 ? (
+          <p className="text-tiny text-ink-muted mt-4 truncate" title={data.members.join(", ")}>
+            {shown.join(", ")}
+            {rest > 0 ? <span className="text-ink-faint"> +{groupedNumber(rest)} more</span> : null}
+          </p>
+        ) : null}
       </div>
 
       <footer
         className={cn(
-          "border-line-soft flex items-center gap-2.5 border-t px-4 py-2.5",
+          "border-line-soft flex items-center gap-2.5 border-t px-5 py-3",
           isolated ? "bg-warn-subtle" : "bg-surface-1",
         )}
       >
@@ -96,8 +111,8 @@ export function RegionCard({ data, selected }: NodeProps<RegionCardNode>) {
           )}
         >
           {isolated
-            ? "No link to any other region"
-            : `${data.trunks} link${data.trunks === 1 ? "" : "s"} to other regions`}
+            ? "Reaches no other region"
+            : `${data.trunks} link${data.trunks === 1 ? "" : "s"} out`}
         </span>
         <span className="text-tiny text-accent shrink-0 font-medium">Open →</span>
       </footer>

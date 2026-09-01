@@ -20,7 +20,15 @@ import { UNGROUPED } from "./grouping";
 export interface RegionDescription {
   /** Zenoh's identifier, exactly as reported. */
   readonly id: string;
-  /** What it means, in one line. */
+  /**
+   * Three or four words, for a card.
+   *
+   * Separate from `description` because a card has room for a label and a
+   * tooltip has room for a lesson. Putting the lesson on the card meant
+   * truncating it mid-sentence, which taught nobody anything.
+   */
+  readonly summary: string;
+  /** The full explanation, for a tooltip or a list row. */
   readonly description: string;
   /** `true` when Zenoh derived this rather than an operator configuring it. */
   readonly derived: boolean;
@@ -38,6 +46,7 @@ export function describeRegion(region: string): RegionDescription {
   if (region === UNGROUPED) {
     return {
       id: "ungrouped",
+      summary: "No region reported",
       description:
         "Nodes that reported no region. Includes the explorer's own session and anything found without reading its admin space.",
       derived: true,
@@ -47,6 +56,7 @@ export function describeRegion(region: string): RegionDescription {
   if (region === "north") {
     return {
       id: region,
+      summary: "Router-to-router backbone",
       description: "The backbone, and Zenoh's default: router-to-router links.",
       derived: true,
     };
@@ -55,6 +65,7 @@ export function describeRegion(region: string): RegionDescription {
   if (region === "local") {
     return {
       id: region,
+      summary: "A router's own sessions",
       description: "Sessions local to a router rather than reached across the network.",
       derived: true,
     };
@@ -64,10 +75,16 @@ export function describeRegion(region: string): RegionDescription {
   if (south) {
     return {
       id: region,
+      summary: `Downstream · ${south.mode}s`,
       description: `Downstream of a router: peers and ${south.mode}s attached below it. Created automatically by the default gateway policy.`,
       derived: true,
     };
   }
 
-  return { id: region, description: "A configured region name.", derived: false };
+  return {
+    id: region,
+    summary: "Configured name",
+    description: "A configured region name.",
+    derived: false,
+  };
 }

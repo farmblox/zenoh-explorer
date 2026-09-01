@@ -107,9 +107,13 @@ export function TopologyView() {
       <ViewHeader
         title="Topology"
         subtitle={
-          snapshot
-            ? `${groupedNumber(nodeCount)} nodes · ${groupedNumber(linkCount)} links`
-            : "Reading the admin space"
+          openRegion
+            ? `Inside ${openRegion.region.id}`
+            : mode === "region"
+              ? "Grouped by the region each node reports"
+              : mode === "router"
+                ? "Grouped by the router each node attaches to"
+                : "Every node the explorer can see"
         }
         alert={snapshot?.partial ? "Partial view" : undefined}
       />
@@ -149,14 +153,12 @@ export function TopologyView() {
         <div className="relative min-w-0 flex-1">
           {snapshot && nodeCount > 0 ? (
             <>
-              <CanvasBadge
-                mode={mode}
-                detail={
-                  openRegion
-                    ? `${openRegion.region.id} · ${groupedNumber(openRegion.region.nodes.length)} of ${groupedNumber(nodeCount)} nodes drawn`
-                    : `${groupedNumber(nodeCount)} nodes · ${groupedNumber(linkCount)} links drawn`
-                }
-              />
+              {openRegion ? (
+                <CanvasBadge
+                  mode={openRegion.region.id}
+                  detail={`${groupedNumber(openRegion.region.nodes.length)} of ${groupedNumber(nodeCount)} nodes drawn`}
+                />
+              ) : null}
               {/* The provider must wrap the canvas rather than the app: it owns
                   the store for this graph, and remounting it on session change
                   is exactly what we want. */}
@@ -168,6 +170,9 @@ export function TopologyView() {
                   selectedZid={selectedZid}
                   layout={layout}
                   actions={actions}
+                  // Both side panels take width from the canvas, so their
+                  // presence is part of how the graph should be framed.
+                  framingKey={`${openRegion ? "list" : ""}:${traceFrom ? "trace" : selectedNode ? "inspector" : ""}`}
                   onOpenRegion={openRegionAt}
                   onSelectNode={setSelectedZid}
                 />

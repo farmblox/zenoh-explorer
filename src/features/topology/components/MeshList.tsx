@@ -87,9 +87,9 @@ export function MeshList({ nodes, rates, selectedZid, onSelect }: MeshListProps)
         />
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 p-2">
         {visible.length === 0 ? (
-          <p className="text-tiny text-ink-faint px-4 py-3">No node matches “{filter}”.</p>
+          <p className="text-tiny text-ink-faint px-2.5 py-2">No node matches “{filter}”.</p>
         ) : (
           visible.map((node) => {
             const rate = rates.get(node.zid);
@@ -99,7 +99,6 @@ export function MeshList({ nodes, rates, selectedZid, onSelect }: MeshListProps)
               <ListRow
                 key={node.zid}
                 selected={isSelected}
-                mark={node.isLocal ? "ok" : "none"}
                 onClick={() => onSelect(node.zid)}
                 icon={<NodeKindIcon kind={node.kind} size="sm" local={node.isLocal} />}
                 meta={rate === undefined ? shortZid(node.zid, 4, 4) : formatRate(rate)}

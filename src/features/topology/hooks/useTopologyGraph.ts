@@ -82,6 +82,10 @@ function buildRegionGraph(snapshot: TopologySnapshot): TopologyGraph {
       // Counted from the links leaving this region, so the footer and the
       // edges drawn beside it always agree.
       trunks: links.filter((link) => link.from === region.id || link.to === region.id).length,
+      // Routers first, which `buildRegionView` already ordered them as, so the
+      // names shown are the ones that identify the region rather than three
+      // arbitrary leaves.
+      members: region.nodes.map((node) => label(node)),
     },
   }));
 

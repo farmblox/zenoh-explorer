@@ -53,7 +53,7 @@ export function LinkEdge({
   data,
   markerEnd,
 }: EdgeProps<LinkEdgeType>) {
-  const [path, labelX, labelY] = getBezierPath({
+  const [path] = getBezierPath({
     sourceX,
     sourceY,
     targetX,
@@ -62,6 +62,12 @@ export function LinkEdge({
     targetPosition,
   });
 
+  // Two thirds of the way to the target rather than the midpoint the path
+  // helper returns: edges fanning out of one node share a source, so their
+  // midpoints coincide and every chip lands in the same place.
+  const labelX = sourceX + (targetX - sourceX) * 0.66;
+  const labelY = sourceY + (targetY - sourceY) * 0.66;
+
   const highlighted = data?.highlighted ?? false;
   const weight = data?.weight ?? 1;
   const style = KINDS[data?.kind ?? "access"];
@@ -69,7 +75,17 @@ export function LinkEdge({
   // A region edge stands for many node-level links, so weight reads as
   // thickness — capped, so a busy pair does not become a slab.
   const width = weight > 1 ? Math.min(3.5, 1.5 + Math.log2(weight)) : style.width;
-  const label = weight > 1 ? `×${weight}` : (data?.protocol ?? null);
+
+  // Labelling every edge buries the graph in chips that collide wherever edges
+  // fan out from one node, and repeats "quic" four times to say nothing. A
+  // chip appears when the edge is one you asked about by selecting its node,
+  // when it stands for several links, or when something about it is wrong.
+  const label =
+    weight > 1
+      ? `×${weight}`
+      : highlighted || data?.kind === "unconfirmed"
+        ? (data?.protocol ?? null)
+        : null;
 
   return (
     <>

@@ -129,7 +129,11 @@ export function ConnectDialog() {
       {/* A fixed height, not a minimum. Expanding a disclosure must not resize
           the window — the columns scroll inside instead, so the saved list and
           the footer stay exactly where they were. */}
-      <div className="flex h-[min(600px,78vh)] overflow-hidden">
+      {/* A fixed height, so opening Advanced does not resize the window under
+          the cursor — but sized for the form as it usually stands rather than
+          for its longest possible state, which left most of the panel empty.
+          The columns scroll independently when the content outgrows it. */}
+      <div className="flex h-[min(468px,78vh)] overflow-hidden">
         <SavedConnections
           profiles={saved}
           selectedId={selectedId}

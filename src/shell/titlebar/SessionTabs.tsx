@@ -3,7 +3,7 @@ import { Plus, X } from "lucide-react";
 import { StatusDot } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { groupedNumber } from "@/lib/format";
-import { transitionFast } from "@/lib/states";
+import { focusRingOnChrome, transitionFast } from "@/lib/states";
 import { useSessionStore, useUiStore } from "@/stores";
 
 /**
@@ -32,15 +32,22 @@ export function SessionTabs() {
           <div
             key={session.id}
             className={cn(
-              "group flex h-7 shrink-0 items-center gap-2 rounded-full pr-1.5 pl-3.5",
+              // A tab, not a pill. Fully rounded reads as a chip — something
+              // you dismiss — where these are places you go. The softened
+              // rectangle and the extra height give them the weight of a
+              // destination, and let the active one sit as a raised surface
+              // rather than a tinted lozenge.
+              "group rounded-control flex h-8 shrink-0 items-center gap-2 pr-1.5 pl-3",
               transitionFast,
-              active ? "bg-surface-2" : "hover:bg-surface-2/60",
+              active
+                ? "bg-surface-2 border-line border shadow-[0_1px_0_var(--line-soft)]"
+                : "hover:bg-surface-2/60 border border-transparent",
             )}
           >
             <button
               type="button"
               onClick={() => setActive(session.id)}
-              className="text-small flex items-center gap-2"
+              className={cn("text-small rounded-inner flex items-center gap-2", focusRingOnChrome)}
               aria-current={active ? "page" : undefined}
             >
               <StatusDot status={session.transportCount > 0 ? "live" : "degraded"} />
@@ -56,9 +63,10 @@ export function SessionTabs() {
               onClick={() => void disconnect(session.id)}
               aria-label={`Close ${session.profile.name}`}
               className={cn(
-                "text-ink-faint flex size-4 items-center justify-center rounded-full",
+                "text-ink-faint rounded-inner flex size-4 items-center justify-center",
                 "hover:text-ink opacity-0 transition-opacity group-hover:opacity-100",
                 "focus-visible:opacity-100",
+                focusRingOnChrome,
               )}
             >
               <X size={11} />
@@ -71,8 +79,10 @@ export function SessionTabs() {
         <div
           key={attempt.key}
           className={cn(
-            "text-small flex h-7 shrink-0 items-center gap-2 rounded-full px-3.5",
-            attempt.error ? "bg-danger-subtle text-danger" : "bg-surface-2 text-ink-muted",
+            "text-small rounded-control flex h-8 shrink-0 items-center gap-2 border px-3",
+            attempt.error
+              ? "bg-danger-subtle border-danger/30 text-danger"
+              : "bg-surface-2 border-line text-ink-muted",
           )}
           title={attempt.error ?? "Connecting…"}
         >
@@ -96,8 +106,9 @@ export function SessionTabs() {
         title="Connect to a network"
         aria-label="Connect to a network"
         className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-full",
+          "rounded-control flex size-8 shrink-0 items-center justify-center",
           "text-ink-faint hover:bg-surface-2 hover:text-ink",
+          focusRingOnChrome,
           transitionFast,
         )}
       >

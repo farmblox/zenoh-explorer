@@ -13,6 +13,7 @@
     "build": "tauri build",
     "build:e2e": "tauri build --no-bundle --features e2e --config src-tauri/tauri.e2e.conf.json",
     "build:vite": "vite build",
+    "capture": "pnpm build:e2e && wdio run wdio.capture.ts",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm rust:lint && pnpm rust:test",
     "dev": "tauri dev",
     "dev:vite": "vite",

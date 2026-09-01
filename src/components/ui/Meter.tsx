@@ -9,8 +9,17 @@ import { cn } from "@/lib/cn";
  */
 export type MeterSize = "xs" | "sm" | "md" | "lg";
 
-/** Semantic colour for the filled portion. */
-export type MeterTone = "accent" | "ok" | "warn" | "danger" | "neutral";
+/**
+ * Colour for the filled portion.
+ *
+ * Two families, deliberately kept apart. `ok`/`warn`/`danger` mean STATUS — a
+ * bar in one of those is making a claim about health. `accent`, `accent-soft`
+ * and `accent-faint` are a ramp for ordered categories, where the only thing
+ * the colour encodes is rank. Drawing a category in a status colour says
+ * something true-sounding and false.
+ */
+export type MeterTone =
+  "accent" | "accent-soft" | "accent-faint" | "ok" | "warn" | "danger" | "neutral";
 
 const SIZES: Record<MeterSize, string> = {
   xs: "h-[3px]",
@@ -21,6 +30,8 @@ const SIZES: Record<MeterSize, string> = {
 
 const TONES: Record<MeterTone, string> = {
   accent: "bg-accent",
+  "accent-soft": "bg-accent/55",
+  "accent-faint": "bg-accent/28",
   ok: "bg-ok",
   warn: "bg-warn",
   danger: "bg-danger",

@@ -351,3 +351,28 @@ mod tests {
         assert_eq!(config.get_json("adminspace/enabled").unwrap(), "true");
     }
 }
+
+#[cfg(test)]
+mod retry_tests {
+    use super::*;
+    use crate::connection::{ConnectionOptions, RetryConfig};
+
+    /// Zenoh has to ACCEPT the backoff, not just receive it.
+    ///
+    /// `connection.rs` checks the entries we emit; this checks that
+    /// `insert_json5` takes them. The two can disagree — the keys were once
+    /// correct in name, correct in the entry map, and still rejected.
+    #[test]
+    fn a_profile_with_retry_backoff_builds_a_zenoh_config() {
+        let profile = ConnectionProfile {
+            options: ConnectionOptions {
+                retry: Some(RetryConfig::default()),
+                ..ConnectionOptions::default()
+            },
+            ..ConnectionProfile::default()
+        };
+
+        let built = profile.to_zenoh_config();
+        assert!(built.is_ok(), "retry backoff rejected by Zenoh: {built:?}");
+    }
+}

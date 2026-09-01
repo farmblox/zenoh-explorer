@@ -19,7 +19,7 @@ export const LAYOUTS = [
 ] as const satisfies ReadonlyArray<{ value: LayoutMode; label: string }>;
 
 /** Region card dimensions, matched to the node card so the grid lines up. */
-export const REGION_SIZE = { width: 248, height: 156 } as const;
+export const REGION_SIZE = { width: 272, height: 212 } as const;
 
 /**
  * Node card dimensions, per role.

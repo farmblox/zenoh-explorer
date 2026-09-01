@@ -145,9 +145,12 @@ export function NodeInspector({
                   <ListRow
                     key={otherZid}
                     size="comfortable"
-                    mark={link.bidirectional ? "none" : "warn"}
                     onClick={() => onSelectNode(otherZid)}
-                    icon={other ? <NodeKindIcon kind={other.kind} size="sm" /> : null}
+                    icon={
+                      other ? (
+                        <NodeKindIcon kind={other.kind} size="sm" alert={!link.bidirectional} />
+                      ) : null
+                    }
                     meta={link.protocol}
                     title={link.bidirectional ? undefined : "Only one end reported this link"}
                   >

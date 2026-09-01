@@ -42,32 +42,39 @@ export function DataTable<Row>({
   empty,
   className,
 }: DataTableProps<Row>) {
+  // Column headers describe cells. With no rows there are none, so the header
+  // is a label for nothing — and an empty state reads as a stray caption under
+  // a table that failed to load rather than as the whole answer.
+  const showEmpty = rows.length === 0 && empty !== undefined;
+
   const template = columns
     .map((column) => (column.width === "flex" ? "minmax(0, 1fr)" : `${column.width}px`))
     .join(" ");
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
-      <div
-        role="row"
-        style={{ gridTemplateColumns: template }}
-        className={cn(
-          "border-line bg-surface-0 grid shrink-0 items-center gap-4 border-b px-5 py-2.5",
-          "text-tiny text-ink-muted font-semibold tracking-wide uppercase",
-        )}
-      >
-        {columns.map((column) => (
-          <span
-            key={column.id}
-            role="columnheader"
-            className={cn("truncate", column.align === "right" && "text-right")}
-          >
-            {column.header}
-          </span>
-        ))}
-      </div>
+      {showEmpty ? null : (
+        <div
+          role="row"
+          style={{ gridTemplateColumns: template }}
+          className={cn(
+            "border-line bg-surface-0 grid shrink-0 items-center gap-4 border-b px-5 py-2.5",
+            "text-tiny text-ink-muted font-semibold tracking-wide uppercase",
+          )}
+        >
+          {columns.map((column) => (
+            <span
+              key={column.id}
+              role="columnheader"
+              className={cn("truncate", column.align === "right" && "text-right")}
+            >
+              {column.header}
+            </span>
+          ))}
+        </div>
+      )}
 
-      {rows.length === 0 && empty ? (
+      {showEmpty ? (
         <div className="flex-1">{empty}</div>
       ) : (
         <ScrollArea className="flex-1">

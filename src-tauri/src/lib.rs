@@ -28,7 +28,13 @@ pub fn run() {
 
     // Must be registered before any other plugin so that a second launch
     // forwards its arguments instead of opening a rival window.
-    #[cfg(desktop)]
+    //
+    // Left out of `e2e` builds. Single-instance is exactly wrong for a test
+    // harness: the driver launches its own copy, and with this registered that
+    // copy hands its arguments to whatever instance is already open and exits
+    // with status 0 — which the driver reports as a crash during startup. It
+    // also means the suite cannot run while a dev build is open.
+    #[cfg(all(desktop, not(feature = "e2e")))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
         setup::focus_main_window(app);
         setup::handle_deep_links(app, &argv);
