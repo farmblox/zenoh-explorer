@@ -157,8 +157,15 @@ export function KeyExprInput({
   const [verdict, setVerdict] = useState<{ expr: string; analysis: KeyExprAnalysis } | null>(null);
   /** How far the field has scrolled, so the marks stay under their text. */
   const [scrolled, setScrolled] = useState(0);
-  /** Where the caret is, which is which chunk is being built. */
-  const [caret, setCaret] = useState(0);
+  /**
+   * The selection, which says both which chunk and how much of it is spoken for.
+   *
+   * The end alone would say which chunk. The pair says whether the reader has
+   * narrowed it: a chunk selected whole has not been narrowed at all, and that
+   * is the difference between offering everything for a position and offering
+   * only what already matches.
+   */
+  const [range, setRange] = useState({ start: 0, end: 0 });
   /** Where to put the caret once a replacement has been applied. */
   const pending = useRef<number | null>(null);
 
@@ -177,7 +184,7 @@ export function KeyExprInput({
   useDismiss([anchor, panel], open, close);
 
   const chunks = chunksOf(value);
-  const slot = slotAt(chunks, caret);
+  const slot = slotAt(chunks, range.start);
   const typing = chunks[slot]?.text ?? "";
   // Everything to the left of the slot is the path whose children are the
   // candidates for it.
@@ -254,12 +261,29 @@ export function KeyExprInput({
   const bad = new Set(analysis?.badChunks ?? []);
 
   const level = children?.parent === parent ? children.nodes : [];
-  const needle = typing.toLowerCase();
+
+  // A chunk selected whole is a chunk being replaced, so everything available
+  // at that position is a candidate. Clicking `agv` to change it and being
+  // offered only `agv` is the list answering a question nobody asked. Typing
+  // collapses the selection, and the filter comes back with it.
+  const slotChunk = chunks[slot];
+  const replacing =
+    slotChunk !== undefined &&
+    slotChunk.text !== "" &&
+    range.start === slotChunk.start &&
+    range.end === slotChunk.start + slotChunk.text.length;
+  const needle = replacing ? "" : typing.toLowerCase();
 
   const completions: Completion[] = [
-    ...level.filter((node) => node.segment.toLowerCase().startsWith(needle)).map(fromKeyNode),
+    ...level
+      .filter((node) => node.segment.toLowerCase().startsWith(needle))
+      // A declaration is stored as written, so `fleet/**` puts a chunk called
+      // `**` in the tree. It is offered once, below, as the wildcard it is —
+      // listing it here as well showed it twice and gave two rows the same key.
+      .filter((node) => !isWildcard(node.segment))
+      .map(fromKeyNode),
     ...(wildcards
-      ? WILDCARDS.filter((entry) => entry.chunk.startsWith(typing) || typing === "").map(
+      ? WILDCARDS.filter((entry) => entry.chunk.startsWith(needle) || needle === "").map(
           (entry) => ({ chunk: entry.chunk, says: entry.says, deeper: entry.chunk === "*" }),
         )
       : []),
@@ -300,7 +324,7 @@ export function KeyExprInput({
 
     input.focus();
     input.setSelectionRange(chunk.start, chunk.start + chunk.text.length);
-    setCaret(chunk.start + chunk.text.length);
+    setRange({ start: chunk.start, end: chunk.start + chunk.text.length });
     setCursor(0);
     measure();
     setOpen(true);
@@ -313,7 +337,7 @@ export function KeyExprInput({
     if (at === null) return;
     pending.current = null;
     field.current?.setSelectionRange(at, at);
-    setCaret(at);
+    setRange({ start: at, end: at });
   }, [value]);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -366,7 +390,8 @@ export function KeyExprInput({
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
-          setCaret(event.target.selectionStart ?? event.target.value.length);
+          const at = event.target.selectionStart ?? event.target.value.length;
+          setRange({ start: at, end: at });
           setCursor(0);
           if (!open) measure();
           setOpen(true);
@@ -378,7 +403,12 @@ export function KeyExprInput({
         // Fires for a click, an arrow key and a drag alike, which is every way
         // the caret moves. Clicking into a chunk is therefore all it takes to
         // start editing that chunk.
-        onSelect={(event) => setCaret(event.currentTarget.selectionStart ?? 0)}
+        onSelect={(event) =>
+          setRange({
+            start: event.currentTarget.selectionStart ?? 0,
+            end: event.currentTarget.selectionEnd ?? 0,
+          })
+        }
         onKeyDown={onKeyDown}
         mono
         role="combobox"
@@ -536,6 +566,12 @@ export function KeyExprInput({
                     <span className="text-tiny text-ink-faint min-w-0 flex-1 truncate">
                       {completion.says}
                     </span>
+                    {/* Which one is already there. Offering every option for a
+                        position is only half an answer without saying which of
+                        them the reader is replacing. */}
+                    {completion.chunk === slotChunk?.text ? (
+                      <span className="text-tiny text-ink-faint shrink-0">current</span>
+                    ) : null}
                     {index === active ? (
                       <CornerDownLeft size={11} className="text-ink-faint shrink-0" />
                     ) : null}

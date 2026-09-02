@@ -123,7 +123,7 @@ pub fn analyse(input: &str) -> KeyExprAnalysis {
                 analysis.is_canonical = false;
                 analysis.canonical = Some(canonical.as_str().to_owned());
             } else {
-                analysis.error = Some(err.to_string());
+                analysis.error = Some(readable(&err.to_string()));
                 analysis.bad_chunks = bad_chunks(input);
             }
         }
@@ -194,6 +194,29 @@ impl Matcher {
     }
 }
 
+/// Zenoh's complaint, without the path into Zenoh.
+///
+/// `ZError` carries the file and line that raised it, so the reason arrives as
+/// "…`*` may only be preceded by `/` or `$` at
+/// /Users/…/zenoh-keyexpr-1.10.0/src/key_expr/borrowed.rs:777." The sentence in
+/// front of that is exactly what somebody needs; the rest is a path into a
+/// dependency's source, and an explorer that answers a question with one has
+/// stopped explaining.
+///
+/// Also drops the leading restatement of the expression, which every caller
+/// already has and is showing.
+fn readable(reason: &str) -> String {
+    let body = reason
+        .split_once(" at /")
+        .map_or(reason, |(message, _)| message)
+        .trim_end_matches('.');
+
+    // `Invalid Key Expr `x`: the part that matters`
+    body.split_once("`: ")
+        .map_or(body, |(_, message)| message)
+        .to_owned()
+}
+
 /// Which chunks of `input` will not parse on their own.
 ///
 /// Only asked once the whole expression has failed, so an expression that is
@@ -221,6 +244,25 @@ fn parse_lenient(input: &str) -> Option<OwnedKeyExpr> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_reason_says_what_is_wrong_and_nothing_about_zenoh() {
+        let analysis = analyse("fleet/a*b");
+        let reason = analysis.error.expect("an invalid expression has a reason");
+
+        assert_eq!(reason, "`*` may only be preceded by `/` or `$`");
+        assert!(!reason.contains(".rs:"), "a path into a dependency is not an explanation");
+        assert!(!reason.contains("Invalid Key Expr"), "the caller is already showing the expression");
+    }
+
+    #[test]
+    fn every_rejection_reads_as_a_sentence() {
+        for bad in ["fleet//x", "a?b", "fleet/$/x"] {
+            let reason = analyse(bad).error.unwrap_or_default();
+            assert!(!reason.is_empty(), "{bad} should be explained");
+            assert!(!reason.contains(".rs:"), "{bad} leaked a source path: {reason}");
+        }
+    }
+
     #[test]
     fn a_valid_expression_blames_no_chunk() {
         assert!(analyse("fleet/*/battery").bad_chunks.is_empty());

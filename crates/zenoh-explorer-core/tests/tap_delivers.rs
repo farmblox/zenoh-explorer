@@ -24,6 +24,7 @@ use zenoh_explorer_core::tap::{Tap, TapSpec};
 const DELIVERY_PORT: u16 = 7492;
 const FILTER_PORT: u16 = 7493;
 const DETAIL_PORT: u16 = 7494;
+const WRITE_PORT: u16 = 7495;
 
 /// Long enough to absorb a slow link on a loaded CI box; the assertions poll,
 /// so a healthy run finishes in well under this.
@@ -268,5 +269,64 @@ async fn a_sample_carries_its_timestamp_attachment_and_priority() {
     }
 
     publisher_handle.abort();
+    drop(tap);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_put_and_a_delete_both_reach_a_subscriber() {
+    // Both halves of the write path, end to end. A delete is a sample with a
+    // kind rather than a separate operation, so the test is that a subscriber
+    // sees two samples and that the second one says `delete`.
+    let publisher = zenoh::open(config(WRITE_PORT, true))
+        .await
+        .expect("publisher session");
+    let explorer = zenoh::open(config(WRITE_PORT, false))
+        .await
+        .expect("explorer session");
+
+    let collected = Collected::default();
+    let sink = collected.clone();
+
+    let tap = Tap::start(
+        &explorer,
+        &TapSpec::new("explorer/write/**"),
+        Arc::new(parking_lot::Mutex::new(KeyIndex::new())),
+        Arc::new(move |batch: SampleBatch| sink.0.lock().expect("collector poisoned").push(batch)),
+    )
+    .await
+    .expect("tap starts");
+
+    let handle = tokio::spawn(async move {
+        for _ in 0..200u32 {
+            publisher
+                .put("explorer/write/mode", "idle")
+                .await
+                .expect("put should be accepted");
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            publisher
+                .delete("explorer/write/mode")
+                .await
+                .expect("delete should be accepted");
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    });
+
+    eventually("a delete to arrive", || {
+        collected
+            .records()
+            .iter()
+            .any(|record| matches!(record.kind, zenoh_explorer_core::model::SampleKindDto::Delete))
+    })
+    .await;
+
+    let records = collected.records();
+    assert!(
+        records
+            .iter()
+            .any(|record| matches!(record.kind, zenoh_explorer_core::model::SampleKindDto::Put)),
+        "the put should have arrived too"
+    );
+
+    handle.abort();
     drop(tap);
 }

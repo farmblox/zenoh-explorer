@@ -7,6 +7,7 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use zenoh::Session;
+use zenoh::key_expr::OwnedKeyExpr;
 use zenoh::query::{ConsolidationMode, QueryTarget};
 
 use crate::acl::{self, AclFinding, PolicyHolder};
@@ -16,6 +17,7 @@ use crate::declarations::{self, DeclarationWatch};
 use crate::discovery::{ConnectivityWatch, watch_connectivity};
 use crate::error::{Error, Result};
 use crate::event::{AppEvent, DiagnosticLevel, EventSink};
+use crate::keyexpr_tools;
 use crate::keys::KeyIndex;
 use crate::model::{
     DeclarationKind, KeyDeclaration, KeySpaceSnapshot, NodeDeclaration, SampleRecord, SessionId,
@@ -27,6 +29,27 @@ use crate::storage::{self, StorageCoverage};
 use crate::tap::{SampleSink, Tap, TapSpec, TapStats};
 use crate::time::now_ms;
 use crate::trace::{self, Trace};
+
+/// Checks a key before it is written to, and canonicalises it.
+///
+/// Zenoh will reject an invalid key itself, but its rejection arrives as a
+/// `ZError` carrying the file and line inside `zenoh-keyexpr` that produced it —
+/// so a delete of a malformed key answered with a path into somebody else's
+/// source. Checked here instead, and reported through `analyse`, which strips
+/// that off.
+///
+/// Canonicalised as well as checked, because `**/**` and `**` are the same
+/// expression and only one of them is accepted.
+fn writable_key(key: &str) -> Result<OwnedKeyExpr> {
+    let trimmed = key.trim();
+
+    OwnedKeyExpr::autocanonize(trimmed.to_owned()).map_err(|_| Error::KeyExpr {
+        expr: trimmed.to_owned(),
+        reason: keyexpr_tools::analyse(trimmed)
+            .error
+            .unwrap_or_else(|| "not a valid key expression".to_owned()),
+    })
+}
 
 /// What the UI needs to render a session tab.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -430,7 +453,9 @@ impl ManagedSession {
     /// Publishes a payload. The explorer is read-mostly, but being unable to
     /// poke a value is a real gap when debugging a subscriber.
     pub async fn put(&self, key: &str, payload: Vec<u8>, encoding: Option<&str>) -> Result<()> {
-        let mut builder = self.session.put(key, payload);
+        let key = writable_key(key)?;
+
+        let mut builder = self.session.put(key.as_str(), payload);
         if let Some(encoding) = encoding {
             builder = builder.encoding(encoding);
         }
@@ -439,7 +464,8 @@ impl ManagedSession {
 
     /// Deletes a key.
     pub async fn delete(&self, key: &str) -> Result<()> {
-        self.session.delete(key).await.map_err(Error::zenoh)
+        let key = writable_key(key)?;
+        self.session.delete(key.as_str()).await.map_err(Error::zenoh)
     }
 
     /// Closes the session and stops every tap.
