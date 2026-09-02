@@ -283,11 +283,6 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
                   })}
                 </StatGrid>
 
-                {/* Directly under the tile that opened it. A disclosure whose
-                    content appears in a different card from its own caret is
-                    two things on screen, not one. */}
-                {openKind ? <DeclarationList kind={openKind} declarations={declarations} /> : null}
-
                 {/* What has happened, as against what is declared. The
                     distinction is worth keeping; two numbers are not worth a
                     second bordered card to keep it in. */}
@@ -310,8 +305,17 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
             </div>
           ) : null}
 
+          {/* One pane, two things it can hold. Opening a counter swaps the
+              stream for what it counted, because that list is the thing being
+              read at that moment — and a key can carry hundreds of them. */}
           <div className="flex min-h-0 flex-1">
-            {tap.samples.length === 0 ? (
+            {openKind ? (
+              <DeclarationList
+                kind={openKind}
+                declarations={declarations}
+                onClose={() => setOpenKind(null)}
+              />
+            ) : tap.samples.length === 0 ? (
               <EmptyState
                 icon={tap.streaming ? <Spinner /> : <Radio />}
                 title={tap.streaming ? "Subscribed, nothing yet" : "Not subscribed"}

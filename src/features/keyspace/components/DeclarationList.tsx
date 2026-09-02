@@ -1,6 +1,9 @@
+import { X } from "lucide-react";
+
 import { KeyExpr, Zid } from "@/components/domain";
-import { Skeleton } from "@/components/ui";
-import type { DeclarationKind } from "@/ipc";
+import { Button, DataTable, EmptyState, SectionLabel, Spinner, type Column } from "@/components/ui";
+import type { DeclarationKind, KeyDeclaration } from "@/ipc";
+import { groupedNumber } from "@/lib/format";
 import type { Declarations } from "../hooks/useDeclarations";
 
 /** What each kind is called when it is the thing being listed. */
@@ -14,54 +17,80 @@ const HEADINGS: Record<DeclarationKind, string> = {
 
 /** What it means when a kind has nothing under this key. */
 const NOTHING: Record<DeclarationKind, string> = {
-  subscriber: "No node subscribes under this key, so nothing published here is delivered anywhere.",
+  subscriber: "Nothing published under this key is delivered anywhere.",
   publisher: "No node has declared that it publishes under this key.",
-  queryable: "No node answers queries under this key, so a get here returns nothing.",
+  queryable: "A get under this key answers nothing, because nobody serves it.",
   querier: "No node has declared that it queries under this key.",
-  token: "No application holds a liveliness token under this key.",
+  token: "No application is holding a liveliness token under this key.",
 };
+
+const COLUMNS: readonly Column<KeyDeclaration>[] = [
+  {
+    id: "keyExpr",
+    header: "Declared expression",
+    width: "flex",
+    // As declared, wildcards and all: `fleet/**` is what the node actually
+    // asked for, and resolving it would invent detail it never claimed.
+    cell: (row) => <KeyExpr value={row.keyExpr} className="text-tiny" />,
+  },
+  {
+    id: "zid",
+    header: "Declared by",
+    width: 220,
+    cell: (row) => <Zid zid={row.zid} copyable />,
+  },
+];
 
 export interface DeclarationListProps {
   kind: DeclarationKind;
   declarations: Declarations;
+  onClose: () => void;
 }
 
 /**
- * Who declared what, beneath the counter that summarised them.
+ * Who declared what, in the pane the sample table normally holds.
  *
- * The expression is the wide column and the node is the narrow one: two nodes
- * declaring `fleet/**` is ordinary, and the same node declaring forty different
- * expressions is what you are usually looking at.
+ * Not in the detail strip above it. A key can carry hundreds of declarations,
+ * and a long list in a short box is a scrollbar inside a scrollbar — so it
+ * takes the room the stream has, and the counter that opened it is the way
+ * back. A table rather than a list for the same reason: this one is virtualised
+ * and a busy key can fill it.
  */
-export function DeclarationList({ kind, declarations }: DeclarationListProps) {
-  if (declarations.loading) {
-    return <Skeleton className="border-line-soft h-20 w-full border-t" />;
-  }
-
-  if (declarations.entries.length === 0) {
-    return (
-      <p className="border-line-soft text-tiny text-ink-muted border-t px-4 py-2.5">
-        {NOTHING[kind]}
-      </p>
-    );
-  }
-
-  // No border or radius of its own: it sits inside the panel that holds the
-  // tile it belongs to, and a card nested in a card is a seam that says these
-  // are separate things when they are one.
+export function DeclarationList({ kind, declarations, onClose }: DeclarationListProps) {
   return (
-    <div className="border-line-soft bg-surface-1 border-t">
-      <div className="text-tiny text-ink-faint px-4 pt-2.5 pb-1.5 font-medium">
-        {HEADINGS[kind]}
-      </div>
-      <ul className="divide-line-soft scroll-thin max-h-64 divide-y overflow-y-auto">
-        {declarations.entries.map((entry) => (
-          <li key={`${entry.zid}:${entry.keyExpr}`} className="flex items-center gap-3 px-4 py-2">
-            <KeyExpr value={entry.keyExpr} className="text-tiny min-w-0 flex-1" />
-            <Zid zid={entry.zid} copyable className="shrink-0" />
-          </li>
-        ))}
-      </ul>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="border-line-soft flex h-11 shrink-0 items-center gap-3 border-b px-5">
+        <SectionLabel>{HEADINGS[kind]}</SectionLabel>
+        {declarations.loading ? null : (
+          <span className="numeric text-tiny text-ink-faint">
+            {groupedNumber(declarations.entries.length)}
+          </span>
+        )}
+        <span className="flex-1" />
+        {/* "Close", not "Back to samples": with no tap running there are no
+            samples to go back to, and the button would be promising one. */}
+        <Button variant="ghost" size="sm" icon={<X size={12} />} onClick={onClose}>
+          Close
+        </Button>
+      </header>
+
+      {declarations.loading ? (
+        <EmptyState
+          icon={<Spinner />}
+          title="Reading declarations"
+          description="From the index this session already holds, so it asks the network nothing."
+        />
+      ) : declarations.entries.length === 0 ? (
+        <EmptyState title="Nothing declared here" description={NOTHING[kind]} />
+      ) : (
+        <DataTable
+          id="keyspace-declarations"
+          columns={COLUMNS}
+          rows={declarations.entries}
+          rowKey={(row) => `${row.zid}:${row.keyExpr}`}
+          className="flex-1"
+        />
+      )}
     </div>
   );
 }
