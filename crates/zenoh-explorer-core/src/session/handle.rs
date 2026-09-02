@@ -10,6 +10,7 @@ use zenoh::Session;
 use zenoh::query::{ConsolidationMode, QueryTarget};
 
 use crate::acl::{self, AclFinding, PolicyHolder};
+use crate::admin;
 use crate::config::ConnectionProfile;
 use crate::declarations::{self, DeclarationWatch};
 use crate::discovery::{ConnectivityWatch, watch_connectivity};
@@ -24,6 +25,7 @@ use crate::search::{self, SearchResults};
 use crate::storage::{self, StorageCoverage};
 use crate::tap::{SampleSink, Tap, TapSpec, TapStats};
 use crate::time::now_ms;
+use crate::trace::{self, Trace};
 
 /// What the UI needs to render a session tab.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -243,6 +245,16 @@ impl ManagedSession {
             .collect();
         taps.sort_by(|a, b| a.spec.key_expr.cmp(&b.spec.key_expr));
         taps
+    }
+
+    /// The path a message would take from `from` to `to`.
+    ///
+    /// Unlike the other diagnostics here this does ask the network — routing
+    /// tables are not in the topology snapshot — but it asks once for the whole
+    /// path rather than once per hop.
+    pub async fn trace_route(&self, from: &str, to: &str) -> Result<Trace> {
+        let successors = admin::route_successors(&self.session, from, to).await?;
+        Ok(trace::assemble(from, to, &successors))
     }
 
     /// Which storages would keep data published on `key_expr`.

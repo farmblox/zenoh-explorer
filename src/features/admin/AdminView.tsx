@@ -14,13 +14,24 @@ import { ViewHeader } from "@/shell/ViewHeader";
 /** Everything every node publishes about itself. */
 const DEFAULT_SELECTOR = "@/*/*";
 
-/** Subtrees worth one click, since the admin space is not self-documenting. */
+/**
+ * Subtrees worth one click, since the admin space is not self-documenting.
+ *
+ * One per handler Zenoh's admin space actually registers, so this is the whole
+ * surface rather than the parts that happened to get a button.
+ */
 const PRESETS = [
   { label: "Nodes", selector: "@/*/*" },
+  { label: "Config", selector: "@/*/*/config" },
   { label: "Link-state", selector: "@/*/*/linkstate/*" },
   { label: "Subscribers", selector: "@/*/*/subscriber/**" },
   { label: "Publishers", selector: "@/*/*/publisher/**" },
   { label: "Queryables", selector: "@/*/*/queryable/**" },
+  { label: "Queriers", selector: "@/*/*/querier/**" },
+  { label: "Live tokens", selector: "@/*/*/token/**" },
+  { label: "Routes", selector: "@/*/*/route/successor/**" },
+  { label: "Plugins", selector: "@/*/*/status/plugins/**" },
+  { label: "Storages", selector: "@/*/*/status/plugins/storage_manager/**" },
   { label: "Metrics", selector: "@/*/*/metrics" },
 ] as const;
 

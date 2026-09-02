@@ -19,6 +19,7 @@
 //! - [`diagnose`] — turning transport failures into something actionable
 //! - [`discovery`] — every way to learn what is on the network, and which one told us
 //! - [`scout`] — discovering nodes we are not connected to
+//! - [`trace`] — the path a message would actually take between two nodes
 //! - [`tap`] — subscriptions, coalesced for the UI
 //! - [`transport`] — transports, endpoints and TLS material
 //! - [`storage`] — where the network keeps data, and what a key lands in
@@ -47,6 +48,7 @@ pub mod session;
 pub mod storage;
 pub mod tap;
 pub mod time;
+pub mod trace;
 pub mod transport;
 
 pub use config::{ConnectionProfile, SessionMode};

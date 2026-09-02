@@ -13,6 +13,7 @@ function node(zid: string, kind: NodeSummary["kind"], region: string | null): No
     regionSource: null,
     southRegions: 0,
     plugins: [],
+    stats: null,
     acl: null,
     region,
     metadata: null,

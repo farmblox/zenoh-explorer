@@ -54,10 +54,17 @@ that must travel; `TlsConfig::redacted()` before logging either.
 
 **A backoff needs a non-zero `connect/timeout_ms` to run at all.** Zenoh reads
 the global connect timeout first and takes a "connect once, do not retry" path
-when it is zero — and that default is mode-dependent: `-1` for a router or
-peer, `0` for a CLIENT, which is how the explorer connects by default. So
-`connection.rs` sets `-1` alongside the backoff unless the user gave a timeout
-of their own. Without it the retry config is written, accepted, and ignored.
+when it is zero, so `connection.rs` sets `-1` alongside the backoff unless the
+user gave a timeout of their own. Without it the retry config is written,
+accepted, and ignored.
+
+This used to be load-bearing because the default was mode-dependent — `-1` for
+a router or peer but `0` for a CLIENT, which is how the explorer connects. Zenoh
+1.9 made it a uniform `-1`, so on the version we build against the explicit
+value is belt-and-braces rather than the thing that makes retry work. It stays
+because it is still correct, and because a profile can be pointed at an older
+router. `scouting.timeout` changed in the same release, `3000` to `-1`, and the
+autoconnect defaults now include `client`.
 
 **`connect.retry` is an `Option` block, so its keys cannot be reached by path.**
 `insert_json5` resolves against what already exists rather than creating it, so
@@ -71,6 +78,47 @@ are different things.
 **`adminspace.enabled` defaults to `false` in Zenoh 1.x.** Most "the explorer
 sees nothing" situations are this. Do not treat an empty admin-space reply as an
 empty network — the probe already reports it as a diagnostic.
+
+**Regions are `region_name`, not a convention.** Zenoh 1.9 added a real
+`region_name` to the node configuration, and it is what
+`gateway.south[].filters[].region_names` matches on. It is read from
+`@/*/*/config` and wins; `metadata.location` is a fallback, because
+`region_name` is null by default. `NodeSummary.region_source` says which
+answered. Do not confuse either with a LINK's region (`north`,
+`south:0:peer`), which names a routing tree and belongs to the link.
+
+**A gateway hides its south region on purpose.** Zenoh's deployment model says
+a gateway "will hide non needed details of the sub region(s) to the upper
+region (number of nodes, topology, individual subscribers and queryables)". So
+a graph can be complete and still look small, and `unverified_nodes` alone
+cannot tell the two apart — the probe emits a diagnostic naming the gateways
+instead. `gateway.south` defaults to `"auto"`, which is a preset and not a
+region, so only an explicit array counts.
+
+**ACL is the quietest failure Zenoh has.** A node denying `declare_subscriber`
+on an expression covering yours refuses nothing and logs nothing; the samples
+never arrive while every other diagnostic reports a healthy network, because it
+is one. `acl.rs` reads the policy and says what it would do, using
+`keyexpr_tools` rather than a second matcher. Two subtleties it honours: a rule
+is inert until a POLICY binds it to a subject, and ACL cannot change at runtime,
+so one read per node is enough.
+
+**Storages come from config, not from `status/`.** Both describe the same
+storages, but the configuration schema is documented and the status one
+explicitly is not. The topology probe already fetches configuration, so this
+costs no extra query — and every wildcard admin query costs its full timeout.
+A key held only by the built-in `memory` volume is durable until the node
+restarts, which `StorageSummary::in_memory` exists to say.
+
+**The topology probe runs three queries concurrently.** Nodes, link-state and
+configuration are independent and each costs its full timeout, so `tokio::join!`
+makes a probe as slow as the slowest rather than as slow as all three.
+
+**Zenoh rejects data stamped more than 100ms from local time**, with "Error
+treating timestamp for received Data". `SampleRecord::drift_ms` is where that
+can be seen coming rather than diagnosed afterwards. Timestamping is off by
+default, so a sample often carries no stamp at all — `None` is not a healthy
+clock, it is no reading.
 
 **Generated types.** Anything with `#[derive(TS)]` regenerates into
 `src/ipc/generated/` via `pnpm bindings`. That directory is gitignored and must
@@ -94,8 +142,10 @@ Zenoh waits the full duration and the router logs "Didn't receive final reply".
 That is normal, not a fault. Never put a user-facing spinner on one.
 
 **The keyspace comes from declarations, not traffic.** `declarations.rs` reads
-`@/*/*/subscriber/**` and `@/*/*/queryable/**`, whose REPLY KEYS carry the
-declared expression. Without it an idle-but-configured network looks identical
+all five kinds Zenoh publishes — `subscriber`, `publisher`, `queryable`,
+`querier` and `token` — whose REPLY KEYS carry the declared expression. The
+selectors are built from `DeclarationKind::admin_segment`, so a kind cannot be
+added to the enum and then quietly never read. Without it an idle-but-configured network looks identical
 to an empty one. The reply payload is a `Sources` object naming the declaring
 zids — not read yet, and the obvious next step.
 
@@ -124,6 +174,12 @@ you switch tabs. Do not write a reset effect for that.
   enable them for a release: they embed a server that runs arbitrary JS.
 
 ## Checks
+
+`crates/zenoh-explorer-core/tests/tap_delivers.rs` is the only test that opens
+real Zenoh sessions — two peers on loopback with scouting off, on their own
+ports because cargo runs tests in one process and two listeners on one port is
+`EADDRINUSE`. Everything else in the crate is a pure function over a reply, a
+config or a key. Add to it when a change is about data actually moving.
 
 `pnpm check` runs everything CI does. Clippy is `-D warnings` with `pedantic`
 on, and TypeScript has `noUncheckedIndexedAccess` and

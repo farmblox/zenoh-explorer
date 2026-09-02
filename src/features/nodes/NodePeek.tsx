@@ -152,11 +152,32 @@ export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode 
                 </h2>
                 <Badge tone={node.kind === "router" ? "accent" : "neutral"}>{node.kind}</Badge>
                 {node.isLocal ? <Badge tone="accent">this explorer</Badge> : null}
+                {node.southRegions > 0 ? (
+                  <Badge
+                    tone="warn"
+                    title={`Serves ${node.southRegions} south region${
+                      node.southRegions === 1 ? "" : "s"
+                    }. What is inside them is hidden from this side by design.`}
+                  >
+                    gateway
+                  </Badge>
+                ) : null}
               </div>
               <div className="text-tiny text-ink-faint mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
                 <Zid zid={node.zid} copyable />
                 <Rule />
-                <span className="numeric">{node.region ?? "no region"}</span>
+                <span
+                  className="numeric"
+                  title={
+                    node.regionSource === "configured"
+                      ? "The node's own region_name, from its configuration."
+                      : node.regionSource === "metadata"
+                        ? "From metadata.location, which an operator set by convention. Zenoh's own region_name is unset on this node."
+                        : "Neither region_name nor metadata.location is set on this node."
+                  }
+                >
+                  {node.region ?? "no region"}
+                </span>
                 {version ? (
                   <>
                     <Rule />
@@ -411,7 +432,10 @@ function DeclaresSection({
   if (declared === null) return null;
 
   const subscribers = declared.filter((entry) => entry.kind === "subscriber");
+  const publishers = declared.filter((entry) => entry.kind === "publisher");
   const queryables = declared.filter((entry) => entry.kind === "queryable");
+  const queriers = declared.filter((entry) => entry.kind === "querier");
+  const tokens = declared.filter((entry) => entry.kind === "token");
 
   return (
     <section>
@@ -430,7 +454,12 @@ function DeclaresSection({
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
           <DeclaresList label="Subscribes to" entries={subscribers} />
+          <DeclaresList label="Publishes on" entries={publishers} />
           <DeclaresList label="Answers on" entries={queryables} />
+          <DeclaresList label="Queries" entries={queriers} />
+          {/* Application presence, not node presence: a token exists because
+              some app declared one, and vanishes when that app stops. */}
+          <DeclaresList label="Alive at" entries={tokens} />
         </div>
       )}
     </section>

@@ -51,7 +51,12 @@ use crate::storage::StorageSummary;
 use crate::time::now_ms;
 
 /// Selector matching every node's top-level admin entry: `@/<zid>/<whatami>`.
-const NODES_SELECTOR: &str = "@/*/*";
+///
+/// `_stats=true` asks nodes built with the `stats` feature to fold throughput
+/// counters into the reply. Nodes without it ignore the parameter, so this is
+/// free everywhere and answers "is this link actually carrying anything" on the
+/// nodes that can.
+const NODES_SELECTOR: &str = "@/*/*?_stats=true";
 
 /// Selector for every node's effective configuration.
 ///
@@ -86,6 +91,10 @@ struct NodeReply {
     /// a `Value` rather than a map: the field is present either way.
     #[serde(default)]
     plugins: Option<serde_json::Value>,
+    /// Throughput counters, present only on nodes built with the `stats`
+    /// feature and only because the selector asks for them.
+    #[serde(default)]
+    stats: Option<serde_json::Value>,
 }
 
 /// The ids of the plugins a node reports, sorted.
@@ -379,6 +388,7 @@ fn summarise_node(
         .and_then(|config| config.gateway.as_ref())
         .map_or(0, GatewayReply::south_regions);
     summary.acl = config.and_then(|config| config.access_control.clone());
+    summary.stats.clone_from(&reply.stats);
     summary.metadata = reply.metadata.clone().map(|mut meta| {
         // Fold the version in so the inspector has it without a second query.
         if let (Some(map), Some(version)) = (meta.as_object_mut(), reply.version.as_ref()) {
@@ -455,8 +465,6 @@ fn merge_linkstate(
 async fn collect_node_replies(session: &Session) -> Result<Vec<(NodeKind, NodeReply)>> {
     let replies = session
         .get(NODES_SELECTOR)
-        // `_stats=true` asks nodes built with the `stats` feature to fold
-        // throughput counters into the reply. Nodes without it just ignore it.
         .target(QueryTarget::All)
         .consolidation(ConsolidationMode::None)
         .timeout(QUERY_TIMEOUT)
@@ -522,6 +530,48 @@ async fn collect_node_configs(session: &Session) -> Result<AHashMap<String, Conf
                 key = %key,
                 error = %err,
                 "skipping a config reply that did not decode"
+            ),
+        }
+    }
+    Ok(out)
+}
+
+/// Asks every router where it would forward a message from `from` to `to`.
+///
+/// One query for the whole path. Each router answers for itself, and
+/// [`crate::trace::assemble`] chains the replies — walking hop by hop would
+/// cost a full query timeout per hop, because every wildcard admin query runs
+/// to its timeout whether or not anyone is left to answer.
+pub async fn route_successors(
+    session: &Session,
+    from: &str,
+    to: &str,
+) -> Result<AHashMap<String, String>> {
+    let selector = format!("@/*/*/route/successor/src/{from}/dst/{to}");
+    let replies = session
+        .get(&selector)
+        .target(QueryTarget::All)
+        .consolidation(ConsolidationMode::None)
+        .timeout(QUERY_TIMEOUT)
+        .await
+        .map_err(Error::zenoh)?;
+
+    let mut out = AHashMap::new();
+    while let Ok(reply) = replies.recv_async().await {
+        let Ok(sample) = reply.result() else { continue };
+        let Some(zid) = zid_from_admin_key(sample.key_expr().as_str()) else {
+            continue;
+        };
+
+        // The payload is the successor's zid as a JSON string.
+        let bytes = sample.payload().to_bytes();
+        match serde_json::from_slice::<String>(&bytes) {
+            Ok(successor) => {
+                out.insert(zid, successor);
+            }
+            Err(err) => tracing::debug!(
+                error = %err,
+                "skipping a route successor reply that did not decode"
             ),
         }
     }

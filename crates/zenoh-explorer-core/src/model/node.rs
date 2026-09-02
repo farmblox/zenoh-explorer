@@ -114,6 +114,13 @@ pub struct NodeSummary {
     pub south_regions: usize,
     /// Plugins the node reports as loaded, e.g. `rest`, `storage_manager`.
     pub plugins: Vec<String>,
+    /// Throughput counters, on nodes built with Zenoh's `stats` feature.
+    ///
+    /// Shape varies with what that node was built with, so it travels as it
+    /// arrived rather than being flattened into a schema that would be wrong
+    /// for half the network.
+    #[ts(type = "unknown | null")]
+    pub stats: Option<serde_json::Value>,
     /// The node's access-control policy, when it publishes one.
     ///
     /// Carried on the node rather than diagnosed here: whether a policy affects
@@ -141,6 +148,7 @@ impl NodeSummary {
             region_source: None,
             south_regions: 0,
             plugins: Vec::new(),
+            stats: None,
             acl: None,
             metadata: None,
             source: DiscoverySource::AdminSpace,

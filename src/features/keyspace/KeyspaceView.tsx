@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { Binary, FlaskConical, Radio, Trash2 } from "lucide-react";
 
 import { KeyExpr } from "@/components/domain";
+import { KeyInsight } from "./components/KeyInsight";
+import { useKeyInsight } from "./hooks/useKeyInsight";
 import {
   Badge,
   Button,
@@ -66,6 +68,9 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
   const [keyExpr, setKeyExpr] = useState(DEFAULT_KEY_EXPR);
   const [sample, setSample] = useState<SampleRecord | null>(null);
   const [testerOpen, setTesterOpen] = useState(false);
+
+  // Durability and access control for whatever is selected.
+  const insight = useKeyInsight(sessionId, selected);
 
   // Picking a key in the tree aims the subscription at it. It does not start
   // one: subscribing is a deliberate act, and clicking through a tree should
@@ -222,12 +227,23 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
                 </div>
               ) : null}
 
-              <Panel title="At or below this key" flush className="mt-4">
-                <StatGrid columns={4}>
+              <KeyInsight insight={insight} />
+
+              {/* One tile per kind Zenoh declares. Subscribers and queryables
+                  alone answered "is anyone listening"; publishers, queriers and
+                  liveliness tokens are what answer "who is on the other end". */}
+              <Panel title="Declared at or below this key" flush className="mt-4">
+                <StatGrid columns={5}>
                   <StatCell
                     label="Subscribers"
                     value={groupedNumber(selectedNode?.subscribers ?? 0)}
                     tone={selectedNode?.subscribers ? "accent" : "ink"}
+                    size="sm"
+                  />
+                  <StatCell
+                    label="Publishers"
+                    value={groupedNumber(selectedNode?.publishers ?? 0)}
+                    tone={selectedNode?.publishers ? "accent" : "ink"}
                     size="sm"
                   />
                   <StatCell
@@ -236,6 +252,23 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
                     tone={selectedNode?.queryables ? "accent" : "ink"}
                     size="sm"
                   />
+                  <StatCell
+                    label="Queriers"
+                    value={groupedNumber(selectedNode?.queriers ?? 0)}
+                    tone={selectedNode?.queriers ? "accent" : "ink"}
+                    size="sm"
+                  />
+                  <StatCell
+                    label="Live tokens"
+                    value={groupedNumber(selectedNode?.tokens ?? 0)}
+                    tone={selectedNode?.tokens ? "ok" : "ink"}
+                    size="sm"
+                  />
+                </StatGrid>
+              </Panel>
+
+              <Panel title="Observed at or below this key" flush className="mt-4">
+                <StatGrid columns={2}>
                   <StatCell
                     label="Keys with data"
                     value={groupedNumber(selectedNode?.descendantKeys ?? 0)}

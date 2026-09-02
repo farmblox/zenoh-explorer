@@ -59,7 +59,7 @@ export function Stat({ label, value, hint, size = "md", tone = "ink", className 
 }
 
 export interface StatGridProps {
-  columns?: 2 | 3 | 4;
+  columns?: 2 | 3 | 4 | 5;
   className?: string;
   children: ReactNode;
 }
@@ -68,6 +68,9 @@ const COLUMNS = {
   2: "grid-cols-2",
   3: "grid-cols-3",
   4: "grid-cols-4",
+  // Five, because Zenoh declares exactly five kinds of interest in a key and
+  // the keyspace shows one tile per kind.
+  5: "grid-cols-5",
 } as const;
 
 /**

@@ -540,6 +540,7 @@ mod tests {
             region_source: None,
             south_regions: 0,
             plugins: Vec::new(),
+            stats: None,
             acl: None,
             source: crate::discovery::DiscoverySource::AdminSpace,
         }
