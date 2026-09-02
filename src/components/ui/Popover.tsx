@@ -57,11 +57,15 @@ const EXIT_MS = 120;
  * That is the rule for every floating layer here: the border separates, the
  * shadow only lifts.
  *
- * The panel is rendered into `document.body` at a measured position rather than
- * positioned inside the trigger. Anything that clips its own overflow would
- * otherwise clip the panel: a dialog does, and a dropdown near its edge came
- * out cut in half. Once out there it can also be kept inside the window, which
- * an absolutely-positioned panel could not do either.
+ * The panel is portalled to a measured position rather than positioned inside
+ * the trigger, because anything that clips its own overflow would clip it: a
+ * dialog does, and a dropdown near its edge came out cut in half.
+ *
+ * Where it portals TO matters. `showModal()` puts a `<dialog>` in the browser's
+ * top layer, and the top layer is above every normal-flow element whatever its
+ * z-index — so a panel sent to `document.body` from inside a dialog renders
+ * behind it. Inside a dialog it goes into the dialog element itself, which is
+ * in the top layer and does not clip; everywhere else it goes to the body.
  */
 export function Popover({
   trigger,
@@ -75,6 +79,7 @@ export function Popover({
 }: PopoverProps) {
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [host, setHost] = useState<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -111,7 +116,11 @@ export function Popover({
         aria-haspopup={haspopup}
         aria-controls={open ? panelId : undefined}
         onClick={() => {
-          setRect(containerRef.current?.getBoundingClientRect() ?? null);
+          const trigger = containerRef.current;
+          setRect(trigger?.getBoundingClientRect() ?? null);
+          // The nearest open dialog, or the body. Resolved per open rather than
+          // once, because the same control can be used in both places.
+          setHost(trigger?.closest("dialog") ?? document.body);
           setOpen((current) => !current);
         }}
         // The ring is the component's, not the caller's: a trigger that is only
@@ -122,7 +131,7 @@ export function Popover({
         {trigger}
       </button>
 
-      {mounted && rect
+      {mounted && rect && host
         ? createPortal(
             <div
               ref={panelRef}
@@ -146,7 +155,7 @@ export function Popover({
             >
               {typeof children === "function" ? children({ close }) : children}
             </div>,
-            document.body,
+            host,
           )
         : null}
     </div>
