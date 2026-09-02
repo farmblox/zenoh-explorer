@@ -42,6 +42,8 @@ interface SessionState {
 
   /** Re-reads the session list from the backend. */
   refresh(): Promise<void>;
+  /** Applies the count already carried by a keyspace event, without another IPC round trip. */
+  updateKeyCount(sessionId: SessionId, keyCount: number): void;
   /** Opens a session and makes it active. */
   connect(profile: ConnectionProfile): Promise<SessionId | null>;
   /** Closes a session and selects a neighbouring tab. */
@@ -108,6 +110,17 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       activeTab: isLive(state, sessions) ? state.activeTab : (sessions[0]?.id ?? null),
     }));
   },
+
+  updateKeyCount: (sessionId, keyCount) =>
+    set((state) => {
+      const index = state.sessions.findIndex((session) => session.id === sessionId);
+      if (index === -1 || state.sessions[index]?.keyCount === keyCount) return state;
+
+      const sessions = [...state.sessions];
+      const session = sessions[index];
+      if (session) sessions[index] = { ...session, keyCount };
+      return { sessions };
+    }),
 
   connect: async (profile) => {
     const key = `pending-${(pendingCounter += 1)}`;

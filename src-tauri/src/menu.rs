@@ -15,7 +15,7 @@
 //! the same function.
 
 use tauri::menu::{AboutMetadata, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Emitter, Runtime};
+use tauri::{AppHandle, Emitter, Runtime, image::Image};
 
 /// Frontend event carrying the id of the menu item that was chosen.
 const MENU_EVENT: &str = "zenoh://menu";
@@ -89,15 +89,68 @@ pub(crate) fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 }
 
 /// Metadata for the About panel.
-fn about_metadata() -> AboutMetadata<'static> {
+fn about_metadata<R: Runtime>(app: &AppHandle<R>) -> AboutMetadata<'static> {
     AboutMetadata {
         name: Some("Zenoh Explorer".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
         copyright: Some("© Farmblox. Apache-2.0.".into()),
         website: Some("https://github.com/farmblox/zenoh-explorer".into()),
         website_label: Some("Source".into()),
+        icon: about_icon(app),
         ..Default::default()
     }
+}
+
+/// The app icon, with less of its Dock-safe transparent margin.
+///
+/// `AppKit` gives the About panel its own breathing room. Passing the Dock asset
+/// unchanged therefore makes the tile look smaller than the native icons beside
+/// it. Half the fully transparent border is removed here; opaque artwork is
+/// never cropped, and the bundled icon itself remains untouched.
+fn about_icon<R: Runtime>(app: &AppHandle<R>) -> Option<Image<'static>> {
+    trim_about_icon(app.default_window_icon()?)
+}
+
+/// Removes half of an image's fully transparent outer border.
+fn trim_about_icon(source: &Image<'_>) -> Option<Image<'static>> {
+    let width = usize::try_from(source.width()).ok()?;
+    let height = usize::try_from(source.height()).ok()?;
+    if width == 0 || height == 0 {
+        return None;
+    }
+
+    let transparent_border = source
+        .rgba()
+        .chunks_exact(4)
+        .enumerate()
+        .filter(|(_, pixel)| pixel[3] != 0)
+        .map(|(index, _)| {
+            let x = index % width;
+            let y = index / width;
+            x.min(width - 1 - x).min(y).min(height - 1 - y)
+        })
+        .min()?;
+    let inset = transparent_border / 2;
+
+    if inset == 0 {
+        return Some(source.clone().to_owned());
+    }
+
+    let cropped_width = width - inset * 2;
+    let cropped_height = height - inset * 2;
+    let mut rgba = Vec::with_capacity(cropped_width * cropped_height * 4);
+
+    for y in inset..height - inset {
+        let start = (y * width + inset) * 4;
+        let end = start + cropped_width * 4;
+        rgba.extend_from_slice(&source.rgba()[start..end]);
+    }
+
+    Some(Image::new_owned(
+        rgba,
+        u32::try_from(cropped_width).ok()?,
+        u32::try_from(cropped_height).ok()?,
+    ))
 }
 
 /// The macOS application menu, in the order the platform expects.
@@ -110,7 +163,7 @@ fn app_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         "Zenoh Explorer",
         true,
         &[
-            &PredefinedMenuItem::about(app, None, Some(about_metadata()))?,
+            &PredefinedMenuItem::about(app, None, Some(about_metadata(app)))?,
             &PredefinedMenuItem::separator(app)?,
             &settings,
             &PredefinedMenuItem::separator(app)?,
@@ -293,7 +346,7 @@ fn help_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
 
     // No application menu off macOS, so About belongs here.
     #[cfg(not(target_os = "macos"))]
-    let about = PredefinedMenuItem::about(app, None, Some(about_metadata()))?;
+    let about = PredefinedMenuItem::about(app, None, Some(about_metadata(app)))?;
     #[cfg(not(target_os = "macos"))]
     let separator = PredefinedMenuItem::separator(app)?;
     #[cfg(not(target_os = "macos"))]
@@ -303,4 +356,28 @@ fn help_submenu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     }
 
     Submenu::with_items(app, "Help", true, &items)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::trim_about_icon;
+    use tauri::image::Image;
+
+    #[test]
+    fn the_about_icon_keeps_artwork_and_half_the_transparent_border() {
+        let mut rgba = vec![0; 6 * 6 * 4];
+        for y in 2..4 {
+            for x in 2..4 {
+                rgba[(y * 6 + x) * 4 + 3] = 255;
+            }
+        }
+        let source = Image::new_owned(rgba, 6, 6);
+
+        let trimmed = trim_about_icon(&source).expect("the icon contains opaque artwork");
+
+        assert_eq!(trimmed.width(), 4);
+        assert_eq!(trimmed.height(), 4);
+        assert_eq!(trimmed.rgba()[23], 255);
+        assert_eq!(trimmed.rgba()[(2 * 4 + 2) * 4 + 3], 255);
+    }
 }

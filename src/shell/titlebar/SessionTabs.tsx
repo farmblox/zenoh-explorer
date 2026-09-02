@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 
+import { Tooltip } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { groupedNumber } from "@/lib/format";
 import { focusRing, transitionFast } from "@/lib/states";
@@ -91,20 +92,21 @@ export function SessionTabs() {
         />
       ))}
 
-      <button
-        type="button"
-        onClick={() => openOverlay("connect")}
-        title="Connect to a network"
-        aria-label="Connect to a network"
-        className={cn(
-          "rounded-control flex size-9 shrink-0 items-center justify-center",
-          "text-ink-faint hover:bg-surface-2 hover:text-ink",
-          focusRing,
-          transitionFast,
-        )}
-      >
-        <Plus size={16} />
-      </button>
+      <Tooltip content="Add a Connection" side="bottom">
+        <button
+          type="button"
+          onClick={() => openOverlay("connect")}
+          aria-label="Add a Connection"
+          className={cn(
+            "rounded-control flex size-9 shrink-0 items-center justify-center",
+            "text-ink-faint hover:bg-surface-2 hover:text-ink",
+            focusRing,
+            transitionFast,
+          )}
+        >
+          <Plus size={16} />
+        </button>
+      </Tooltip>
     </div>
   );
 }

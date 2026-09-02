@@ -5,10 +5,6 @@
 @import "@fontsource-variable/ibm-plex-sans";
 @import "@fontsource-variable/geist-mono";
 
-/* React Flow's positioning styles only. Its default theme is skipped: the
-   widgets are restyled with our tokens in TopologyCanvas. */
-@import "@xyflow/react/dist/base.css";
-
 @import "./theme.css";
 
 @layer base {

@@ -22,9 +22,9 @@
 
 use std::time::Duration;
 
-use zenoh::config::{Config, WhatAmI};
-use zenoh::Wait;
 use zenoh::Session;
+use zenoh::Wait;
+use zenoh::config::{Config, WhatAmI};
 
 /// How the swarm is shaped.
 struct Options {
@@ -49,12 +49,25 @@ impl Default for Options {
 
 /// Vehicle-ish names, so the graph reads like a deployment rather than node-1..n.
 const PEER_NAMES: &[&str] = &[
-    "agv-07", "agv-11", "agv-14", "vision-01", "vision-02", "ros2-bridge", "dock-03", "scale-01",
-    "picker-08", "conveyor-2",
+    "agv-07",
+    "agv-11",
+    "agv-14",
+    "vision-01",
+    "vision-02",
+    "ros2-bridge",
+    "dock-03",
+    "scale-01",
+    "picker-08",
+    "conveyor-2",
 ];
 
 const CLIENT_NAMES: &[&str] = &[
-    "logger", "cli-probe", "dashboard", "alert-svc", "metrics-1", "audit-log",
+    "logger",
+    "cli-probe",
+    "dashboard",
+    "alert-svc",
+    "metrics-1",
+    "audit-log",
 ];
 
 #[tokio::main]
@@ -145,7 +158,11 @@ async fn spawn_node(
     let dark = index % 5 == 4;
     if !dark {
         set(&mut config, "adminspace/enabled", "true");
-        set(&mut config, "adminspace/permissions", "{ read: true, write: false }");
+        set(
+            &mut config,
+            "adminspace/permissions",
+            "{ read: true, write: false }",
+        );
     }
 
     // Peers mesh with each other; clients only ever talk to their router. That
@@ -247,7 +264,10 @@ fn publish(session: &Session, name: &str, index: usize, rate: u32) {
             if seq.is_multiple_of(10) {
                 let battery = serde_json::json!({ "percent": 100 - (seq / 10) % 100 });
                 let _ = session
-                    .put(format!("fleet/{name}/telemetry/battery"), battery.to_string())
+                    .put(
+                        format!("fleet/{name}/telemetry/battery"),
+                        battery.to_string(),
+                    )
                     .encoding(zenoh::bytes::Encoding::APPLICATION_JSON)
                     .await;
             }

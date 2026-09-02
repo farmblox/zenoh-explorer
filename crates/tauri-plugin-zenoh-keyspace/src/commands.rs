@@ -156,8 +156,5 @@ pub(crate) async fn matching_keys<R: Runtime>(
     session_id: SessionId,
     expr: String,
 ) -> Result<usize> {
-    Ok(app
-        .zenoh_sessions()?
-        .get(&session_id)?
-        .matching_keys(&expr))
+    Ok(app.zenoh_sessions()?.get(&session_id)?.matching_keys(&expr))
 }

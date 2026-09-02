@@ -123,11 +123,6 @@ export function ConnectDialog() {
       className="w-[min(880px,94vw)]"
       footer={
         <>
-          <span className="text-tiny text-ink-faint">
-            {profile.mode === "client"
-              ? "Client mode observes without joining the mesh."
-              : "Peer mode joins the mesh and participates in routing."}
-          </span>
           <span className="flex-1" />
           <Button onClick={save}>{selectedId ? "Update" : "Save"}</Button>
           <Button variant="primary" onClick={submit}>

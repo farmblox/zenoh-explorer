@@ -1,4 +1,5 @@
-import { NODE_KINDS, NODE_ROLES, NodeKindIcon } from "@/components/domain";
+import { NODE_KINDS, NODE_ROLES } from "@/components/domain";
+import type { NodeKind } from "@/ipc";
 import { cn } from "@/lib/cn";
 import { EDGE_KINDS } from "../lib/edgeStyle";
 
@@ -9,10 +10,8 @@ import { EDGE_KINDS } from "../lib/edgeStyle";
  * in its strokes and three in its glyphs, and a vocabulary that has to be opened
  * to be read is a vocabulary most people will guess at instead.
  *
- * Every swatch renders the REAL thing: the node rows use `NodeKindIcon` and the
- * link rows take their stroke straight out of `edgeStyle`. A legend that
- * restates its subject in its own markup is one that will eventually be wrong
- * about it — this one cannot drift, because there is nothing here to drift from.
+ * Every swatch renders the real WebGL vocabulary: layered role beacons and link
+ * strokes straight out of `edgeStyle`.
  *
  * It scrolls rather than wraps. A second row would change the canvas's height,
  * and the graph would reframe itself because the legend got longer.
@@ -25,17 +24,14 @@ export function Legend({ className }: { className?: string }) {
     >
       {NODE_KINDS.map((kind) => (
         <Entry key={kind} label={NODE_ROLES[kind].label.toLowerCase()}>
-          <NodeKindIcon kind={kind} size="sm" />
+          <GraphNodeSwatch kind={kind} />
         </Entry>
       ))}
 
       <Rule />
 
-      <Entry
-        label="reported"
-        title="Drawn with a dashed edge: only another node told us this one exists"
-      >
-        <span className="border-ink-faint rounded-inner size-4 shrink-0 border border-dashed" />
+      <Entry label="reported" title="Dimmed: only another node told us this one exists">
+        <span className="border-ink-disabled bg-surface-1 size-3.5 shrink-0 rounded-full border opacity-60" />
       </Entry>
 
       <Rule />
@@ -49,13 +45,35 @@ export function Legend({ className }: { className?: string }) {
               x2={20}
               y2={5}
               stroke={edge.stroke}
+              strokeOpacity={edge.opacity}
               strokeWidth={edge.width}
-              strokeDasharray={edge.dash}
             />
           </svg>
         </Entry>
       ))}
     </div>
+  );
+}
+
+/** The actual WebGL role glyphs: layered router, ring peer, compact client. */
+function GraphNodeSwatch({ kind }: { kind: NodeKind }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex size-4 shrink-0 items-center justify-center rounded-full",
+        kind === "router" && "border-ink-disabled border",
+      )}
+      aria-hidden
+    >
+      <span
+        className={cn(
+          "inline-block rounded-full",
+          kind === "router" && "bg-surface-3 size-2.5",
+          kind === "peer" && "border-ink-disabled bg-surface-2 size-3.5 border-2",
+          kind === "client" && "border-surface-1 bg-ink-disabled size-2.5 border",
+        )}
+      />
+    </span>
   );
 }
 

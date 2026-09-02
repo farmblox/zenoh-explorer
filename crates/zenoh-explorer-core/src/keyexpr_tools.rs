@@ -250,8 +250,14 @@ mod tests {
         let reason = analysis.error.expect("an invalid expression has a reason");
 
         assert_eq!(reason, "`*` may only be preceded by `/` or `$`");
-        assert!(!reason.contains(".rs:"), "a path into a dependency is not an explanation");
-        assert!(!reason.contains("Invalid Key Expr"), "the caller is already showing the expression");
+        assert!(
+            !reason.contains(".rs:"),
+            "a path into a dependency is not an explanation"
+        );
+        assert!(
+            !reason.contains("Invalid Key Expr"),
+            "the caller is already showing the expression"
+        );
     }
 
     #[test]
@@ -259,7 +265,10 @@ mod tests {
         for bad in ["fleet//x", "a?b", "fleet/$/x"] {
             let reason = analyse(bad).error.unwrap_or_default();
             assert!(!reason.is_empty(), "{bad} should be explained");
-            assert!(!reason.contains(".rs:"), "{bad} leaked a source path: {reason}");
+            assert!(
+                !reason.contains(".rs:"),
+                "{bad} leaked a source path: {reason}"
+            );
         }
     }
 

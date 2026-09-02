@@ -37,11 +37,51 @@ impl Diagnosis {
     }
 }
 
-/// Explains why a connection failed.
+/// Turns a failed subscription into something worth reading.
 ///
-/// Matches on the error text because that is what Zenoh gives us: the transport
-/// layers below it erase their types by the time the error surfaces.
+/// A tap that will not start surfaced whatever Zenoh said, which is a sentence
+/// about somebody else's library rather than about the network being inspected.
+///
+/// Nothing here covers being refused by access control, and that is not an
+/// omission: Zenoh's ACL drops a denied declaration at the routing interceptor
+/// rather than failing the call, so a refusal arrives as silence. Which is why
+/// the key space warns about a policy *before* subscribing — afterwards there
+/// is nothing to report.
 #[must_use]
+pub fn diagnose_subscription_failure(error: &str, key_expr: &str) -> Diagnosis {
+    let lower = error.to_lowercase();
+
+    if lower.contains("invalid key expr") || lower.contains("key expr") {
+        return Diagnosis {
+            summary: format!("{key_expr} is not a valid key expression"),
+            remedies: vec![
+                "`*` matches one chunk and may only sit between slashes; `**` matches any number."
+                    .to_owned(),
+                "Leading and trailing slashes are not allowed, and neither are empty chunks."
+                    .to_owned(),
+            ],
+            detail: error.to_owned(),
+        };
+    }
+
+    if lower.contains("session is closed")
+        || lower.contains("session closed")
+        || lower.contains("closed session")
+    {
+        return Diagnosis {
+            summary: "The session is no longer open".to_owned(),
+            remedies: vec!["Reconnect from the tab strip and subscribe again.".to_owned()],
+            detail: error.to_owned(),
+        };
+    }
+
+    Diagnosis {
+        summary: format!("Could not subscribe to {key_expr}"),
+        remedies: Vec::new(),
+        detail: error.to_owned(),
+    }
+}
+
 pub fn diagnose_connect_failure(error: &str) -> Diagnosis {
     let lower = error.to_lowercase();
 
@@ -207,5 +247,45 @@ mod tests {
         // Both patterns match this string; the useful one must come first.
         let d = diagnose_connect_failure(UNKNOWN_ISSUER);
         assert_ne!(d.summary, "The router's certificate was rejected");
+    }
+
+    #[test]
+    fn an_invalid_subscription_explains_the_wildcards() {
+        let detail = "Invalid Key Expr `fleet/a*b`: `*` must occupy a whole chunk";
+        let d = diagnose_subscription_failure(detail, "fleet/a*b");
+
+        assert_eq!(d.summary, "fleet/a*b is not a valid key expression");
+        assert!(d.remedies.iter().any(|r| r.contains("`**`")));
+        assert_eq!(d.detail, detail);
+    }
+
+    #[test]
+    fn a_closed_session_suggests_reconnecting() {
+        let detail = "Session is closed";
+        let d = diagnose_subscription_failure(detail, "fleet/**");
+
+        assert_eq!(d.summary, "The session is no longer open");
+        assert!(d.remedies.iter().any(|r| r.contains("Reconnect")));
+        assert_eq!(d.detail, detail);
+    }
+
+    #[test]
+    fn an_unknown_subscription_failure_keeps_the_expression_and_detail() {
+        let detail = "a failure Zenoh has not reported before";
+        let d = diagnose_subscription_failure(detail, "fleet/**");
+
+        assert_eq!(d.summary, "Could not subscribe to fleet/**");
+        assert!(d.remedies.is_empty(), "never invent guidance");
+        assert_eq!(d.detail, detail);
+    }
+
+    #[test]
+    fn merely_mentioning_a_session_does_not_claim_it_is_closed() {
+        let detail = "session cache unavailable";
+        let d = diagnose_subscription_failure(detail, "fleet/**");
+
+        assert_eq!(d.summary, "Could not subscribe to fleet/**");
+        assert!(d.remedies.is_empty(), "never invent guidance");
+        assert_eq!(d.detail, detail);
     }
 }

@@ -57,7 +57,7 @@ export function NodeInspector({
       minWidth={280}
       maxWidth={560}
       label="Resize the inspector"
-      className="border-line bg-surface-0 border-l"
+      className="border-line bg-surface-0 shadow-panel absolute inset-y-0 right-0 z-30 border-l"
     >
       <ScrollArea className="flex-1">
         <header className="border-line flex items-center gap-2.5 border-b px-4 py-3.5">

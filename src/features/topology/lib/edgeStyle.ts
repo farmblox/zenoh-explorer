@@ -12,18 +12,11 @@ export type EdgeKind = "trunk" | "access" | "mesh" | "unconfirmed";
 
 export interface EdgeStyle {
   readonly kind: EdgeKind;
-  /**
-   * The stroke, at full opacity.
-   *
-   * How visible a wire is belongs to its colour and nothing else. There was an
-   * `opacity` here as well, and multiplying a translucent token by it attenuated
-   * the same line twice — the common case, a node attached to its router, ended
-   * up at about a fifth of the canvas's contrast and read as absent.
-   */
+  /** Token-derived stroke hue. */
   readonly stroke: string;
+  /** Alpha used by both the SVG legend and the WebGL colour bridge. */
+  readonly opacity: number;
   readonly width: number;
-  /** SVG dash array, or undefined for a solid line. */
-  readonly dash: string | undefined;
   /** One word, for the legend strip. */
   readonly label: string;
   /** One line for the tooltip. */
@@ -33,35 +26,34 @@ export interface EdgeStyle {
 const STYLES: Record<EdgeKind, Omit<EdgeStyle, "kind">> = {
   // Router to router: the backbone. Thickest and brightest.
   trunk: {
-    stroke: "var(--wire-strong)",
-    width: 2.6,
-    dash: undefined,
+    stroke: "var(--accent)",
+    opacity: 0.48,
+    width: 4,
     label: "trunk",
     description: "Trunk between routers",
   },
   // A node attached to its router. The common case.
   access: {
-    stroke: "var(--wire)",
-    width: 1.6,
-    dash: undefined,
+    stroke: "var(--ink-muted)",
+    opacity: 0.3,
+    width: 2.6,
     label: "access",
     description: "Attached to a router",
   },
-  // Peer to peer, bypassing the routers. A dashed line reads fainter than a
-  // solid one of the same weight, so it gets its own token rather than a dimmed
-  // version of the solid one.
+  // Peer to peer, bypassing the routers. Soft blue and narrow, so it remains
+  // visible without competing with the router backbone.
   mesh: {
-    stroke: "var(--wire-soft)",
-    width: 1.5,
-    dash: "3 4",
+    stroke: "var(--accent-strong)",
+    opacity: 0.22,
+    width: 1.8,
     label: "mesh",
     description: "Direct peer-to-peer link",
   },
   // Only one end reported it, so we cannot confirm it is up in both directions.
   unconfirmed: {
     stroke: "var(--warn)",
-    width: 1.6,
-    dash: "4 6",
+    opacity: 0.78,
+    width: 2.2,
     label: "unconfirmed",
     description: "Only one end reported this link",
   },

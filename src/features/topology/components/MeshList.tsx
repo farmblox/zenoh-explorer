@@ -1,11 +1,12 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
-import { NodeKindIcon } from "@/components/domain";
-import { Input, ListRow, ResizablePanel, ScrollArea, SegmentedControl } from "@/components/ui";
-import type { NodeSummary } from "@/ipc";
+import { Input, ListRow, ResizablePanel, SegmentedControl } from "@/components/ui";
+import type { LinkSummary, NodeSummary } from "@/ipc";
 import { rate as formatRate, shortZid } from "@/lib/format";
 import { label as nodeLabel } from "../lib/grouping";
+import { TopologyNodeIcon } from "./TopologyNodeIcon";
 
 /** How the list is ordered. */
 type SortKey = "traffic" | "name" | "role";
@@ -19,8 +20,15 @@ const SORTS = [
 /** Rank used when sorting by role: backbone first. */
 const ROLE_RANK = { router: 0, peer: 1, client: 2 } as const;
 
+/** Compact `ListRow` height; fixed so ten thousand rows need no measuring. */
+const ROW_HEIGHT = 32;
+
+/** Rows kept ready above and below the viewport during a fast scroll. */
+const OVERSCAN = 12;
+
 export interface MeshListProps {
   nodes: readonly NodeSummary[];
+  links: readonly LinkSummary[];
   /** Rate per zid, where the node reported one. */
   rates: ReadonlyMap<string, number>;
   /** Zids listed only as context for a narrowed region. */
@@ -37,9 +45,10 @@ export interface MeshListProps {
  * two views share a selection, so finding a node here highlights it on the
  * canvas and the other way round.
  */
-export function MeshList({ nodes, rates, anchors, selectedZid, onSelect }: MeshListProps) {
+export function MeshList({ nodes, links, rates, anchors, selectedZid, onSelect }: MeshListProps) {
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState<SortKey>("traffic");
+  const scroll = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -64,6 +73,34 @@ export function MeshList({ nodes, rates, anchors, selectedZid, onSelect }: MeshL
       return (rates.get(b.zid) ?? -1) - (rates.get(a.zid) ?? -1);
     });
   }, [nodes, rates, anchors, filter, sort]);
+
+  const alerts = useMemo(() => {
+    const linked = new Set<string>();
+    const uncertain = new Set<string>();
+    for (const link of links) {
+      linked.add(link.from);
+      linked.add(link.to);
+      if (!link.bidirectional) {
+        uncertain.add(link.from);
+        uncertain.add(link.to);
+      }
+    }
+    return new Set(
+      nodes
+        .filter((node) => uncertain.has(node.zid) || (!node.isLocal && !linked.has(node.zid)))
+        .map((node) => node.zid),
+    );
+  }, [nodes, links]);
+
+  // The virtualizer returns methods, which React Compiler deliberately leaves
+  // alone. Only a few dozen rows are mounted regardless of graph size.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: visible.length,
+    getScrollElement: () => scroll.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: OVERSCAN,
+  });
 
   return (
     <ResizablePanel
@@ -93,45 +130,60 @@ export function MeshList({ nodes, rates, anchors, selectedZid, onSelect }: MeshL
         />
       </div>
 
-      <ScrollArea className="flex-1 p-2">
+      <div
+        ref={scroll}
+        className="scroll-thin min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2"
+      >
         {visible.length === 0 ? (
           <p className="text-tiny text-ink-faint px-2.5 py-2">No node matches “{filter}”.</p>
         ) : (
-          visible.map((node) => {
-            const rate = rates.get(node.zid);
-            const isSelected = node.zid === selectedZid;
-            const isContext = anchors.has(node.zid);
+          <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((item) => {
+              const node = visible[item.index];
+              if (!node) return null;
+              const rate = rates.get(node.zid);
+              const isSelected = node.zid === selectedZid;
+              const isContext = anchors.has(node.zid);
 
-            return (
-              <ListRow
-                key={node.zid}
-                selected={isSelected}
-                onClick={() => onSelect(node.zid)}
-                icon={<NodeKindIcon kind={node.kind} size="sm" local={node.isLocal} />}
-                // "outside" earns the trailing column over a rate or a zid: it
-                // is the one thing about this row that is not otherwise on it,
-                // and without it a router listed under a region of clients
-                // reads as a member of that region.
-                //
-                // A node with no name is already labelled with its zid, so
-                // repeating it here would say the same thing twice on one row.
-                meta={
-                  isContext
-                    ? "outside"
-                    : rate !== undefined
-                      ? formatRate(rate)
-                      : node.name
-                        ? shortZid(node.zid, 4, 4)
-                        : null
-                }
-                className={isContext ? "opacity-[0.62]" : undefined}
-              >
-                {nodeLabel(node)}
-              </ListRow>
-            );
-          })
+              return (
+                <div
+                  key={node.zid}
+                  style={{ transform: `translateY(${item.start}px)` }}
+                  className="absolute inset-x-0 top-0"
+                >
+                  <ListRow
+                    selected={isSelected}
+                    onClick={() => onSelect(node.zid)}
+                    icon={
+                      <TopologyNodeIcon
+                        kind={node.kind}
+                        local={node.isLocal}
+                        alert={alerts.has(node.zid)}
+                        selected={isSelected}
+                        context={isContext}
+                      />
+                    }
+                    // "outside" earns the trailing column over a rate or a zid:
+                    // it is the one fact not otherwise present on this row.
+                    meta={
+                      isContext
+                        ? "outside"
+                        : rate !== undefined
+                          ? formatRate(rate)
+                          : node.name
+                            ? shortZid(node.zid, 4, 4)
+                            : null
+                    }
+                    className={isContext ? "opacity-[0.62]" : undefined}
+                  >
+                    {nodeLabel(node)}
+                  </ListRow>
+                </div>
+              );
+            })}
+          </div>
         )}
-      </ScrollArea>
+      </div>
     </ResizablePanel>
   );
 }

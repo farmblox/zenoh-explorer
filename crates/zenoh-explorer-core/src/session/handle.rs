@@ -238,7 +238,23 @@ impl ManagedSession {
 
     /// Starts a tap, streaming its batches into `sink`.
     pub async fn start_tap(&self, spec: &TapSpec, sink: Arc<dyn SampleSink>) -> Result<TapId> {
-        let tap = Tap::start(&self.session, spec, Arc::clone(&self.key_index), sink).await?;
+        let tap = Tap::start(&self.session, spec, Arc::clone(&self.key_index), sink)
+            .await
+            .map_err(|err| {
+                // `Tap::start` identifies declaration failures as `KeyExpr`,
+                // but its `reason` is still Zenoh's original message. Diagnose
+                // that rather than the wrapper: the wrapper begins with
+                // "invalid key expression" even when the real failure is a
+                // closed session, which would select the wrong guidance.
+                let detail = match err {
+                    Error::KeyExpr { reason, .. } | Error::Zenoh(reason) => reason,
+                    other => other.to_string(),
+                };
+                Error::Diagnosed(Box::new(crate::diagnose::diagnose_subscription_failure(
+                    &detail,
+                    &spec.key_expr,
+                )))
+            })?;
 
         let id = tap.id().clone();
         self.taps.lock().insert(id.clone(), tap);
@@ -465,7 +481,10 @@ impl ManagedSession {
     /// Deletes a key.
     pub async fn delete(&self, key: &str) -> Result<()> {
         let key = writable_key(key)?;
-        self.session.delete(key.as_str()).await.map_err(Error::zenoh)
+        self.session
+            .delete(key.as_str())
+            .await
+            .map_err(Error::zenoh)
     }
 
     /// Closes the session and stops every tap.

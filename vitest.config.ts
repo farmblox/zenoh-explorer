@@ -1,6 +1,6 @@
 import { defineConfig, mergeConfig } from "vitest/config";
 
-import viteConfig from "./vite.config";
+import viteConfig from "./vite.config.ts";
 
 // Reuses the app's Vite config so aliases and the Tailwind pipeline behave
 // identically in tests — a test that resolves `@/…` differently from the app is

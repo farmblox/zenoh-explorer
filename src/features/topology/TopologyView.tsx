@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Network } from "lucide-react";
-import { ReactFlowProvider } from "@xyflow/react";
 
 import { EmptyState, Spinner } from "@/components/ui";
 import { useActiveSessionId, useTopology, useTopologyStore } from "@/stores";
@@ -9,7 +8,6 @@ import { CoverageBanner } from "./components/CoverageBanner";
 import { MeshList } from "./components/MeshList";
 import { NodeInspector } from "./components/NodeInspector";
 import { RouteTracePanel } from "./components/RouteTracePanel";
-import { TopologyCanvas } from "./components/TopologyCanvas";
 import { TopologyToolbar } from "./components/TopologyToolbar";
 import { buildRegionView, narrowToRegion } from "./lib/grouping";
 import { applySourceFilter, sourceOptions, type SourceFilter } from "./lib/sources";
@@ -29,6 +27,13 @@ import { applySourceFilter, sourceOptions, type SourceFilter } from "./lib/sourc
  */
 /** Stable identity for "nothing is context", so memoised children hold. */
 const EMPTY_ANCHORS: ReadonlySet<string> = new Set();
+
+// Sigma, Graphology and the worker are the heaviest frontend dependencies.
+// Load them only when a connected session actually has a graph to draw; a cold
+// launch into Scouting or Events should not parse a renderer it never mounts.
+const TopologyCanvas = lazy(() =>
+  import("./components/TopologyCanvas").then((module) => ({ default: module.TopologyCanvas })),
+);
 
 export function TopologyView() {
   const sessionId = useActiveSessionId();
@@ -145,6 +150,7 @@ export function TopologyView() {
         {snapshot && nodeCount > 0 ? (
           <MeshList
             nodes={snapshot.nodes}
+            links={snapshot.links}
             rates={rates}
             anchors={anchors}
             selectedZid={selectedZid}
@@ -154,21 +160,22 @@ export function TopologyView() {
 
         <div className="relative min-w-0 flex-1">
           {snapshot && nodeCount > 0 ? (
-            // The provider must wrap the canvas rather than the app: it owns
-            // the store for this graph, and remounting it on session change is
-            // exactly what we want.
-            <ReactFlowProvider>
+            <Suspense
+              fallback={
+                <div className="canvas-grid flex h-full items-center justify-center">
+                  <Spinner />
+                </div>
+              }
+            >
               <TopologyCanvas
                 snapshot={snapshot}
                 selectedZid={selectedZid}
                 anchors={anchors}
                 actions={actions}
-                // Both side panels take width from the canvas, and narrowing
-                // builds a different graph — all three change how it frames.
-                framingKey={`${region ?? "all"}:${source}:${traceFrom ? "trace" : selectedNode ? "inspector" : ""}`}
+                framingKey={`${region ?? "all"}:${source}`}
                 onSelectNode={setSelectedZid}
               />
-            </ReactFlowProvider>
+            </Suspense>
           ) : (
             <div className="canvas-grid h-full">
               <EmptyState
@@ -184,19 +191,19 @@ export function TopologyView() {
               />
             </div>
           )}
-        </div>
 
-        {traceFrom && snapshot ? (
-          <RouteTracePanel from={traceFrom} snapshot={snapshot} onClose={closeTrace} />
-        ) : selectedNode && snapshot ? (
-          <NodeInspector
-            node={selectedNode}
-            snapshot={snapshot}
-            onClose={() => setSelectedZid(null)}
-            onSelectNode={setSelectedZid}
-            onTrace={setTraceFrom}
-          />
-        ) : null}
+          {traceFrom && snapshot ? (
+            <RouteTracePanel from={traceFrom} snapshot={snapshot} onClose={closeTrace} />
+          ) : selectedNode && snapshot ? (
+            <NodeInspector
+              node={selectedNode}
+              snapshot={snapshot}
+              onClose={() => setSelectedZid(null)}
+              onSelectNode={setSelectedZid}
+              onTrace={setTraceFrom}
+            />
+          ) : null}
+        </div>
       </div>
     </div>
   );

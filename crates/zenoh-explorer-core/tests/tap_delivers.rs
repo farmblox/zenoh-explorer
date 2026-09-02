@@ -312,10 +312,12 @@ async fn a_put_and_a_delete_both_reach_a_subscriber() {
     });
 
     eventually("a delete to arrive", || {
-        collected
-            .records()
-            .iter()
-            .any(|record| matches!(record.kind, zenoh_explorer_core::model::SampleKindDto::Delete))
+        collected.records().iter().any(|record| {
+            matches!(
+                record.kind,
+                zenoh_explorer_core::model::SampleKindDto::Delete
+            )
+        })
     })
     .await;
 

@@ -62,9 +62,10 @@ function dispatch(event: AppEvent): void {
       break;
 
     case "keyspaceChanged":
-      // Counts live on the session summary, and the keyspace view re-reads the
-      // level it is showing off the back of the same epoch bump.
-      void useSessionStore.getState().refresh();
+      // The event already carries the new count. Re-reading every session for
+      // each declaration in a burst duplicated IPC and replaced every tab's
+      // summary object just to update this one integer.
+      useSessionStore.getState().updateKeyCount(event.sessionId, event.totalKeys);
       useLiveStore.getState().bump(event.sessionId);
       break;
 
