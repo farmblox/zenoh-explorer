@@ -14,6 +14,15 @@ import { keyspace, type AclFinding, type SessionId, type StorageCoverage } from 
 /** The Zenoh message kind a subscription declares. */
 const SUBSCRIBE = "declare_subscriber";
 
+/**
+ * How long the expression has to settle first.
+ *
+ * The selected key changes on a click and could be asked for at once, but the
+ * toolbar's expression changes per keystroke and asks the same two questions
+ * every time.
+ */
+const SETTLE_MS = 150;
+
 export interface KeyInsight {
   /** Storages that would keep some or all of this key. */
   readonly storages: readonly StorageCoverage[];
@@ -38,19 +47,22 @@ export function useKeyInsight(sessionId: SessionId, keyExpr: string | null): Key
     if (keyExpr === null) return;
 
     let current = true;
-    void Promise.all([
-      keyspace.storageCoverage(sessionId, keyExpr),
-      keyspace.aclFindings(sessionId, keyExpr, SUBSCRIBE),
-    ])
-      .then(([storages, acl]) => {
-        if (current) setAnswered({ key: keyExpr, insight: { storages, acl, loading: false } });
-      })
-      .catch(() => {
-        if (current) setAnswered({ key: keyExpr, insight: EMPTY });
-      });
+    const timer = setTimeout(() => {
+      void Promise.all([
+        keyspace.storageCoverage(sessionId, keyExpr),
+        keyspace.aclFindings(sessionId, keyExpr, SUBSCRIBE),
+      ])
+        .then(([storages, acl]) => {
+          if (current) setAnswered({ key: keyExpr, insight: { storages, acl, loading: false } });
+        })
+        .catch(() => {
+          if (current) setAnswered({ key: keyExpr, insight: EMPTY });
+        });
+    }, SETTLE_MS);
 
     return () => {
       current = false;
+      clearTimeout(timer);
     };
   }, [sessionId, keyExpr]);
 

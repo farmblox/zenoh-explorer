@@ -96,6 +96,13 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
   // Durability and access control for whatever is selected.
   const insight = useKeyInsight(sessionId, selected);
 
+  // The same question about the expression the toolbar will actually subscribe
+  // to, which is not always the key selected in the tree. A policy that would
+  // refuse it is worth knowing before pressing the button rather than after,
+  // when it arrives as whatever Zenoh happened to say.
+  const aim = useKeyInsight(sessionId, keyExpr.trim() === "" ? null : keyExpr.trim());
+  const refusals = aim.acl.filter((finding) => finding.permission === "deny");
+
   // Which counter has been opened onto its list, if any. One at a time: five
   // lists at once is the table this panel exists to avoid.
   const [openKind, setOpenKind] = useState<DeclarationKind | null>(null);
@@ -228,6 +235,13 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
 
       {tap.error ? (
         <p className="bg-danger-subtle text-tiny text-danger shrink-0 px-5 py-2">{tap.error}</p>
+      ) : refusals.length > 0 && !tap.streaming ? (
+        <p className="bg-warn-subtle text-tiny text-warn shrink-0 px-5 py-2">
+          {refusals[0]?.nodeName ?? refusals[0]?.zid.slice(0, 8)} denies{" "}
+          <span className="numeric">declare_subscriber</span> on{" "}
+          <span className="numeric">{refusals[0]?.keyExpr}</span>, which covers this. Subscribing
+          will return nothing.
+        </p>
       ) : null}
 
       <div className="flex min-h-0 flex-1">
