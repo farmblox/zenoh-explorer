@@ -30,6 +30,26 @@ import { SampleTable } from "./components/SampleTable";
 import { useKeyTree } from "./hooks/useKeyTree";
 
 /** Where a new subscription starts, before you have picked a key. */
+/**
+ * The five kinds of interest Zenoh publishes, in the order they read.
+ *
+ * Consumers before providers within each pair — subscriber/publisher, then
+ * queryable/querier — and presence last, because a liveliness token is not
+ * half of a pair at all.
+ */
+const DECLARED = [
+  { kind: "subscriber", label: "Subscribers", field: "subscribers", tone: "accent" },
+  { kind: "publisher", label: "Publishers", field: "publishers", tone: "accent" },
+  { kind: "queryable", label: "Queryables", field: "queryables", tone: "accent" },
+  { kind: "querier", label: "Queriers", field: "queriers", tone: "accent" },
+  { kind: "token", label: "Live tokens", field: "tokens", tone: "ok" },
+] as const satisfies ReadonlyArray<{
+  kind: DeclarationKind;
+  label: string;
+  field: "subscribers" | "publishers" | "queryables" | "queriers" | "tokens";
+  tone: "accent" | "ok";
+}>;
+
 const DEFAULT_KEY_EXPR = "**";
 
 /**
@@ -124,8 +144,6 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
     return level.nodes.find((node) => node.key === selected) ?? null;
   }, [selected, tree.levels]);
 
-  const listeners = (selectedNode?.subscribers ?? 0) + (selectedNode?.queryables ?? 0);
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ViewHeader
@@ -210,12 +228,15 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {selected ? (
-            <div className="border-line-soft shrink-0 border-b px-5 py-4">
+            <div
+              // Bounded, and scrolls. Left alone this grows with every panel
+              // that has something to say, and it shares a column with the live
+              // sample table — so the more interesting the key, the further it
+              // pushed the data describing it off the bottom of the screen.
+              className="border-line-soft scroll-thin max-h-[45%] shrink-0 overflow-y-auto border-b px-5 py-4"
+            >
               <div className="flex items-center gap-3">
                 <KeyExpr value={selected} className="text-base" />
-                <Badge tone={listeners > 0 ? "accent" : "neutral"}>
-                  {listeners > 0 ? `${listeners} listening` : "nobody listening"}
-                </Badge>
                 <span className="flex-1" />
                 <Button
                   variant="secondary"
@@ -236,105 +257,55 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
 
               <KeyInsight insight={insight} />
 
-              {/* One tile per kind Zenoh declares. Subscribers and queryables
-                  alone answered "is anyone listening"; publishers, queriers and
-                  liveliness tokens are what answer "who is on the other end". */}
-              <Panel title="Declared at or below this key" flush className="mt-4">
+              <Panel title="At or below this key" flush className="mt-4">
                 <StatGrid columns={5}>
-                  <StatCell
-                    label="Subscribers"
-                    value={groupedNumber(selectedNode?.subscribers ?? 0)}
-                    tone={selectedNode?.subscribers ? "accent" : "ink"}
-                    size="sm"
-                    // Nothing to open when nothing was counted.
-                    {...(selectedNode?.subscribers
-                      ? {
-                          open: openKind === "subscriber",
-                          onClick: () =>
-                            setOpenKind((current) =>
-                              current === "subscriber" ? null : "subscriber",
-                            ),
-                        }
-                      : {})}
-                  />
-                  <StatCell
-                    label="Publishers"
-                    value={groupedNumber(selectedNode?.publishers ?? 0)}
-                    tone={selectedNode?.publishers ? "accent" : "ink"}
-                    size="sm"
-                    // Nothing to open when nothing was counted.
-                    {...(selectedNode?.publishers
-                      ? {
-                          open: openKind === "publisher",
-                          onClick: () =>
-                            setOpenKind((current) =>
-                              current === "publisher" ? null : "publisher",
-                            ),
-                        }
-                      : {})}
-                  />
-                  <StatCell
-                    label="Queryables"
-                    value={groupedNumber(selectedNode?.queryables ?? 0)}
-                    tone={selectedNode?.queryables ? "accent" : "ink"}
-                    size="sm"
-                    // Nothing to open when nothing was counted.
-                    {...(selectedNode?.queryables
-                      ? {
-                          open: openKind === "queryable",
-                          onClick: () =>
-                            setOpenKind((current) =>
-                              current === "queryable" ? null : "queryable",
-                            ),
-                        }
-                      : {})}
-                  />
-                  <StatCell
-                    label="Queriers"
-                    value={groupedNumber(selectedNode?.queriers ?? 0)}
-                    tone={selectedNode?.queriers ? "accent" : "ink"}
-                    size="sm"
-                    // Nothing to open when nothing was counted.
-                    {...(selectedNode?.queriers
-                      ? {
-                          open: openKind === "querier",
-                          onClick: () =>
-                            setOpenKind((current) => (current === "querier" ? null : "querier")),
-                        }
-                      : {})}
-                  />
-                  <StatCell
-                    label="Live tokens"
-                    value={groupedNumber(selectedNode?.tokens ?? 0)}
-                    tone={selectedNode?.tokens ? "ok" : "ink"}
-                    size="sm"
-                    // Nothing to open when nothing was counted.
-                    {...(selectedNode?.tokens
-                      ? {
-                          open: openKind === "token",
-                          onClick: () =>
-                            setOpenKind((current) => (current === "token" ? null : "token")),
-                        }
-                      : {})}
-                  />
+                  {DECLARED.map((tile) => {
+                    const count = selectedNode?.[tile.field] ?? 0;
+                    return (
+                      <StatCell
+                        key={tile.kind}
+                        label={tile.label}
+                        value={groupedNumber(count)}
+                        tone={count ? tile.tone : "ink"}
+                        size="sm"
+                        // A count of nothing has no list to open.
+                        {...(count
+                          ? {
+                              open: openKind === tile.kind,
+                              onClick: () =>
+                                setOpenKind((current) =>
+                                  current === tile.kind ? null : tile.kind,
+                                ),
+                            }
+                          : {})}
+                      />
+                    );
+                  })}
                 </StatGrid>
-              </Panel>
 
-              {openKind ? <DeclarationList kind={openKind} declarations={declarations} /> : null}
+                {/* Directly under the tile that opened it. A disclosure whose
+                    content appears in a different card from its own caret is
+                    two things on screen, not one. */}
+                {openKind ? <DeclarationList kind={openKind} declarations={declarations} /> : null}
 
-              <Panel title="Observed at or below this key" flush className="mt-4">
-                <StatGrid columns={2}>
-                  <StatCell
-                    label="Keys with data"
-                    value={groupedNumber(selectedNode?.descendantKeys ?? 0)}
-                    size="sm"
-                  />
-                  <StatCell
-                    label="Samples seen"
-                    value={groupedNumber(selectedNode?.sampleCount ?? 0)}
-                    size="sm"
-                  />
-                </StatGrid>
+                {/* What has happened, as against what is declared. The
+                    distinction is worth keeping; two numbers are not worth a
+                    second bordered card to keep it in. */}
+                <p className="border-line-soft text-tiny text-ink-faint flex items-center gap-2 border-t px-4 py-2.5">
+                  <span>
+                    <span className="numeric text-ink-muted">
+                      {groupedNumber(selectedNode?.descendantKeys ?? 0)}
+                    </span>{" "}
+                    keys have carried data
+                  </span>
+                  <span aria-hidden>·</span>
+                  <span>
+                    <span className="numeric text-ink-muted">
+                      {groupedNumber(selectedNode?.sampleCount ?? 0)}
+                    </span>{" "}
+                    samples seen
+                  </span>
+                </p>
               </Panel>
             </div>
           ) : null}

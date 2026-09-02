@@ -35,19 +35,26 @@ export interface DeclarationListProps {
  */
 export function DeclarationList({ kind, declarations }: DeclarationListProps) {
   if (declarations.loading) {
-    return <Skeleton className="mt-3 h-20 w-full" />;
+    return <Skeleton className="border-line-soft h-20 w-full border-t" />;
   }
 
   if (declarations.entries.length === 0) {
-    return <p className="text-tiny text-ink-muted mt-3 px-4 py-2">{NOTHING[kind]}</p>;
+    return (
+      <p className="border-line-soft text-tiny text-ink-muted border-t px-4 py-2.5">
+        {NOTHING[kind]}
+      </p>
+    );
   }
 
+  // No border or radius of its own: it sits inside the panel that holds the
+  // tile it belongs to, and a card nested in a card is a seam that says these
+  // are separate things when they are one.
   return (
-    <div className="border-line rounded-panel bg-surface-1 mt-3 overflow-hidden border">
-      <div className="border-line-soft text-tiny text-ink-faint border-b px-4 py-2 font-medium">
+    <div className="border-line-soft bg-surface-1 border-t">
+      <div className="text-tiny text-ink-faint px-4 pt-2.5 pb-1.5 font-medium">
         {HEADINGS[kind]}
       </div>
-      <ul className="divide-line-soft max-h-64 divide-y overflow-y-auto">
+      <ul className="divide-line-soft scroll-thin max-h-64 divide-y overflow-y-auto">
         {declarations.entries.map((entry) => (
           <li key={`${entry.zid}:${entry.keyExpr}`} className="flex items-center gap-3 px-4 py-2">
             <KeyExpr value={entry.keyExpr} className="text-tiny min-w-0 flex-1" />
