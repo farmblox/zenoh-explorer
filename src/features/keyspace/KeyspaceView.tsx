@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
-import { Binary, FlaskConical, Radio, Trash2 } from "lucide-react";
+import { Binary, CornerDownLeft, FlaskConical, Radio, Send, Trash2 } from "lucide-react";
 
 import { KeyExpr } from "@/components/domain";
 import { DeclarationList } from "./components/DeclarationList";
+import { PublishDialog } from "./components/PublishDialog";
+import { QueryReplies } from "./components/QueryReplies";
 import { KeyInsight } from "./components/KeyInsight";
 import { useDeclarations } from "./hooks/useDeclarations";
+import { useQuery } from "./hooks/useQuery";
 import { useKeyInsight } from "./hooks/useKeyInsight";
 import {
   Badge,
@@ -22,7 +25,7 @@ import {
 import type { DeclarationKind, KeyNode, SampleRecord, SessionId } from "@/ipc";
 import { compactNumber, groupedNumber } from "@/lib/format";
 import { useReveal } from "@/navigation/useReveal";
-import { useActiveSessionId, useTap, useTapStore } from "@/stores";
+import { useActiveSession, useActiveSessionId, useTap, useTapStore } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
 import { KeyTree } from "./components/KeyTree";
 import { MatchTester } from "./components/MatchTester";
@@ -98,6 +101,15 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
   // lists at once is the table this panel exists to avoid.
   const [openKind, setOpenKind] = useState<DeclarationKind | null>(null);
   const declarations = useDeclarations(sessionId, selected, openKind);
+
+  // Three verbs on one expression: read it once, watch it, or change it. The
+  // first two fill the pane below; the third interrupts, because it is the only
+  // one that changes the network rather than asking it something.
+  const query = useQuery(sessionId);
+  // The dialog names the network it is about to change, so it needs what the
+  // user called it rather than its zid.
+  const sessionName = useActiveSession()?.profile.name ?? "this network";
+  const [publishing, setPublishing] = useState(false);
 
   // Picking a key in the tree aims the subscription at it. It does not start
   // one: subscribing is a deliberate act, and clicking through a tree should
@@ -193,6 +205,22 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
             {tap.paused ? "Resume" : "Pause"}
           </Button>
         ) : null}
+        <Button
+          variant="secondary"
+          icon={<CornerDownLeft size={13} />}
+          disabled={tap.streaming || query.running}
+          onClick={() => {
+            setOpenKind(null);
+            query.run(keyExpr);
+          }}
+        >
+          Get
+        </Button>
+        {/* The ellipsis is the difference: everything else here acts, this one
+            opens something first. */}
+        <Button variant="secondary" icon={<Send size={13} />} onClick={() => setPublishing(true)}>
+          Publish…
+        </Button>
         <Button
           variant="ghost"
           icon={<Trash2 size={13} />}
@@ -298,6 +326,14 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
                 declarations={declarations}
                 onClose={() => setOpenKind(null)}
               />
+            ) : query.result || query.running ? (
+              <QueryReplies
+                result={query.result ?? { selector: keyExpr, replies: [], tookMs: 0, error: null }}
+                running={query.running}
+                selected={sample?.seq ?? null}
+                onSelect={(row) => setSample((open) => (open?.seq === row.seq ? null : row))}
+                onClose={query.clear}
+              />
             ) : tap.samples.length === 0 ? (
               <EmptyState
                 icon={tap.streaming ? <Spinner /> : <Radio />}
@@ -322,6 +358,13 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
           </div>
         </div>
       </div>
+      <PublishDialog
+        open={publishing}
+        sessionId={sessionId}
+        sessionName={sessionName}
+        initialKey={selected ?? keyExpr}
+        onClose={() => setPublishing(false)}
+      />
     </div>
   );
 }

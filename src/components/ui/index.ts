@@ -26,6 +26,8 @@ export { ErrorBoundary } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
 
 export { EmptyState } from "./EmptyState";
+export { Field } from "./Field";
+export type { FieldProps } from "./Field";
 export type { EmptyStateProps } from "./EmptyState";
 
 export { Input } from "./Input";

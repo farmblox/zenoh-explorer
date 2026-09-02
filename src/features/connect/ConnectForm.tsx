@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
-import { Badge, Checkbox, Disclosure, Input, SegmentedControl } from "@/components/ui";
+import { Badge, Checkbox, Disclosure, Field, Input, SegmentedControl } from "@/components/ui";
 import type {
   CertSource,
   ConnectionOptions,
@@ -426,17 +426,5 @@ export function ConnectForm({ initial, onChange, onSubmit }: ConnectFormProps) {
         </div>
       </Disclosure>
     </form>
-  );
-}
-
-function Field({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
-  return (
-    <label className="block space-y-2">
-      <span className="flex items-baseline gap-2">
-        <span className="text-small text-ink font-medium">{label}</span>
-        <span className="text-tiny text-ink-faint">{hint}</span>
-      </span>
-      {children}
-    </label>
   );
 }

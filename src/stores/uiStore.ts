@@ -50,6 +50,14 @@ interface UiState {
    * you have when you are not connected to it yet.
    */
   fallbackView: ViewId;
+  /**
+   * Sessions the user has allowed writes on.
+   *
+   * Deliberately not persisted. Arming is a decision about what you are doing
+   * right now, and one made last Tuesday should not still be in force against
+   * a production network this morning.
+   */
+  armedSessions: Record<string, boolean>;
   sidebarCollapsed: boolean;
   statusBarExpanded: boolean;
   overlay: Overlay;
@@ -67,6 +75,10 @@ interface UiState {
   setView(sessionId: SessionId | null, view: ViewId): void;
   viewFor(sessionId: SessionId | null): ViewId;
   forgetSession(sessionId: SessionId): void;
+
+  /** Whether publishing and deleting are allowed on this session. */
+  writesArmed(sessionId: SessionId | null): boolean;
+  armWrites(sessionId: SessionId, armed: boolean): void;
 
   toggleSidebar(): void;
   toggleStatusBar(): void;
@@ -87,6 +99,7 @@ interface UiState {
 export const useUiStore = create<UiState>()((set, get) => ({
   viewBySession: {},
   fallbackView: "scouting",
+  armedSessions: {},
   sidebarCollapsed: false,
   statusBarExpanded: false,
   overlay: "none",
@@ -113,6 +126,12 @@ export const useUiStore = create<UiState>()((set, get) => ({
       delete next[sessionId];
       return { viewBySession: next };
     }),
+
+  writesArmed: (sessionId) =>
+    sessionId === null ? false : (get().armedSessions[sessionId] ?? false),
+
+  armWrites: (sessionId, armed) =>
+    set((state) => ({ armedSessions: { ...state.armedSessions, [sessionId]: armed } })),
 
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   toggleStatusBar: () => set((state) => ({ statusBarExpanded: !state.statusBarExpanded })),
