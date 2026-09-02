@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
-  # Handy for rehearsing the workflow without cutting a tag.
+  # Cut a tagged release directly from the selected branch.
   workflow_dispatch:
     inputs:
       tag:

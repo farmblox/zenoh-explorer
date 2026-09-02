@@ -8,7 +8,7 @@
       "endpoints": [
         "https://github.com/farmblox/zenoh-explorer/releases/latest/download/latest.json"
       ],
-      "pubkey": "REPLACE_ME_WITH_THE_CONTENTS_OF_YOUR_PUBLIC_KEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFBN0I1MUE3MURBMjE3MDIKUldRQ0Y2SWRwMUY3cWc3MjdTT3hjbFd2SXBRWkp2Yi8rWHFGTU9ONW1kSlNraDEvdkFmY1VFTVAK"
     }
   }
 }
