@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Binary, CornerDownLeft, FlaskConical, Radio, Send, Trash2 } from "lucide-react";
 
-import { KeyExpr } from "@/components/domain";
+import { KeyExpr, KeyExprInput } from "@/components/domain";
 import { DeclarationList } from "./components/DeclarationList";
 import { PublishDialog } from "./components/PublishDialog";
 import { QueryReplies } from "./components/QueryReplies";
@@ -13,7 +13,6 @@ import {
   Badge,
   Button,
   EmptyState,
-  Input,
   Panel,
   ResizablePanel,
   ScrollArea,
@@ -179,19 +178,16 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
       />
 
       <Toolbar>
-        <Input
+        <KeyExprInput
           value={keyExpr}
-          onChange={(event) => setKeyExpr(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !tap.streaming) subscribe();
+          onChange={setKeyExpr}
+          sessionId={sessionId}
+          onSubmit={() => {
+            if (!tap.streaming) subscribe();
           }}
           prefix="key expr"
-          mono
-          spellCheck={false}
-          autoComplete="off"
-          disabled={tap.streaming}
-          containerClassName="flex-1"
           placeholder="fleet/**/telemetry/*"
+          className="flex-1"
         />
         <Button
           variant={tap.streaming ? "danger" : "primary"}

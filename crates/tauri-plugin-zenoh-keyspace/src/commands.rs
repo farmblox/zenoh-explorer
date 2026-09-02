@@ -141,3 +141,23 @@ pub(crate) async fn declarations_under<R: Runtime>(
         .get(&session_id)?
         .declarations_under(&prefix, kind))
 }
+
+/// How many observed keys an expression would match.
+///
+/// What makes a key expression legible while it is being typed: `fleet/**`
+/// reaching 148 keys and `fleet/*` reaching 3 is the difference between them,
+/// said in the only terms that mean anything — this network's own keys.
+///
+/// Read from the local index, so it asks the network nothing and can run as
+/// the expression is edited.
+#[tauri::command]
+pub(crate) async fn matching_keys<R: Runtime>(
+    app: AppHandle<R>,
+    session_id: SessionId,
+    expr: String,
+) -> Result<usize> {
+    Ok(app
+        .zenoh_sessions()?
+        .get(&session_id)?
+        .matching_keys(&expr))
+}

@@ -15,4 +15,5 @@ permissions = [
   "allow-acl-findings",
   "allow-storage-coverage",
   "allow-declarations-under",
+  "allow-matching-keys",
 ]

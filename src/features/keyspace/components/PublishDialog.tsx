@@ -1,6 +1,7 @@
 import { Send, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
+import { KeyExprInput } from "@/components/domain";
 import {
   Badge,
   Button,
@@ -8,11 +9,10 @@ import {
   ComboBox,
   Dialog,
   Field,
-  Input,
   SegmentedControl,
   Switch,
 } from "@/components/ui";
-import { data, keyspace, toIpcError, type KeyExprAnalysis, type SessionId } from "@/ipc";
+import { data, toIpcError, type KeyExprAnalysis, type SessionId } from "@/ipc";
 import { bytes } from "@/lib/format";
 import { toast, useUiStore } from "@/stores";
 
@@ -81,7 +81,7 @@ export function PublishDialog({
   const [key, setKey] = useState(initialKey);
   const [payload, setPayload] = useState("");
   const [encoding, setEncoding] = useState<Encoding>("text/plain");
-  const [analysed, setAnalysed] = useState<{ key: string; result: KeyExprAnalysis } | null>(null);
+  const [analysis, setAnalysis] = useState<KeyExprAnalysis | null>(null);
   const [sending, setSending] = useState(false);
 
   // Opening is when the key should follow the selection; typing in here after
@@ -93,37 +93,12 @@ export function PublishDialog({
       setKind("put");
       setKey(initialKey);
       setPayload("");
+      setAnalysis(null);
       setSending(false);
     }
   }
 
   const trimmed = key.trim();
-
-  // The verdict comes from `zenoh-keyexpr`, not from looking for asterisks: the
-  // rules have corners, and a tool that writes to the wrong key because it
-  // misread one is worse than no tool.
-  useEffect(() => {
-    if (!open || trimmed === "") return;
-
-    let current = true;
-    void keyspace
-      .analyseKeyExpr(trimmed)
-      .then((result) => {
-        if (current) setAnalysed({ key: trimmed, result });
-      })
-      .catch(() => {
-        // Leaving it unanalysed is what blocks the write, which is the outcome
-        // a failed check should have.
-      });
-
-    return () => {
-      current = false;
-    };
-  }, [open, trimmed]);
-
-  // Only an answer about the key as it stands counts. An answer about the key
-  // as it was two characters ago is what would let a wildcard through.
-  const analysis = analysed?.key === trimmed ? analysed.result : null;
 
   const size = new TextEncoder().encode(payload).length;
   const wildcard = analysis?.hasWildcards === true;
@@ -204,21 +179,21 @@ export function PublishDialog({
 
         <Field
           label="Key"
-          {...(invalid && analysis?.error
-            ? { error: analysis.error }
-            : wildcard
-              ? { error: "A wildcard names more than one key. This needs exactly one." }
-              : analysis?.isCanonical === false && analysis.canonical
-                ? { hint: `sent as ${analysis.canonical}` }
-                : {})}
+          {...(wildcard
+            ? { error: "A wildcard names more than one key. This needs exactly one." }
+            : {})}
         >
-          <Input
-            data-autofocus
+          <KeyExprInput
             value={key}
-            onChange={(event) => setKey(event.target.value)}
-            mono
-            placeholder="fleet/agv/07/mode"
+            onChange={setKey}
+            sessionId={sessionId}
+            onAnalysis={setAnalysis}
+            // A put addresses exactly one key, so the two wildcards are not
+            // offers here. Typing one is still caught, and refused.
+            wildcards={false}
             invalid={invalid || wildcard}
+            placeholder="fleet/agv/07/mode"
+            autoFocusInDialog
           />
         </Field>
 

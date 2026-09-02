@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { AtSign, Play } from "lucide-react";
 
-import { Badge, Button, DataTable, EmptyState, Input, type Column } from "@/components/ui";
-import { KeyExpr } from "@/components/domain";
+import { Badge, Button, DataTable, EmptyState, type Column } from "@/components/ui";
+import { KeyExpr, KeyExprInput } from "@/components/domain";
 import { data as dataIpc, type SampleRecord } from "@/ipc";
 import { useAsync } from "@/hooks";
 import { bytes } from "@/lib/format";
@@ -107,14 +107,13 @@ export function AdminView() {
             setSubmitted(selector);
           }}
         >
-          <Input
+          <KeyExprInput
             value={selector}
-            onChange={(event) => setSelector(event.target.value)}
+            onChange={setSelector}
+            sessionId={sessionId}
             prefix="selector"
-            mono
-            spellCheck={false}
-            autoComplete="off"
-            containerClassName="flex-1"
+            placeholder="@/*/*/linkstate/*"
+            className="flex-1"
           />
           <Button type="submit" variant="primary" icon={<Play size={13} />} disabled={loading}>
             Query

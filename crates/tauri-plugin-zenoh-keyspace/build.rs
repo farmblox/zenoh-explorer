@@ -11,6 +11,7 @@ const COMMANDS: &[&str] = &[
     "acl_findings",
     "storage_coverage",
     "declarations_under",
+    "matching_keys",
 ];
 
 fn main() {

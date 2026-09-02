@@ -24,6 +24,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::acl_findings,
             commands::storage_coverage,
             commands::declarations_under,
+            commands::matching_keys,
         ])
         .build()
 }

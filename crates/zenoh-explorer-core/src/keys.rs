@@ -6,6 +6,7 @@
 
 use ahash::{AHashMap, AHashSet};
 
+use crate::keyexpr_tools::Matcher;
 use crate::model::{
     DeclarationKind, KeyDeclaration, KeyKind, KeyNode, KeySpaceSnapshot, NodeDeclaration,
 };
@@ -149,6 +150,28 @@ impl KeyIndex {
                 .then_with(|| a.key_expr.cmp(&b.key_expr))
         });
         out
+    }
+
+    /// How many observed keys an expression would match.
+    ///
+    /// The number that makes a key expression legible while it is being typed:
+    /// `fleet/**` matching 148 keys and `fleet/*` matching 3 is the difference
+    /// between the two, said in the only terms that mean anything — this
+    /// network's own keys.
+    ///
+    /// Counts keys that have carried data, not declared expressions. A
+    /// declaration is itself a pattern, and "does this pattern match that
+    /// pattern" is a different question from "what would this reach".
+    #[must_use]
+    pub fn matching_keys(&self, expr: &str) -> usize {
+        let Some(matcher) = Matcher::new(expr) else {
+            return 0;
+        };
+
+        let mut count = 0;
+        let mut path = String::new();
+        count_matches(&self.root, &mut path, &matcher, &mut count);
+        count
     }
 
     /// Every declaration of one kind at or below `prefix`, and who made it.
@@ -336,6 +359,27 @@ fn bump_declaration(entry: &mut Entry, kind: DeclarationKind, added: bool) {
     };
 }
 
+/// Counts the concrete keys in the trie that `matcher` accepts.
+///
+/// One `String` carried down and truncated on the way back up, so a deep tree
+/// costs one allocation rather than one per node.
+fn count_matches(entry: &Entry, path: &mut String, matcher: &Matcher, count: &mut usize) {
+    for (segment, child) in &entry.children {
+        let mark = path.len();
+        if !path.is_empty() {
+            path.push('/');
+        }
+        path.push_str(segment);
+
+        if child.is_key && matcher.matches(path) {
+            *count += 1;
+        }
+
+        count_matches(child, path, matcher, count);
+        path.truncate(mark);
+    }
+}
+
 /// Whether `key_expr` sits at or below `prefix`.
 ///
 /// The same segment walk `declare` uses to credit its counters, which is what
@@ -427,6 +471,49 @@ fn counted(count: usize, one: &str, many: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn counts_what_an_expression_would_reach() {
+        let mut index = KeyIndex::new();
+        index.observe("fleet/agv/07/battery", 1);
+        index.observe("fleet/agv/07/mode", 1);
+        index.observe("fleet/agv/11/battery", 1);
+        index.observe("other/thing", 1);
+
+        assert_eq!(index.matching_keys("fleet/**"), 3);
+        assert_eq!(index.matching_keys("fleet/agv/*/battery"), 2);
+        assert_eq!(index.matching_keys("fleet/agv/07/battery"), 1);
+        assert_eq!(index.matching_keys("**"), 4);
+        assert_eq!(index.matching_keys("nothing/here"), 0);
+    }
+
+    #[test]
+    fn a_single_chunk_wildcard_does_not_span_slashes() {
+        // The distinction the whole language turns on: `*` is one chunk, `**`
+        // is any number of them.
+        let mut index = KeyIndex::new();
+        index.observe("fleet/agv", 1);
+        index.observe("fleet/agv/07", 1);
+
+        assert_eq!(index.matching_keys("fleet/*"), 1);
+        assert_eq!(index.matching_keys("fleet/**"), 2);
+    }
+
+    #[test]
+    fn an_invalid_expression_matches_nothing() {
+        let mut index = KeyIndex::new();
+        index.observe("fleet/agv", 1);
+        assert_eq!(index.matching_keys("fleet/**/**/["), 0);
+    }
+
+    #[test]
+    fn declared_expressions_are_not_counted_as_keys() {
+        // A declaration is a pattern, not a key. Counting it would answer a
+        // different question from the one being asked.
+        let mut index = KeyIndex::new();
+        index.declare("a", "fleet/**", DeclarationKind::Subscriber);
+        assert_eq!(index.matching_keys("fleet/**"), 0);
+    }
+
     /// The count on a tile and the length of the list it opens must agree.
     fn assert_agrees(index: &KeyIndex, prefix: &str, kind: DeclarationKind, counted: usize) {
         let listed = index.declarations_under(prefix, kind);
@@ -448,13 +535,36 @@ mod tests {
         index.declare("e", "fleet/agv/07/battery", DeclarationKind::Subscriber);
 
         let root = index.expand("");
-        let fleet = root.children.iter().find(|n| n.segment == "fleet").expect("fleet");
-        assert_agrees(&index, "fleet", DeclarationKind::Queryable, fleet.queryables);
-        assert_agrees(&index, "fleet", DeclarationKind::Subscriber, fleet.subscribers);
+        let fleet = root
+            .children
+            .iter()
+            .find(|n| n.segment == "fleet")
+            .expect("fleet");
+        assert_agrees(
+            &index,
+            "fleet",
+            DeclarationKind::Queryable,
+            fleet.queryables,
+        );
+        assert_agrees(
+            &index,
+            "fleet",
+            DeclarationKind::Subscriber,
+            fleet.subscribers,
+        );
 
         let under_fleet = index.expand("fleet");
-        let agv = under_fleet.children.iter().find(|n| n.segment == "agv").expect("agv");
-        assert_agrees(&index, "fleet/agv", DeclarationKind::Queryable, agv.queryables);
+        let agv = under_fleet
+            .children
+            .iter()
+            .find(|n| n.segment == "agv")
+            .expect("agv");
+        assert_agrees(
+            &index,
+            "fleet/agv",
+            DeclarationKind::Queryable,
+            agv.queryables,
+        );
     }
 
     #[test]
@@ -477,8 +587,18 @@ mod tests {
         index.declare("a", "fleet/**", DeclarationKind::Subscriber);
         index.declare("b", "fleet/**", DeclarationKind::Queryable);
 
-        assert_eq!(index.declarations_under("fleet", DeclarationKind::Queryable).len(), 1);
-        assert_eq!(index.declarations_under("fleet", DeclarationKind::Publisher).len(), 0);
+        assert_eq!(
+            index
+                .declarations_under("fleet", DeclarationKind::Queryable)
+                .len(),
+            1
+        );
+        assert_eq!(
+            index
+                .declarations_under("fleet", DeclarationKind::Publisher)
+                .len(),
+            0
+        );
     }
 
     #[test]
@@ -486,7 +606,12 @@ mod tests {
         let mut index = KeyIndex::new();
         index.declare("a", "fleet/**", DeclarationKind::Publisher);
         index.declare("b", "other/thing", DeclarationKind::Publisher);
-        assert_eq!(index.declarations_under("", DeclarationKind::Publisher).len(), 2);
+        assert_eq!(
+            index
+                .declarations_under("", DeclarationKind::Publisher)
+                .len(),
+            2
+        );
     }
 
     #[test]
@@ -494,16 +619,22 @@ mod tests {
         let mut index = KeyIndex::new();
         index.declare("a", "fleeting/thing", DeclarationKind::Subscriber);
         // `fleet` must not swallow `fleeting`: the walk compares whole segments.
-        assert!(index.declarations_under("fleet", DeclarationKind::Subscriber).is_empty());
+        assert!(
+            index
+                .declarations_under("fleet", DeclarationKind::Subscriber)
+                .is_empty()
+        );
     }
 
     #[test]
     fn a_declaration_shallower_than_the_prefix_is_not_below() {
         let mut index = KeyIndex::new();
         index.declare("a", "fleet", DeclarationKind::Subscriber);
-        assert!(index
-            .declarations_under("fleet/agv", DeclarationKind::Subscriber)
-            .is_empty());
+        assert!(
+            index
+                .declarations_under("fleet/agv", DeclarationKind::Subscriber)
+                .is_empty()
+        );
     }
 
     #[test]

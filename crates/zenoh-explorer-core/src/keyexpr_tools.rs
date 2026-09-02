@@ -64,6 +64,19 @@ pub struct KeyExprAnalysis {
     pub uses_sub_chunk_wildcard: bool,
     /// Number of `/`-separated chunks.
     pub chunk_count: usize,
+    /**
+     * Indices of the chunks that are not valid on their own.
+     *
+     * So the UI can mark the part at fault rather than the whole field. Zenoh's
+     * error says what is wrong and not where, and the position is not derivable
+     * from the message — so each chunk is offered to `zenoh-keyexpr` by itself.
+     * A chunk that will not parse alone will not parse in a path either, and the
+     * judgement is still the library's rather than a second opinion formed here.
+     *
+     * Empty for a valid expression, and for one whose fault is not a chunk's:
+     * `a//b` is invalid because of the gap, and neither `a` nor `b` is to blame.
+     */
+    pub bad_chunks: Vec<u32>,
 }
 
 /// One row of the match tester: how a candidate key relates to the expression.
@@ -93,6 +106,7 @@ pub fn analyse(input: &str) -> KeyExprAnalysis {
         has_wildcards: input.contains('*'),
         uses_sub_chunk_wildcard: input.contains("$*"),
         chunk_count: input.split('/').filter(|c| !c.is_empty()).count(),
+        bad_chunks: Vec::new(),
     };
 
     match OwnedKeyExpr::new(input.to_owned()) {
@@ -104,13 +118,13 @@ pub fn analyse(input: &str) -> KeyExprAnalysis {
         Err(err) => {
             // A non-canonical expression is still meaningful; report the
             // canonical rewrite rather than treating it as garbage.
-            match OwnedKeyExpr::autocanonize(input.to_owned()) {
-                Ok(canonical) => {
-                    analysis.valid = true;
-                    analysis.is_canonical = false;
-                    analysis.canonical = Some(canonical.as_str().to_owned());
-                }
-                Err(_) => analysis.error = Some(err.to_string()),
+            if let Ok(canonical) = OwnedKeyExpr::autocanonize(input.to_owned()) {
+                analysis.valid = true;
+                analysis.is_canonical = false;
+                analysis.canonical = Some(canonical.as_str().to_owned());
+            } else {
+                analysis.error = Some(err.to_string());
+                analysis.bad_chunks = bad_chunks(input);
             }
         }
     }
@@ -151,7 +165,54 @@ pub fn test_matches(expr: &str, candidates: &[String]) -> Vec<MatchResult> {
         .collect()
 }
 
-/// Parses an expression, canonicalising it first if needed.
+/// One expression, parsed once, ready to be tested against many keys.
+///
+/// The point is what it avoids: testing forty thousand keys one at a time would
+/// otherwise re-parse the expression forty thousand times, and allocate an
+/// `OwnedKeyExpr` for every key as well. The expression is parsed on
+/// construction and each key is borrowed rather than owned, so a pass over a
+/// whole index allocates nothing.
+#[derive(Debug)]
+pub struct Matcher(OwnedKeyExpr);
+
+impl Matcher {
+    /// Parses `expr`, canonicalising it if needed. `None` when it is not valid.
+    #[must_use]
+    pub fn new(expr: &str) -> Option<Self> {
+        parse_lenient(expr).map(Self)
+    }
+
+    /// Whether this expression matches the concrete key `key`.
+    ///
+    /// Intersection rather than a glob test, and from `zenoh-keyexpr` rather
+    /// than from here: a key is a single-member set, so an expression matches
+    /// it exactly when the two sets intersect — and that is the same judgement
+    /// the router makes.
+    #[must_use]
+    pub fn matches(&self, key: &str) -> bool {
+        zenoh::key_expr::keyexpr::new(key).is_ok_and(|parsed| self.0.intersects(parsed))
+    }
+}
+
+/// Which chunks of `input` will not parse on their own.
+///
+/// Only asked once the whole expression has failed, so an expression that is
+/// fine needs none of this work.
+fn bad_chunks(input: &str) -> Vec<u32> {
+    input
+        .split('/')
+        .enumerate()
+        .filter(|(_, chunk)| {
+            // An empty chunk is a fault of the path, not of a chunk: `a//b` has
+            // nothing wrong with `a` or with `b`. Marking it would point at
+            // something the reader cannot fix by editing it.
+            !chunk.is_empty() && zenoh::key_expr::keyexpr::new(*chunk).is_err()
+        })
+        .filter_map(|(index, _)| u32::try_from(index).ok())
+        .collect()
+}
+
+/// Parses an expression, canonicalising it if needed.
 fn parse_lenient(input: &str) -> Option<OwnedKeyExpr> {
     OwnedKeyExpr::new(input.to_owned())
         .or_else(|_| OwnedKeyExpr::autocanonize(input.to_owned()))
@@ -160,6 +221,52 @@ fn parse_lenient(input: &str) -> Option<OwnedKeyExpr> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_valid_expression_blames_no_chunk() {
+        assert!(analyse("fleet/*/battery").bad_chunks.is_empty());
+        assert!(analyse("fleet/**").bad_chunks.is_empty());
+    }
+
+    #[test]
+    fn the_offending_chunk_is_named() {
+        // A bare `*` inside a chunk is the classic mistake: `$*` is the one
+        // that matches within a chunk.
+        let analysis = analyse("fleet/agv*07/battery");
+        assert!(!analysis.valid);
+        assert_eq!(analysis.bad_chunks, vec![1]);
+    }
+
+    #[test]
+    fn several_bad_chunks_are_all_named() {
+        let analysis = analyse("fleet/a*b/c?d");
+        assert_eq!(analysis.bad_chunks, vec![1, 2]);
+    }
+
+    #[test]
+    fn a_sub_chunk_wildcard_is_a_valid_chunk() {
+        let analysis = analyse("fleet/agv$*/battery");
+        assert!(analysis.valid, "$* matches within a chunk and is legal");
+        assert!(analysis.bad_chunks.is_empty());
+    }
+
+    #[test]
+    fn an_empty_chunk_blames_nothing() {
+        // `a//b` is invalid because of the gap. Marking `a` or `b` would point
+        // at something the reader cannot fix by editing it.
+        let analysis = analyse("fleet//battery");
+        assert!(!analysis.valid);
+        assert!(analysis.bad_chunks.is_empty());
+    }
+
+    #[test]
+    fn a_non_canonical_expression_blames_no_chunk() {
+        // `**/*` rewrites to `*/**`. Every chunk in it is fine.
+        let analysis = analyse("fleet/**/*");
+        assert!(analysis.valid);
+        assert!(!analysis.is_canonical);
+        assert!(analysis.bad_chunks.is_empty());
+    }
+
     use super::*;
 
     fn candidates(items: &[&str]) -> Vec<String> {

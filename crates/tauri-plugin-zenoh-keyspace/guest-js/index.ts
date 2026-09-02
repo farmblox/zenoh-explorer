@@ -112,3 +112,17 @@ export function declarationsUnder(
 ): Promise<KeyDeclaration[]> {
   return invoke("plugin:zenoh-keyspace|declarations_under", { sessionId, prefix, kind });
 }
+
+/**
+ * How many observed keys an expression would match.
+ *
+ * The number that makes an expression legible while it is being typed:
+ * `fleet/**` reaching 148 keys and `fleet/*` reaching 3 is the difference
+ * between them, in the only terms that mean anything — this network's keys.
+ *
+ * Read from the index this session already holds, so it asks the network
+ * nothing.
+ */
+export function matchingKeys(sessionId: SessionId, expr: string): Promise<number> {
+  return invoke("plugin:zenoh-keyspace|matching_keys", { sessionId, expr });
+}

@@ -1,7 +1,7 @@
 import { useCallback, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { useDismiss, usePresence } from "@/hooks";
+import { useAnchored, useDismiss, usePresence } from "@/hooks";
 import { cn } from "@/lib/cn";
 import { focusRing } from "@/lib/states";
 
@@ -57,15 +57,8 @@ const EXIT_MS = 120;
  * That is the rule for every floating layer here: the border separates, the
  * shadow only lifts.
  *
- * The panel is portalled to a measured position rather than positioned inside
- * the trigger, because anything that clips its own overflow would clip it: a
- * dialog does, and a dropdown near its edge came out cut in half.
- *
- * Where it portals TO matters. `showModal()` puts a `<dialog>` in the browser's
- * top layer, and the top layer is above every normal-flow element whatever its
- * z-index — so a panel sent to `document.body` from inside a dialog renders
- * behind it. Inside a dialog it goes into the dialog element itself, which is
- * in the top layer and does not clip; everywhere else it goes to the body.
+ * Portalled to a measured position by [`useAnchored`], which is where the
+ * reasoning about clipping and the top layer lives.
  */
 export function Popover({
   trigger,
@@ -78,9 +71,8 @@ export function Popover({
   className,
 }: PopoverProps) {
   const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<DOMRect | null>(null);
-  const [host, setHost] = useState<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { rect, host, measure } = useAnchored(containerRef);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
 
@@ -116,11 +108,7 @@ export function Popover({
         aria-haspopup={haspopup}
         aria-controls={open ? panelId : undefined}
         onClick={() => {
-          const trigger = containerRef.current;
-          setRect(trigger?.getBoundingClientRect() ?? null);
-          // The nearest open dialog, or the body. Resolved per open rather than
-          // once, because the same control can be used in both places.
-          setHost(trigger?.closest("dialog") ?? document.body);
+          measure();
           setOpen((current) => !current);
         }}
         // The ring is the component's, not the caller's: a trigger that is only

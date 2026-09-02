@@ -311,6 +311,12 @@ impl ManagedSession {
         }
     }
 
+    /// How many observed keys an expression would match.
+    #[must_use]
+    pub fn matching_keys(&self, expr: &str) -> usize {
+        self.key_index.lock().matching_keys(expr)
+    }
+
     /// Every declaration of one kind at or below `prefix`, and who made it.
     ///
     /// What the counters on a key node are counting. Read straight out of the

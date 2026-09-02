@@ -67,8 +67,14 @@ const THEME = EditorView.theme({
     // needs more room between lines than prose does.
     lineHeight: "1.85",
     overflow: "auto",
+    // The scroller is a flex row of gutter and content, and CodeMirror aligns
+    // it to the start — which leaves both as tall as the text rather than as
+    // tall as the box, so the gutter's tint stopped at the last line.
+    alignItems: "stretch",
   },
-  ".cm-content": { padding: "10px 0", caretColor: "var(--accent)" },
+  // Fills the box for the same reason, and so clicking the empty space below
+  // the text puts the cursor in the document rather than doing nothing.
+  ".cm-content": { padding: "10px 0", caretColor: "var(--accent)", minHeight: "100%" },
   ".cm-line": { padding: "0 16px" },
   "&.cm-focused": { outline: "none" },
 
