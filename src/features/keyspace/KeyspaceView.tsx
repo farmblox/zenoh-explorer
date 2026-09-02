@@ -190,7 +190,6 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
           className="flex-1"
         />
         <Button
-          size="lg"
           variant={tap.streaming ? "danger" : "primary"}
           icon={<Radio size={13} />}
           onClick={subscribe}
@@ -198,12 +197,11 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
           {tap.streaming ? "Stop" : "Subscribe"}
         </Button>
         {tap.streaming ? (
-          <Button size="lg" onClick={() => setPaused(sessionId, !tap.paused)}>
+          <Button onClick={() => setPaused(sessionId, !tap.paused)}>
             {tap.paused ? "Resume" : "Pause"}
           </Button>
         ) : null}
         <Button
-          size="lg"
           variant="secondary"
           icon={<CornerDownLeft size={13} />}
           disabled={tap.streaming || query.running}
@@ -216,16 +214,10 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
         </Button>
         {/* The ellipsis is the difference: everything else here acts, this one
             opens something first. */}
-        <Button
-          size="lg"
-          variant="secondary"
-          icon={<Send size={13} />}
-          onClick={() => setPublishing(true)}
-        >
+        <Button variant="secondary" icon={<Send size={13} />} onClick={() => setPublishing(true)}>
           Publish…
         </Button>
         <Button
-          size="lg"
           variant="ghost"
           icon={<Trash2 size={13} />}
           onClick={() => clear(sessionId)}

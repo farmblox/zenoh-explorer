@@ -115,13 +115,7 @@ export function AdminView() {
             placeholder="@/*/*/linkstate/*"
             className="flex-1"
           />
-          <Button
-            type="submit"
-            size="lg"
-            variant="primary"
-            icon={<Play size={13} />}
-            disabled={loading}
-          >
+          <Button type="submit" variant="primary" icon={<Play size={13} />} disabled={loading}>
             Query
           </Button>
         </form>

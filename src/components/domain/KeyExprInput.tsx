@@ -114,6 +114,10 @@ export interface KeyExprInputProps {
    *
    * Taller than an ordinary input on purpose: this one carries chunk marks
    * under its text and a verdict at its trailing edge, and both want room.
+   *
+   * Taller than the buttons beside it, too. That is not an oversight — the
+   * field is what a keyspace toolbar is about and the buttons act on it, so it
+   * reads as the subject rather than as one control among equals.
    */
   size?: "md" | "lg" | undefined;
   /** Marks this as the field a dialog focuses on open. */
