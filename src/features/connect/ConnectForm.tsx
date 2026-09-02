@@ -1,6 +1,14 @@
 import { useState } from "react";
 
-import { Badge, Checkbox, Disclosure, Field, Input, SegmentedControl } from "@/components/ui";
+import {
+  Badge,
+  Checkbox,
+  CodeEditor,
+  Disclosure,
+  Field,
+  Input,
+  SegmentedControl,
+} from "@/components/ui";
 import type {
   CertSource,
   ConnectionOptions,
@@ -403,25 +411,17 @@ export function ConnectForm({ initial, onChange, onSubmit }: ConnectFormProps) {
           </Field>
 
           <Field label="Raw config" hint="JSON5, merged first. For anything not covered above">
-            <textarea
-              value={advanced}
-              onChange={(event) => {
-                setAdvanced(event.target.value);
-                report({ advancedJson5: event.target.value.trim() || null });
-              }}
-              rows={4}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              placeholder="{ transport: { unicast: { max_sessions: 100 } } }"
-              className={cn(
-                "numeric selectable rounded-control border-line bg-surface-2 w-full resize-y border p-3",
-                "text-tiny text-ink placeholder:text-ink-faint outline-none",
-                transitionFast,
-                "focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-subtle)]",
-              )}
-            />
+            <div className="rounded-control border-line bg-surface-2 focus-within:border-accent h-32 overflow-hidden border">
+              <CodeEditor
+                label="Raw configuration"
+                value={advanced}
+                onChange={(next) => {
+                  setAdvanced(next);
+                  report({ advancedJson5: next.trim() || null });
+                }}
+                placeholder="{ transport: { unicast: { max_sessions: 100 } } }"
+              />
+            </div>
           </Field>
         </div>
       </Disclosure>

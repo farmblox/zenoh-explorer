@@ -4,6 +4,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { Zid } from "@/components/domain";
 import {
   Badge,
+  CodeEditor,
   EmptyState,
   Input,
   ListRow,
@@ -19,7 +20,6 @@ import { cn } from "@/lib/cn";
 import { groupedNumber } from "@/lib/format";
 import { useActiveSessionId, useLiveEpoch, useTopology } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
-import { tokenizeJsonLine, type TokenKind } from "./lib/highlight";
 import { readHighlights } from "./lib/highlights";
 
 /** Every node's effective configuration, as published in its own admin space. */
@@ -29,14 +29,6 @@ const CONFIG_SELECTOR = "@/*/*/config";
 const TIMEOUT_MS = 6_000;
 
 /** Colour per token. Keys carry the structure, so they are the brightest. */
-const TOKEN_COLOUR: Record<TokenKind, string> = {
-  key: "text-ink",
-  string: "text-accent",
-  number: "text-ok",
-  keyword: "text-warn",
-  plain: "text-ink-faint",
-};
-
 /** One node's reply, with its identity pulled out of the admin key. */
 interface ConfigReply {
   readonly zid: string;
@@ -122,12 +114,13 @@ export function ConfigView() {
 
   const highlights = useMemo(() => (document ? readHighlights(document) : null), [document]);
 
-  const lines = useMemo(() => {
+  // Counted rather than filtered. Hiding the lines that do not match takes the
+  // nesting with them, and in a config the nesting is what says which section a
+  // setting is in — `enabled: true` on its own means nothing.
+  const matches = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    return document
-      .split("\n")
-      .map((text, index) => ({ text, number: index + 1 }))
-      .filter((line) => needle === "" || line.text.toLowerCase().includes(needle));
+    if (needle === "") return 0;
+    return document.split("\n").filter((line) => line.toLowerCase().includes(needle)).length;
   }, [document, filter]);
 
   if (!sessionId) {
@@ -148,7 +141,7 @@ export function ConfigView() {
         <Input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          placeholder="Filter lines"
+          placeholder="Find in this config"
           mono
           spellCheck={false}
           autoComplete="off"
@@ -157,7 +150,7 @@ export function ConfigView() {
         />
         {filter.trim() && active ? (
           <span className="numeric text-tiny text-ink-faint">
-            {groupedNumber(lines.length)} matching
+            {groupedNumber(matches)} {matches === 1 ? "line matches" : "lines match"}
           </span>
         ) : null}
         <span className="flex-1" />
@@ -226,38 +219,12 @@ export function ConfigView() {
                 {highlights ? <Permissions highlights={highlights} /> : null}
               </header>
 
-              <ScrollArea className="min-w-0 flex-1">
-                {lines.length === 0 ? (
-                  <p className="text-tiny text-ink-faint px-4 py-5">
-                    No line matches “{filter.trim()}”.
-                  </p>
-                ) : (
-                  <pre className="numeric text-tiny py-3 leading-[1.85]">
-                    {lines.map((line) => (
-                      <div key={line.number} className="hover:bg-surface-2/40 flex px-4">
-                        {/* Faint, not disabled. A line number is content you
-                            read off and count with, and at the disabled weight
-                            it measured 2.4:1 — present but not legible. */}
-                        <span className="text-ink-faint w-10 shrink-0 pr-4 text-right select-none">
-                          {line.number}
-                        </span>
-                        <span className="selectable whitespace-pre-wrap">
-                          {tokenizeJsonLine(line.text).map((token, index) => (
-                            <span
-                              // Tokens have no identity of their own; position
-                              // within a line is the only stable key there is.
-                              key={index}
-                              className={TOKEN_COLOUR[token.kind]}
-                            >
-                              {token.text}
-                            </span>
-                          ))}
-                        </span>
-                      </div>
-                    ))}
-                  </pre>
-                )}
-              </ScrollArea>
+              <CodeEditor
+                label={`Configuration of ${nameOf(active.zid) ?? active.zid}`}
+                value={document}
+                highlight={filter.trim()}
+                className="min-w-0 flex-1"
+              />
             </div>
           </div>
         </div>

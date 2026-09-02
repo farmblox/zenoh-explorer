@@ -2,7 +2,7 @@ import { AlertTriangle, Send, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { KeyExpr } from "@/components/domain";
-import { Button, ComboBox, Dialog, Field, Input, Switch } from "@/components/ui";
+import { Button, CodeEditor, ComboBox, Dialog, Field, Input, Switch } from "@/components/ui";
 import { data, keyspace, toIpcError, type KeyExprAnalysis, type SessionId } from "@/ipc";
 import { cn } from "@/lib/cn";
 import { bytes } from "@/lib/format";
@@ -227,9 +227,7 @@ export function PublishDialog({
 
         <div className="space-y-1.5">
           <div className="flex items-end gap-3">
-            <label htmlFor="publish-payload" className="text-tiny text-ink-muted font-medium">
-              Value
-            </label>
+            <span className="text-tiny text-ink-muted font-medium">Value</span>
             <span className="flex-1" />
             <span className="numeric text-tiny text-ink-faint">{bytes(size)}</span>
             <ComboBox
@@ -240,22 +238,14 @@ export function PublishDialog({
               mono
             />
           </div>
-          <textarea
-            id="publish-payload"
-            value={payload}
-            onChange={(event) => setPayload(event.target.value)}
-            rows={6}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            placeholder='{"mode":"idle"}'
-            className={cn(
-              "numeric selectable rounded-control border-line bg-surface-2 w-full resize-y border p-3",
-              "text-tiny text-ink placeholder:text-ink-faint outline-none",
-              "focus-visible:border-accent",
-            )}
-          />
+          <div className="rounded-control border-line bg-surface-2 focus-within:border-accent h-40 overflow-hidden border">
+            <CodeEditor
+              label="Value to publish"
+              value={payload}
+              onChange={setPayload}
+              placeholder={'{"mode":"idle"}'}
+            />
+          </div>
           <p className="text-tiny text-ink-faint">
             Sent as bytes. The encoding is a note to whoever reads them, not a conversion.
           </p>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Badge } from "@/components/ui";
+import { Badge, CodeEditor } from "@/components/ui";
 import { KeyExpr, Zid } from "@/components/domain";
 import { DataTable, type Column } from "@/components/ui";
 import type { SampleRecord } from "@/ipc";
@@ -170,9 +170,9 @@ function SampleDetail({ sample }: { sample: SampleRecord }) {
           {sample.previewIsHex ? <Badge tone="warn">hex</Badge> : null}
           {sample.truncated ? <Badge tone="neutral">truncated</Badge> : null}
         </div>
-        <pre className="scroll-thin selectable numeric rounded-inner bg-surface-2 text-tiny text-ink-muted max-h-32 overflow-auto p-3 break-all whitespace-pre-wrap">
-          {sample.preview}
-        </pre>
+        <div className="rounded-inner bg-surface-2 h-28 overflow-hidden">
+          <CodeEditor label="Payload" value={sample.preview} />
+        </div>
       </div>
 
       {sample.attachmentLen === null ? null : (
@@ -181,9 +181,9 @@ function SampleDetail({ sample }: { sample: SampleRecord }) {
             <span>Attachment</span>
             <span className="numeric">{bytes(sample.attachmentLen)}</span>
           </div>
-          <pre className="scroll-thin selectable numeric rounded-inner bg-surface-2 text-tiny text-ink-muted max-h-24 overflow-auto p-3 break-all whitespace-pre-wrap">
-            {sample.attachmentPreview}
-          </pre>
+          <div className="rounded-inner bg-surface-2 h-20 overflow-hidden">
+            <CodeEditor label="Attachment" value={sample.attachmentPreview ?? ""} />
+          </div>
         </div>
       )}
     </div>

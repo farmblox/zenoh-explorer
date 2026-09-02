@@ -51,6 +51,8 @@ export type { SpinnerProps } from "./Spinner";
 export { StatusDot } from "./StatusDot";
 export type { Status, StatusDotProps } from "./StatusDot";
 
+export { CodeEditor } from "./CodeEditor";
+export type { CodeEditorProps } from "./CodeEditor";
 export { Checkbox } from "./Checkbox";
 export type { CheckboxProps } from "./Checkbox";
 

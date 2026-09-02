@@ -4,6 +4,7 @@ import { NodeKindIcon, Zid } from "@/components/domain";
 import {
   Badge,
   Button,
+  CodeEditor,
   Disclosure,
   FieldRow,
   ListRow,
@@ -170,9 +171,11 @@ export function NodeInspector({
 
           {node.metadata ? (
             <Disclosure summary="Advertised metadata" meta="raw">
-              <pre className="scroll-thin selectable numeric text-tiny text-ink-muted max-h-72 overflow-auto px-2 pt-1 pb-3 whitespace-pre-wrap">
-                {JSON.stringify(node.metadata, null, 2)}
-              </pre>
+              <CodeEditor
+                label="Node metadata"
+                value={JSON.stringify(node.metadata, null, 2)}
+                className="h-72"
+              />
             </Disclosure>
           ) : null}
         </div>

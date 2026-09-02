@@ -2,7 +2,15 @@ import { useRef } from "react";
 import { CornerDownRight, X } from "lucide-react";
 
 import { NodeKindIcon, Zid } from "@/components/domain";
-import { Badge, Button, EmptyState, Panel, ScrollArea, SectionLabel } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  CodeEditor,
+  EmptyState,
+  Panel,
+  ScrollArea,
+  SectionLabel,
+} from "@/components/ui";
 import {
   neighbourhoodOf,
   nodeLabel,
@@ -305,9 +313,9 @@ export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode 
             {rest ? (
               <section>
                 <SectionLabel className="mb-2.5">Other metadata</SectionLabel>
-                <pre className="scroll-thin selectable numeric text-tiny text-ink-muted border-line-soft bg-surface-0 rounded-panel max-h-72 overflow-auto border p-4 whitespace-pre-wrap">
-                  {JSON.stringify(rest, null, 2)}
-                </pre>
+                <div className="border-line-soft bg-surface-0 rounded-panel h-72 overflow-hidden border">
+                  <CodeEditor label="Node metadata" value={JSON.stringify(rest, null, 2)} />
+                </div>
               </section>
             ) : null}
           </div>
