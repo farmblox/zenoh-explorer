@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
@@ -341,11 +341,29 @@ export function DataTable<Row>({
                     }
                     style={{ gridTemplateColumns: template, height: ROW_HEIGHT }}
                     className={cn(
-                      "border-line-soft text-small grid items-center gap-4 border-b px-5",
+                      "border-line-soft text-small group relative grid items-center gap-4 border-b px-5",
                       onSelect && cn("cursor-pointer", transitionFast),
                       selected ? "bg-accent-subtle" : onSelect && "hover:bg-surface-2",
                     )}
                   >
+                    {/* Overlaid in the row's own left padding rather than given a
+                        column of its own. A 14px column would also cost the
+                        grid's 16px gap, which is 30px of horizontal budget in
+                        an already dense table — and it would reflow every other
+                        table that uses this one without a detail. */}
+                    {renderDetail === undefined ? null : (
+                      <ChevronRight
+                        size={12}
+                        aria-hidden
+                        className={cn(
+                          "pointer-events-none absolute top-1/2 left-1 -mt-1.5 shrink-0",
+                          "transition-transform duration-(--duration-fast)",
+                          selected
+                            ? "text-ink rotate-90"
+                            : "text-ink-faint group-hover:text-ink-muted",
+                        )}
+                      />
+                    )}
                     {columns.map((column) => (
                       <div
                         key={column.id}
