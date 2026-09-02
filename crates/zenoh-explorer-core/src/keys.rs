@@ -6,7 +6,9 @@
 
 use ahash::{AHashMap, AHashSet};
 
-use crate::model::{DeclarationKind, KeyKind, KeyNode, KeySpaceSnapshot, NodeDeclaration};
+use crate::model::{
+    DeclarationKind, KeyDeclaration, KeyKind, KeyNode, KeySpaceSnapshot, NodeDeclaration,
+};
 use crate::search::{SearchHit, SearchHitKind};
 
 /// One level of the trie.
@@ -146,6 +148,32 @@ impl KeyIndex {
                 .cmp(&DeclarationKind::index(b.kind))
                 .then_with(|| a.key_expr.cmp(&b.key_expr))
         });
+        out
+    }
+
+    /// Every declaration of one kind at or below `prefix`, and who made it.
+    ///
+    /// The counters on a `KeyNode` say how many there are; this says which.
+    /// Both walk a declared expression the same way — segment by segment, from
+    /// the root — so the length of this list is exactly the number the counter
+    /// showed. Two definitions of "below" would let a tile say three and open
+    /// onto five.
+    #[must_use]
+    pub fn declarations_under(&self, prefix: &str, kind: DeclarationKind) -> Vec<KeyDeclaration> {
+        let mut out: Vec<KeyDeclaration> = self
+            .by_zid
+            .iter()
+            .flat_map(|(zid, held)| held.iter().map(move |held| (zid, held)))
+            .filter(|(_, (key_expr, held))| *held == kind && is_under(key_expr, prefix))
+            .map(|(zid, (key_expr, held))| KeyDeclaration {
+                zid: zid.clone(),
+                key_expr: key_expr.clone(),
+                kind: *held,
+            })
+            .collect();
+
+        // Sorted so the list is stable between calls: an `AHashSet` is not.
+        out.sort_by(|a, b| a.key_expr.cmp(&b.key_expr).then_with(|| a.zid.cmp(&b.zid)));
         out
     }
 
@@ -308,6 +336,21 @@ fn bump_declaration(entry: &mut Entry, kind: DeclarationKind, added: bool) {
     };
 }
 
+/// Whether `key_expr` sits at or below `prefix`.
+///
+/// The same segment walk `declare` uses to credit its counters, which is what
+/// keeps a tile's number and its list in agreement. Empty segments are skipped
+/// on both sides for the same reason they are there: `""` is the root and
+/// matches everything.
+fn is_under(key_expr: &str, prefix: &str) -> bool {
+    let mut have = key_expr.split('/').filter(|segment| !segment.is_empty());
+
+    prefix
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .all(|wanted| have.next() == Some(wanted))
+}
+
 /// Walks the trie, scoring every key it holds against `query`.
 ///
 /// One `String` carries the path down and is truncated on the way back up, so
@@ -384,6 +427,85 @@ fn counted(count: usize, one: &str, many: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    /// The count on a tile and the length of the list it opens must agree.
+    fn assert_agrees(index: &KeyIndex, prefix: &str, kind: DeclarationKind, counted: usize) {
+        let listed = index.declarations_under(prefix, kind);
+        assert_eq!(
+            listed.len(),
+            counted,
+            "{kind:?} under {prefix:?}: the counter said {counted}, the list has {}",
+            listed.len()
+        );
+    }
+
+    #[test]
+    fn listing_declarations_agrees_with_the_counter() {
+        let mut index = KeyIndex::new();
+        index.declare("a", "fleet/agv/07/battery", DeclarationKind::Queryable);
+        index.declare("b", "fleet/agv/**", DeclarationKind::Queryable);
+        index.declare("c", "fleet/**", DeclarationKind::Queryable);
+        index.declare("d", "other/thing", DeclarationKind::Queryable);
+        index.declare("e", "fleet/agv/07/battery", DeclarationKind::Subscriber);
+
+        let root = index.expand("");
+        let fleet = root.children.iter().find(|n| n.segment == "fleet").expect("fleet");
+        assert_agrees(&index, "fleet", DeclarationKind::Queryable, fleet.queryables);
+        assert_agrees(&index, "fleet", DeclarationKind::Subscriber, fleet.subscribers);
+
+        let under_fleet = index.expand("fleet");
+        let agv = under_fleet.children.iter().find(|n| n.segment == "agv").expect("agv");
+        assert_agrees(&index, "fleet/agv", DeclarationKind::Queryable, agv.queryables);
+    }
+
+    #[test]
+    fn listing_names_the_node_that_declared_each_one() {
+        let mut index = KeyIndex::new();
+        index.declare("zid-a", "fleet/**", DeclarationKind::Queryable);
+        index.declare("zid-b", "fleet/agv/07", DeclarationKind::Queryable);
+
+        let listed = index.declarations_under("fleet", DeclarationKind::Queryable);
+        assert_eq!(listed.len(), 2);
+        // Sorted by expression, so `fleet/**` comes before `fleet/agv/07`.
+        assert_eq!(listed[0].key_expr, "fleet/**");
+        assert_eq!(listed[0].zid, "zid-a");
+        assert_eq!(listed[1].zid, "zid-b");
+    }
+
+    #[test]
+    fn listing_is_filtered_by_kind() {
+        let mut index = KeyIndex::new();
+        index.declare("a", "fleet/**", DeclarationKind::Subscriber);
+        index.declare("b", "fleet/**", DeclarationKind::Queryable);
+
+        assert_eq!(index.declarations_under("fleet", DeclarationKind::Queryable).len(), 1);
+        assert_eq!(index.declarations_under("fleet", DeclarationKind::Publisher).len(), 0);
+    }
+
+    #[test]
+    fn the_root_prefix_lists_everything_of_that_kind() {
+        let mut index = KeyIndex::new();
+        index.declare("a", "fleet/**", DeclarationKind::Publisher);
+        index.declare("b", "other/thing", DeclarationKind::Publisher);
+        assert_eq!(index.declarations_under("", DeclarationKind::Publisher).len(), 2);
+    }
+
+    #[test]
+    fn a_sibling_prefix_is_not_below() {
+        let mut index = KeyIndex::new();
+        index.declare("a", "fleeting/thing", DeclarationKind::Subscriber);
+        // `fleet` must not swallow `fleeting`: the walk compares whole segments.
+        assert!(index.declarations_under("fleet", DeclarationKind::Subscriber).is_empty());
+    }
+
+    #[test]
+    fn a_declaration_shallower_than_the_prefix_is_not_below() {
+        let mut index = KeyIndex::new();
+        index.declare("a", "fleet", DeclarationKind::Subscriber);
+        assert!(index
+            .declarations_under("fleet/agv", DeclarationKind::Subscriber)
+            .is_empty());
+    }
+
     #[test]
     fn each_declaration_kind_is_counted_separately() {
         let mut index = KeyIndex::new();

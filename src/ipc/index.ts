@@ -31,6 +31,7 @@ export type { ConnectionProfile } from "./generated/ConnectionProfile";
 export type { DiagnosticLevel } from "./generated/DiagnosticLevel";
 export type { KeyExprAnalysis } from "./generated/KeyExprAnalysis";
 export type { KeyKind } from "./generated/KeyKind";
+export type { KeyDeclaration } from "./generated/KeyDeclaration";
 export type { KeyNode } from "./generated/KeyNode";
 export type { KeySpaceSnapshot } from "./generated/KeySpaceSnapshot";
 export type { DeclarationKind } from "./generated/DeclarationKind";

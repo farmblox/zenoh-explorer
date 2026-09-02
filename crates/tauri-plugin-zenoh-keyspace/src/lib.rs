@@ -23,6 +23,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::test_key_expr,
             commands::acl_findings,
             commands::storage_coverage,
+            commands::declarations_under,
         ])
         .build()
 }

@@ -18,7 +18,8 @@ use crate::error::{Error, Result};
 use crate::event::{AppEvent, DiagnosticLevel, EventSink};
 use crate::keys::KeyIndex;
 use crate::model::{
-    KeySpaceSnapshot, NodeDeclaration, SampleRecord, SessionId, TapId, TransportSummary,
+    DeclarationKind, KeyDeclaration, KeySpaceSnapshot, NodeDeclaration, SampleRecord, SessionId,
+    TapId, TransportSummary,
 };
 use crate::pulse::TopologyPulse;
 use crate::search::{self, SearchResults};
@@ -308,6 +309,15 @@ impl ManagedSession {
             key_total,
             ..SearchResults::empty()
         }
+    }
+
+    /// Every declaration of one kind at or below `prefix`, and who made it.
+    ///
+    /// What the counters on a key node are counting. Read straight out of the
+    /// local index, so it asks the network nothing.
+    #[must_use]
+    pub fn declarations_under(&self, prefix: &str, kind: DeclarationKind) -> Vec<KeyDeclaration> {
+        self.key_index.lock().declarations_under(prefix, kind)
     }
 
     /// Expands one level of the key tree.

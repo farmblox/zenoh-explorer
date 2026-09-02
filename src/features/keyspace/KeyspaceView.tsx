@@ -2,7 +2,9 @@ import { useCallback, useMemo, useState } from "react";
 import { Binary, FlaskConical, Radio, Trash2 } from "lucide-react";
 
 import { KeyExpr } from "@/components/domain";
+import { DeclarationList } from "./components/DeclarationList";
 import { KeyInsight } from "./components/KeyInsight";
+import { useDeclarations } from "./hooks/useDeclarations";
 import { useKeyInsight } from "./hooks/useKeyInsight";
 import {
   Badge,
@@ -17,7 +19,7 @@ import {
   StatGrid,
   Toolbar,
 } from "@/components/ui";
-import type { KeyNode, SampleRecord, SessionId } from "@/ipc";
+import type { DeclarationKind, KeyNode, SampleRecord, SessionId } from "@/ipc";
 import { compactNumber, groupedNumber } from "@/lib/format";
 import { useReveal } from "@/navigation/useReveal";
 import { useActiveSessionId, useTap, useTapStore } from "@/stores";
@@ -71,6 +73,11 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
 
   // Durability and access control for whatever is selected.
   const insight = useKeyInsight(sessionId, selected);
+
+  // Which counter has been opened onto its list, if any. One at a time: five
+  // lists at once is the table this panel exists to avoid.
+  const [openKind, setOpenKind] = useState<DeclarationKind | null>(null);
+  const declarations = useDeclarations(sessionId, selected, openKind);
 
   // Picking a key in the tree aims the subscription at it. It does not start
   // one: subscribing is a deliberate act, and clicking through a tree should
@@ -239,33 +246,81 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
                     value={groupedNumber(selectedNode?.subscribers ?? 0)}
                     tone={selectedNode?.subscribers ? "accent" : "ink"}
                     size="sm"
+                    // Nothing to open when nothing was counted.
+                    {...(selectedNode?.subscribers
+                      ? {
+                          open: openKind === "subscriber",
+                          onClick: () =>
+                            setOpenKind((current) =>
+                              current === "subscriber" ? null : "subscriber",
+                            ),
+                        }
+                      : {})}
                   />
                   <StatCell
                     label="Publishers"
                     value={groupedNumber(selectedNode?.publishers ?? 0)}
                     tone={selectedNode?.publishers ? "accent" : "ink"}
                     size="sm"
+                    // Nothing to open when nothing was counted.
+                    {...(selectedNode?.publishers
+                      ? {
+                          open: openKind === "publisher",
+                          onClick: () =>
+                            setOpenKind((current) =>
+                              current === "publisher" ? null : "publisher",
+                            ),
+                        }
+                      : {})}
                   />
                   <StatCell
                     label="Queryables"
                     value={groupedNumber(selectedNode?.queryables ?? 0)}
                     tone={selectedNode?.queryables ? "accent" : "ink"}
                     size="sm"
+                    // Nothing to open when nothing was counted.
+                    {...(selectedNode?.queryables
+                      ? {
+                          open: openKind === "queryable",
+                          onClick: () =>
+                            setOpenKind((current) =>
+                              current === "queryable" ? null : "queryable",
+                            ),
+                        }
+                      : {})}
                   />
                   <StatCell
                     label="Queriers"
                     value={groupedNumber(selectedNode?.queriers ?? 0)}
                     tone={selectedNode?.queriers ? "accent" : "ink"}
                     size="sm"
+                    // Nothing to open when nothing was counted.
+                    {...(selectedNode?.queriers
+                      ? {
+                          open: openKind === "querier",
+                          onClick: () =>
+                            setOpenKind((current) => (current === "querier" ? null : "querier")),
+                        }
+                      : {})}
                   />
                   <StatCell
                     label="Live tokens"
                     value={groupedNumber(selectedNode?.tokens ?? 0)}
                     tone={selectedNode?.tokens ? "ok" : "ink"}
                     size="sm"
+                    // Nothing to open when nothing was counted.
+                    {...(selectedNode?.tokens
+                      ? {
+                          open: openKind === "token",
+                          onClick: () =>
+                            setOpenKind((current) => (current === "token" ? null : "token")),
+                        }
+                      : {})}
                   />
                 </StatGrid>
               </Panel>
+
+              {openKind ? <DeclarationList kind={openKind} declarations={declarations} /> : null}
 
               <Panel title="Observed at or below this key" flush className="mt-4">
                 <StatGrid columns={2}>

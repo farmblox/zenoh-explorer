@@ -10,6 +10,7 @@ const COMMANDS: &[&str] = &[
     "test_key_expr",
     "acl_findings",
     "storage_coverage",
+    "declarations_under",
 ];
 
 fn main() {

@@ -4,7 +4,9 @@ use tauri::{AppHandle, Runtime};
 use tauri_plugin_zenoh_session::{Result, ZenohSessionExt};
 use zenoh_explorer_core::acl::AclFinding;
 use zenoh_explorer_core::keyexpr_tools::{KeyExprAnalysis, MatchResult};
-use zenoh_explorer_core::model::{KeySpaceSnapshot, NodeDeclaration, SessionId};
+use zenoh_explorer_core::model::{
+    DeclarationKind, KeyDeclaration, KeySpaceSnapshot, NodeDeclaration, SessionId,
+};
 use zenoh_explorer_core::storage::StorageCoverage;
 
 /// Returns the immediate children of `prefix`.
@@ -120,4 +122,22 @@ pub(crate) async fn storage_coverage<R: Runtime>(
         .zenoh_sessions()?
         .get(&session_id)?
         .storage_coverage(&key_expr))
+}
+
+/// Every declaration of one kind at or below `prefix`, and who made it.
+///
+/// What the counters on a key node are counting. The tile says how many; this
+/// is the list behind it, so the two are computed by the same walk and cannot
+/// disagree about what "below" means.
+#[tauri::command]
+pub(crate) async fn declarations_under<R: Runtime>(
+    app: AppHandle<R>,
+    session_id: SessionId,
+    prefix: String,
+    kind: DeclarationKind,
+) -> Result<Vec<KeyDeclaration>> {
+    Ok(app
+        .zenoh_sessions()?
+        .get(&session_id)?
+        .declarations_under(&prefix, kind))
 }

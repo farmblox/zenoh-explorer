@@ -134,3 +134,19 @@ pub struct NodeDeclaration {
     pub key_expr: String,
     pub kind: DeclarationKind,
 }
+
+/// One declaration, with the node that made it.
+///
+/// The inverse of [`NodeDeclaration`]: that answers "what does this node
+/// declare", this answers "who declares under this key". The counters on a
+/// `KeyNode` say how many; this says which, and by whom.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct KeyDeclaration {
+    /// Zid of the node that declared it.
+    pub zid: String,
+    /// The expression it declared, wildcards included.
+    pub key_expr: String,
+    pub kind: DeclarationKind,
+}

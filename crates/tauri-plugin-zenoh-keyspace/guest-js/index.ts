@@ -2,6 +2,8 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { AclFinding } from "@/ipc/generated/AclFinding";
+import type { DeclarationKind } from "@/ipc/generated/DeclarationKind";
+import type { KeyDeclaration } from "@/ipc/generated/KeyDeclaration";
 import type { KeyExprAnalysis } from "@/ipc/generated/KeyExprAnalysis";
 import type { KeySpaceSnapshot } from "@/ipc/generated/KeySpaceSnapshot";
 import type { MatchResult } from "@/ipc/generated/MatchResult";
@@ -94,4 +96,19 @@ export function aclFindings(
  */
 export function storageCoverage(sessionId: SessionId, keyExpr: string): Promise<StorageCoverage[]> {
   return invoke("plugin:zenoh-keyspace|storage_coverage", { sessionId, keyExpr });
+}
+
+/**
+ * Every declaration of one kind at or below `prefix`, and who made it.
+ *
+ * What the counters on a key node are counting. The tile says how many; this is
+ * the list behind it. Both are computed by the same walk in Rust, so the length
+ * of this list is exactly the number the tile showed.
+ */
+export function declarationsUnder(
+  sessionId: SessionId,
+  prefix: string,
+  kind: DeclarationKind,
+): Promise<KeyDeclaration[]> {
+  return invoke("plugin:zenoh-keyspace|declarations_under", { sessionId, prefix, kind });
 }
