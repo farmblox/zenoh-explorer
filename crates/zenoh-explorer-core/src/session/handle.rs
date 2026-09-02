@@ -7,20 +7,49 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use zenoh::Session;
+use zenoh::key_expr::OwnedKeyExpr;
 use zenoh::query::{ConsolidationMode, QueryTarget};
 
+use crate::acl::{self, AclFinding, PolicyHolder};
+use crate::admin;
 use crate::config::ConnectionProfile;
 use crate::declarations::{self, DeclarationWatch};
 use crate::discovery::{ConnectivityWatch, watch_connectivity};
 use crate::error::{Error, Result};
 use crate::event::{AppEvent, DiagnosticLevel, EventSink};
+use crate::keyexpr_tools;
 use crate::keys::KeyIndex;
-use crate::pulse::TopologyPulse;
 use crate::model::{
-    KeySpaceSnapshot, SampleRecord, SessionId, TapId, TransportSummary,
+    DeclarationKind, KeyDeclaration, KeySpaceSnapshot, NodeDeclaration, SampleRecord, SessionId,
+    TapId, TransportSummary,
 };
+use crate::pulse::TopologyPulse;
+use crate::search::{self, SearchResults};
+use crate::storage::{self, StorageCoverage};
 use crate::tap::{SampleSink, Tap, TapSpec, TapStats};
 use crate::time::now_ms;
+use crate::trace::{self, Trace};
+
+/// Checks a key before it is written to, and canonicalises it.
+///
+/// Zenoh will reject an invalid key itself, but its rejection arrives as a
+/// `ZError` carrying the file and line inside `zenoh-keyexpr` that produced it —
+/// so a delete of a malformed key answered with a path into somebody else's
+/// source. Checked here instead, and reported through `analyse`, which strips
+/// that off.
+///
+/// Canonicalised as well as checked, because `**/**` and `**` are the same
+/// expression and only one of them is accepted.
+fn writable_key(key: &str) -> Result<OwnedKeyExpr> {
+    let trimmed = key.trim();
+
+    OwnedKeyExpr::autocanonize(trimmed.to_owned()).map_err(|_| Error::KeyExpr {
+        expr: trimmed.to_owned(),
+        reason: keyexpr_tools::analyse(trimmed)
+            .error
+            .unwrap_or_else(|| "not a valid key expression".to_owned()),
+    })
+}
 
 /// What the UI needs to render a session tab.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -209,7 +238,23 @@ impl ManagedSession {
 
     /// Starts a tap, streaming its batches into `sink`.
     pub async fn start_tap(&self, spec: &TapSpec, sink: Arc<dyn SampleSink>) -> Result<TapId> {
-        let tap = Tap::start(&self.session, spec, Arc::clone(&self.key_index), sink).await?;
+        let tap = Tap::start(&self.session, spec, Arc::clone(&self.key_index), sink)
+            .await
+            .map_err(|err| {
+                // `Tap::start` identifies declaration failures as `KeyExpr`,
+                // but its `reason` is still Zenoh's original message. Diagnose
+                // that rather than the wrapper: the wrapper begins with
+                // "invalid key expression" even when the real failure is a
+                // closed session, which would select the wrong guidance.
+                let detail = match err {
+                    Error::KeyExpr { reason, .. } | Error::Zenoh(reason) => reason,
+                    other => other.to_string(),
+                };
+                Error::Diagnosed(Box::new(crate::diagnose::diagnose_subscription_failure(
+                    &detail,
+                    &spec.key_expr,
+                )))
+            })?;
 
         let id = tap.id().clone();
         self.taps.lock().insert(id.clone(), tap);
@@ -240,6 +285,84 @@ impl ManagedSession {
             .collect();
         taps.sort_by(|a, b| a.spec.key_expr.cmp(&b.spec.key_expr));
         taps
+    }
+
+    /// The path a message would take from `from` to `to`.
+    ///
+    /// Unlike the other diagnostics here this does ask the network — routing
+    /// tables are not in the topology snapshot — but it asks once for the whole
+    /// path rather than once per hop.
+    pub async fn trace_route(&self, from: &str, to: &str) -> Result<Trace> {
+        let successors = admin::route_successors(&self.session, from, to).await?;
+        Ok(trace::assemble(from, to, &successors))
+    }
+
+    /// Which storages would keep data published on `key_expr`.
+    ///
+    /// The difference between a key whose value can be read back later and one
+    /// that existed only while somebody happened to be listening. Answered from
+    /// the last probe, so it asks the network nothing.
+    #[must_use]
+    pub fn storage_coverage(&self, key_expr: &str) -> Vec<StorageCoverage> {
+        storage::coverage(&self.pulse.storages(), key_expr)
+    }
+
+    /// What the network's access-control policies would do to `key_expr`.
+    ///
+    /// Read from the last topology snapshot, so it asks the network nothing —
+    /// and it need not, because ACL is fixed at startup and cannot change while
+    /// a node is running.
+    #[must_use]
+    pub fn acl_findings(&self, key_expr: &str, message: &str) -> Vec<AclFinding> {
+        let nodes = self.pulse.nodes();
+        let holders: Vec<PolicyHolder<'_>> = nodes
+            .iter()
+            .filter_map(|node| {
+                node.acl.as_ref().map(|acl| PolicyHolder {
+                    zid: &node.zid,
+                    name: node.name.as_deref(),
+                    acl,
+                })
+            })
+            .collect();
+
+        acl::findings(&holders, key_expr, message)
+    }
+
+    /// Ranks nodes and key expressions against one query.
+    ///
+    /// Answered entirely from what this session already holds — the last
+    /// topology snapshot and the key index — so it touches the network not at
+    /// all. That is what lets the palette run it on every keystroke against a
+    /// key space with tens of thousands of entries in it.
+    #[must_use]
+    pub fn search(&self, query: &str, limit: usize) -> SearchResults {
+        let nodes = self.pulse.nodes();
+        let (node_hits, node_total) = search::search_nodes(&nodes, query, limit);
+        let (key_hits, key_total) = self.key_index.lock().search(query, limit);
+
+        SearchResults {
+            nodes: node_hits,
+            node_total,
+            keys: key_hits,
+            key_total,
+            ..SearchResults::empty()
+        }
+    }
+
+    /// How many observed keys an expression would match.
+    #[must_use]
+    pub fn matching_keys(&self, expr: &str) -> usize {
+        self.key_index.lock().matching_keys(expr)
+    }
+
+    /// Every declaration of one kind at or below `prefix`, and who made it.
+    ///
+    /// What the counters on a key node are counting. Read straight out of the
+    /// local index, so it asks the network nothing.
+    #[must_use]
+    pub fn declarations_under(&self, prefix: &str, kind: DeclarationKind) -> Vec<KeyDeclaration> {
+        self.key_index.lock().declarations_under(prefix, kind)
     }
 
     /// Expands one level of the key tree.
@@ -277,11 +400,21 @@ impl ManagedSession {
         {
             let mut index = self.key_index.lock();
             for declaration in &declarations {
-                index.declare(&declaration.key_expr, declaration.kind);
+                index.declare(&declaration.zid, &declaration.key_expr, declaration.kind);
             }
         }
 
         Ok(self.key_index.lock().expand(""))
+    }
+
+    /// Everything one node has declared, subscribers first.
+    ///
+    /// Read straight out of the local index — the declarations arrived over the
+    /// admin space when the session opened and stream in as they change, so this
+    /// asks the network nothing and answers instantly.
+    #[must_use]
+    pub fn node_declarations(&self, zid: &str) -> Vec<NodeDeclaration> {
+        self.key_index.lock().declarations_for(zid)
     }
 
     /// Runs a `get` and collects the replies as sample rows.
@@ -336,7 +469,9 @@ impl ManagedSession {
     /// Publishes a payload. The explorer is read-mostly, but being unable to
     /// poke a value is a real gap when debugging a subscriber.
     pub async fn put(&self, key: &str, payload: Vec<u8>, encoding: Option<&str>) -> Result<()> {
-        let mut builder = self.session.put(key, payload);
+        let key = writable_key(key)?;
+
+        let mut builder = self.session.put(key.as_str(), payload);
         if let Some(encoding) = encoding {
             builder = builder.encoding(encoding);
         }
@@ -345,7 +480,11 @@ impl ManagedSession {
 
     /// Deletes a key.
     pub async fn delete(&self, key: &str) -> Result<()> {
-        self.session.delete(key).await.map_err(Error::zenoh)
+        let key = writable_key(key)?;
+        self.session
+            .delete(key.as_str())
+            .await
+            .map_err(Error::zenoh)
     }
 
     /// Closes the session and stops every tap.
@@ -412,14 +551,27 @@ async fn watch_declarations(
         session,
         Arc::new(
             move |declaration: declarations::Declaration, change: declarations::Change| {
-                // Only additions change the index. Withdrawing a declaration
-                // does not un-declare the key expression: another node may
-                // still hold one, and the trie has no per-node ownership to
-                // unwind. The counts settle on the next full read.
+                // Both directions land, because the index records whose
+                // declaration each one is: withdrawing unwinds exactly that
+                // node's contribution and leaves any other node's declaration
+                // on the same expression alone.
                 let (total_keys, count) = {
                     let mut index = key_index.lock();
-                    if change == declarations::Change::Declared {
-                        index.declare(&declaration.key_expr, declaration.kind);
+                    match change {
+                        declarations::Change::Declared => {
+                            index.declare(
+                                &declaration.zid,
+                                &declaration.key_expr,
+                                declaration.kind,
+                            );
+                        }
+                        declarations::Change::Undeclared => {
+                            index.undeclare(
+                                &declaration.zid,
+                                &declaration.key_expr,
+                                declaration.kind,
+                            );
+                        }
                     }
                     (index.total_keys(), index.declaration_count())
                 };
@@ -463,7 +615,7 @@ fn read_existing_declarations(
         let (total_keys, count) = {
             let mut index = key_index.lock();
             for declaration in &found {
-                index.declare(&declaration.key_expr, declaration.kind);
+                index.declare(&declaration.zid, &declaration.key_expr, declaration.kind);
             }
             (index.total_keys(), index.declaration_count())
         };

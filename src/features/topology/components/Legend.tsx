@@ -1,88 +1,102 @@
-import { NODE_KINDS, NODE_ROLES, NodeKindIcon } from "@/components/domain";
-import { Popover, SectionLabel } from "@/components/ui";
+import { NODE_KINDS, NODE_ROLES } from "@/components/domain";
+import type { NodeKind } from "@/ipc";
 import { cn } from "@/lib/cn";
-import { controlBase, overlayStates } from "@/lib/states";
 import { EDGE_KINDS } from "../lib/edgeStyle";
 
 /**
- * What the shapes on the canvas mean, behind a chip.
+ * What the shapes on the canvas mean, along the bottom of it.
  *
- * The node rows render the REAL `NodeKindIcon` and the link rows read their
- * stroke straight out of `edgeStyle`. A legend that restates its subject in
- * its own markup is a legend that will eventually be wrong about it — this one
- * cannot drift, because there is nothing here to drift from.
+ * On screen permanently rather than behind a chip. The graph encodes four facts
+ * in its strokes and three in its glyphs, and a vocabulary that has to be opened
+ * to be read is a vocabulary most people will guess at instead.
  *
- * Behind a chip rather than always on screen because a legend is something you
- * need once and then never again. Permanently displaying it would spend canvas
- * on a question most sessions never ask.
+ * Every swatch renders the real WebGL vocabulary: layered role beacons and link
+ * strokes straight out of `edgeStyle`.
+ *
+ * It scrolls rather than wraps. A second row would change the canvas's height,
+ * and the graph would reframe itself because the legend got longer.
  */
 export function Legend({ className }: { className?: string }) {
   return (
-    <Popover
-      label="What the graph symbols mean"
-      side="top"
-      align="start"
-      triggerClassName={cn(
-        "rounded-control border-line bg-surface-2 flex h-[30px] items-center gap-2 px-3",
-        "text-tiny text-ink-muted hover:text-ink font-medium",
-        controlBase,
-        overlayStates,
-        className,
-      )}
-      trigger={
-        <>
-          <span className="numeric text-micro flex size-[13px] items-center justify-center rounded-full border font-medium">
-            ?
-          </span>
-          Legend
-        </>
-      }
-      className="w-[232px] p-4"
+    <div
+      aria-label="What the graph symbols mean"
+      className={cn("scroll-none flex min-w-0 items-center gap-4 overflow-x-auto", className)}
     >
-      <SectionLabel className="mb-2.5">Nodes</SectionLabel>
-      <ul className="space-y-2">
-        {NODE_KINDS.map((kind) => (
-          <li key={kind} className="text-tiny text-ink-muted flex items-center gap-2.5">
-            <NodeKindIcon kind={kind} size="sm" />
-            {NODE_ROLES[kind].label}
-          </li>
-        ))}
-      </ul>
+      {NODE_KINDS.map((kind) => (
+        <Entry key={kind} label={NODE_ROLES[kind].label.toLowerCase()}>
+          <GraphNodeSwatch kind={kind} />
+        </Entry>
+      ))}
 
-      <SectionLabel className="mt-4 mb-2.5">Confidence</SectionLabel>
-      <ul className="space-y-2">
-        <li className="text-tiny text-ink-muted flex items-center gap-2.5">
-          <span className="border-line rounded-inner h-4 w-4 shrink-0 border border-solid" />
-          Described itself, or we hold a session to it
-        </li>
-        <li className="text-tiny text-ink-muted flex items-center gap-2.5">
-          <span className="border-line rounded-inner h-4 w-4 shrink-0 border border-dashed" />
-          Only reported by another node
-        </li>
-      </ul>
+      <Rule />
 
-      <SectionLabel className="mt-4 mb-2.5">Links</SectionLabel>
-      <ul className="space-y-2">
-        {EDGE_KINDS.map((edge) => (
-          <li key={edge.kind} className="text-tiny text-ink-muted flex items-center gap-2.5">
-            {/* Same width as the node glyph above, so both columns of labels
-                start at the same x. */}
-            <svg width={16} height={16} className="shrink-0" aria-hidden>
-              <line
-                x1={0}
-                y1={8}
-                x2={16}
-                y2={8}
-                stroke={edge.stroke}
-                strokeWidth={edge.width}
-                strokeDasharray={edge.dash}
-                opacity={edge.opacity}
-              />
-            </svg>
-            {edge.description}
-          </li>
-        ))}
-      </ul>
-    </Popover>
+      <Entry label="reported" title="Dimmed: only another node told us this one exists">
+        <span className="border-ink-disabled bg-surface-1 size-3.5 shrink-0 rounded-full border opacity-60" />
+      </Entry>
+
+      <Rule />
+
+      {EDGE_KINDS.map((edge) => (
+        <Entry key={edge.kind} label={edge.label} title={edge.description}>
+          <svg width={20} height={10} className="shrink-0" aria-hidden>
+            <line
+              x1={0}
+              y1={5}
+              x2={20}
+              y2={5}
+              stroke={edge.stroke}
+              strokeOpacity={edge.opacity}
+              strokeWidth={edge.width}
+            />
+          </svg>
+        </Entry>
+      ))}
+    </div>
   );
+}
+
+/** The actual WebGL role glyphs: layered router, ring peer, compact client. */
+function GraphNodeSwatch({ kind }: { kind: NodeKind }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex size-4 shrink-0 items-center justify-center rounded-full",
+        kind === "router" && "border-ink-disabled border",
+      )}
+      aria-hidden
+    >
+      <span
+        className={cn(
+          "inline-block rounded-full",
+          kind === "router" && "bg-surface-3 size-2.5",
+          kind === "peer" && "border-ink-disabled bg-surface-2 size-3.5 border-2",
+          kind === "client" && "border-surface-1 bg-ink-disabled size-2.5 border",
+        )}
+      />
+    </span>
+  );
+}
+
+function Entry({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className="text-tiny text-ink-faint flex shrink-0 items-center gap-2 whitespace-nowrap"
+      {...(title ? { title } : {})}
+    >
+      {children}
+      {label}
+    </span>
+  );
+}
+
+function Rule() {
+  return <span className="bg-line h-3.5 w-px shrink-0" aria-hidden />;
 }

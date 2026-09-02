@@ -21,29 +21,94 @@
  */
 import { cn } from "./cn";
 
-/** State changes: fast and linear-feeling. Anything slower reads as lag. */
-export const transitionFast =
-  "transition-[background-color,color,box-shadow,border-color] duration-(--duration-fast) ease-(--ease-standard)";
-
 /**
- * The focus ring.
+ * State changes: front-loaded on arrival, eased on the way out.
  *
- * A box-shadow, not an outline, so it follows the element's border radius and
- * never nudges a neighbour. `focus-visible` only: a pointer click should not
- * leave a ring behind.
+ * The CURVE does the work here, not the duration. `--ease-out` is
+ * `cubic-bezier(0.16, 1, 0.3, 1)`, which puts about 85% of the change in the
+ * first quarter of the time — so a 150ms arrival is perceptually complete in
+ * around 35ms and still has 100ms of visible settle after it. That is what
+ * makes a control feel both immediate and alive. A linear 130ms fade managed
+ * neither: a pointer crossing a control in 40ms never got a third of the way to
+ * the hover colour, so the control read as dead, and killing the duration
+ * outright traded that for a hard snap with no motion in it at all.
+ *
+ * Leaving is slower and evenly eased, because a swept row of controls all
+ * snapping back at once strobes.
+ *
+ * `transform` is in the list so a control can move as well as change colour —
+ * see `pressMotion`. Nothing MOVES on hover, though: a row that slides under the
+ * pointer takes its own label with it, and text that shifts as you pass over it
+ * reads as the app wobbling rather than responding. Hover is colour only.
+ *
+ * `box-shadow` is deliberately NOT in the list: it is the most expensive of
+ * these to interpolate, and the only thing using it is the focus ring, which
+ * should arrive instantly because a focus ring that fades in is one you have
+ * already started typing past.
  */
-export const focusRing = cn(
-  "focus-visible:outline-none",
-  "focus-visible:shadow-[0_0_0_2px_var(--surface-1),0_0_0_4px_var(--accent)]",
+export const transitionFast = cn(
+  "transition-[background-color,color,border-color,transform]",
+  "duration-(--duration-fast) ease-(--ease-standard)",
+  "hover:duration-(--duration-snap) hover:ease-(--ease-out)",
+  "active:duration-(--duration-snap) active:ease-(--ease-out)",
 );
 
-/** Focus ring for controls that sit directly on the window chrome. */
-export const focusRingOnChrome = cn(
-  "focus-visible:outline-none",
-  "focus-visible:shadow-[0_0_0_2px_var(--surface-0),0_0_0_4px_var(--accent)]",
+/**
+ * A control that gives under the pointer.
+ *
+ * Two per cent, which is enough to feel and not enough to see. Opt-in rather
+ * than part of `transitionFast`, because it belongs on things shaped like
+ * buttons and not on table rows — a row that shrinks when you click it drags
+ * its neighbours' text with it.
+ *
+ * `motion-safe` so a reduced-motion preference gets the colour change alone.
+ */
+export const pressMotion = "motion-safe:active:scale-[0.98]";
+
+/**
+ * The focus ring. One of them, for every surface.
+ *
+ * An outline with an offset, so the gap between the control and the ring shows
+ * whatever is ACTUALLY behind it. There used to be two rings, each a
+ * double box-shadow whose inner layer named a fixed surface — which is only
+ * correct where the control happens to sit on that exact surface. With three
+ * surfaces in play and two variants, a control on a card drew a 2px band of the
+ * wrong grey around itself.
+ *
+ * Outline follows `border-radius` in every engine this ships on, and costs no
+ * layout, so the reason the ring was a shadow in the first place has expired.
+ *
+ * `focus-visible` only: a pointer click should not leave a ring behind.
+ */
+export const focusRing = cn(
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
 );
 
 /** Hover and press overlays, for a control with its own background. */
+/**
+ * The feedback any clickable thing owes the pointer.
+ *
+ * Translucent overlays rather than named surfaces, so this layers over a tab, a
+ * panel, a table row or the title bar without having to know which. Both
+ * states matter: hover says "this is a control", and the press says "your click
+ * landed". Something that only changes its text colour says the first and never
+ * the second, which is why a small icon button can feel dead even though it
+ * works.
+ */
+export const pressable = cn(
+  "hover:bg-overlay-hover active:bg-overlay-press",
+  pressMotion,
+  focusRing,
+  transitionFast,
+);
+
+/** A bare glyph you can click: centred, small radius, and [`pressable`]. */
+export const iconButton = cn(
+  "inline-flex shrink-0 items-center justify-center rounded-inner",
+  "text-ink-faint hover:text-ink",
+  pressable,
+);
+
 export const overlayStates = cn(
   "hover:bg-[image:linear-gradient(var(--overlay-hover),var(--overlay-hover))]",
   "active:bg-[image:linear-gradient(var(--overlay-press),var(--overlay-press))]",
@@ -70,6 +135,26 @@ export const fieldRest = "border-line";
 export const fieldFocus =
   "focus-within:border-accent focus-within:shadow-[0_0_0_3px_var(--accent-subtle)]";
 export const fieldInvalid = "border-danger shadow-[0_0_0_3px_var(--danger-subtle)]";
+
+/**
+ * A draggable divider — a panel edge or a column boundary.
+ *
+ * The hit area is nine pixels and the line inside it is one. Grabbing a
+ * one-pixel target is the difference between a resizable thing and a thing that
+ * is technically resizable, and the two places this appears have to feel the
+ * same or one of them feels broken.
+ */
+export const resizeHandle = cn(
+  "absolute top-0 bottom-0 z-20 w-[9px] cursor-col-resize focus-visible:outline-none",
+  "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2",
+  "after:transition-[background-color] after:duration-(--duration-fast)",
+);
+
+/** The divider's line, at rest and while being dragged. */
+export const resizeHandleLine = {
+  idle: "after:bg-transparent hover:after:bg-accent/60 focus-visible:after:bg-accent",
+  active: "after:bg-accent",
+} as const;
 
 /** Everything an interactive control shares. */
 export const controlBase = cn(transitionFast, focusRing, "tracking-ui");

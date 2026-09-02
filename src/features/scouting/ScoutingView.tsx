@@ -8,8 +8,21 @@ import { relativeTime } from "@/lib/format";
 import { ViewHeader } from "@/shell/ViewHeader";
 
 const COLUMNS: readonly Column<ScoutedNode>[] = [
-  { id: "kind", header: "", width: 32, cell: (row) => <NodeKindIcon kind={row.kind} /> },
+  {
+    id: "kind",
+    header: "",
+    width: 32,
+    resizable: false,
+    cell: (row) => <NodeKindIcon kind={row.kind} />,
+  },
   { id: "zid", header: "Zid", width: 220, cell: (row) => <Zid zid={row.zid} copyable /> },
+  {
+    id: "seen",
+    header: "Seen",
+    width: 110,
+    align: "right",
+    cell: (row) => <span className="text-ink-faint">{relativeTime(row.seenAtMs)}</span>,
+  },
   {
     id: "locators",
     header: "Locators",
@@ -19,13 +32,6 @@ const COLUMNS: readonly Column<ScoutedNode>[] = [
         {row.locators.join("  ") || "–"}
       </span>
     ),
-  },
-  {
-    id: "seen",
-    header: "Seen",
-    width: 110,
-    align: "right",
-    cell: (row) => <span className="text-ink-faint">{relativeTime(row.seenAtMs)}</span>,
   },
 ];
 
@@ -42,7 +48,6 @@ export function ScoutingView() {
     <div className="flex min-h-0 flex-1 flex-col">
       <ViewHeader
         title="Scouting"
-        subtitle="Nodes answering multicast and gossip scouts on this network"
         actions={
           <Button
             icon={loading ? <Spinner /> : <Radar size={13} />}
@@ -54,6 +59,7 @@ export function ScoutingView() {
         }
       />
       <DataTable
+        id="scouting"
         columns={COLUMNS}
         rows={data ?? []}
         rowKey={(row) => row.zid}

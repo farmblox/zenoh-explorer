@@ -64,7 +64,17 @@ interface TapState {
 
 /** Handles and staged batches live outside the store: neither drives a render. */
 const running = new Map<string, RunningTap>();
-const staged = new Map<string, SampleBatch[]>();
+
+interface StagedWindow {
+  tapId: SampleBatch["tapId"];
+  samples: SampleRecord[];
+  dropped: number;
+  total: number;
+  /** Rows discarded before a hidden webview got another animation frame. */
+  evicted: number;
+}
+
+const staged = new Map<string, StagedWindow>();
 let frame: number | null = null;
 
 export const useTapStore = create<TapState>()((set, get) => ({
@@ -145,15 +155,34 @@ export const useTapStore = create<TapState>()((set, get) => ({
   },
 }));
 
-/** Queues a batch and schedules the commit. */
+/** Queues a batch into a bounded pre-render window and schedules the commit. */
 function stage(sessionId: SessionId, batch: SampleBatch): void {
-  const queue = staged.get(sessionId);
-  if (queue) queue.push(batch);
-  else staged.set(sessionId, [batch]);
+  const pending = staged.get(sessionId);
+  if (pending) {
+    pending.samples.push(...batch.samples);
+    pending.dropped += batch.dropped;
+    pending.total = batch.total;
+
+    const overflow = Math.max(0, pending.samples.length - WINDOW_SIZE);
+    if (overflow > 0) {
+      pending.samples.splice(0, overflow);
+      pending.evicted += overflow;
+    }
+  } else {
+    const overflow = Math.max(0, batch.samples.length - WINDOW_SIZE);
+    staged.set(sessionId, {
+      tapId: batch.tapId,
+      samples: overflow > 0 ? batch.samples.slice(overflow) : [...batch.samples],
+      dropped: batch.dropped,
+      total: batch.total,
+      evicted: overflow,
+    });
+  }
 
   // `requestAnimationFrame` does not fire while the window is hidden, so a
-  // backgrounded explorer stages batches without rendering — exactly what we
-  // want. The window cap below keeps that from growing without bound.
+  // backgrounded explorer stages without rendering. The same 20k-row cap as
+  // the visible window applies here, so a hidden overnight tap cannot grow a
+  // second, unbounded queue behind the store.
   frame ??= requestAnimationFrame(commit);
 }
 
@@ -168,13 +197,12 @@ function commit(): void {
   useTapStore.setState((state) => {
     const bySession = { ...state.bySession };
 
-    for (const [sessionId, batches] of pending) {
+    for (const [sessionId, stagedWindow] of pending) {
       const entry = bySession[sessionId] ?? EMPTY;
-      const last = batches.at(-1);
 
       const totals = {
-        dropped: entry.dropped + batches.reduce((sum, b) => sum + b.dropped, 0),
-        total: last?.total ?? entry.total,
+        dropped: entry.dropped + stagedWindow.dropped,
+        total: stagedWindow.total,
       };
 
       // A paused view still tracks counters, so the header keeps counting and
@@ -184,15 +212,23 @@ function commit(): void {
         continue;
       }
 
-      const incoming = batches.flatMap((b) => b.samples);
-      const merged = entry.samples.concat(incoming);
-      const overflow = Math.max(0, merged.length - WINDOW_SIZE);
+      const incoming = stagedWindow.samples;
+
+      // Trim what is about to fall out of the window BEFORE joining, so the
+      // copy is proportional to what arrived plus what survives, rather than
+      // building a longer array and then discarding the front of it.
+      const keep = Math.max(0, WINDOW_SIZE - incoming.length);
+      const dropped = Math.max(0, entry.samples.length - keep);
+      const samples =
+        dropped > 0
+          ? [...entry.samples.slice(dropped), ...incoming]
+          : [...entry.samples, ...incoming];
 
       bySession[sessionId] = {
         ...entry,
         ...totals,
-        samples: overflow > 0 ? merged.slice(overflow) : merged,
-        evicted: entry.evicted + overflow,
+        samples,
+        evicted: entry.evicted + stagedWindow.evicted + dropped,
       };
     }
 
@@ -203,4 +239,10 @@ function commit(): void {
 /** The current session's tap entry. */
 export function useTap(sessionId: SessionId | null): TapEntry {
   return useTapStore((state) => (sessionId ? (state.bySession[sessionId] ?? EMPTY) : EMPTY));
+}
+
+// Exposed only in development, so the design harness can flood the window and
+// check the table virtualizes. Stripped from production by the bundler.
+if (import.meta.env.DEV) {
+  (globalThis as { __ZUSTAND_TAP__?: typeof useTapStore }).__ZUSTAND_TAP__ = useTapStore;
 }

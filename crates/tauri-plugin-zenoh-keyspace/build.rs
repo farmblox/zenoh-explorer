@@ -4,9 +4,14 @@
 const COMMANDS: &[&str] = &[
     "expand_keys",
     "refresh_declarations",
+    "node_declarations",
     "clear_keys",
     "analyse_key_expr",
     "test_key_expr",
+    "acl_findings",
+    "storage_coverage",
+    "declarations_under",
+    "matching_keys",
 ];
 
 fn main() {

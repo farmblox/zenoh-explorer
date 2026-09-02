@@ -13,7 +13,7 @@ permissions = [
   "allow-list-taps",
 ]
 
-[[permission]]
+[[set]]
 identifier = "read-write"
 description = "Everything in the default set, plus publishing and deleting keys."
 permissions = [

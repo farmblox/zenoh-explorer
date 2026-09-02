@@ -9,16 +9,23 @@ import { useEffect, type RefObject } from "react";
  * single click never both dismisses a menu and activates something else.
  */
 export function useDismiss(
-  ref: RefObject<HTMLElement | null>,
+  ref: RefObject<HTMLElement | null> | readonly RefObject<HTMLElement | null>[],
   open: boolean,
   onDismiss: () => void,
 ): void {
   useEffect(() => {
     if (!open) return;
 
+    // A list, because a layer's parts need not share a parent: a panel
+    // rendered into `document.body` is nowhere near the trigger that opened
+    // it, and a click inside it would otherwise count as a click outside.
+    // `"current" in ref` rather than `Array.isArray`, which widens a readonly
+    // array to `any[]` and loses the element type with it.
+    const inside = "current" in ref ? [ref] : ref;
+
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target;
-      if (target instanceof Node && ref.current?.contains(target)) return;
+      if (target instanceof Node && inside.some((part) => part.current?.contains(target))) return;
       onDismiss();
     };
 

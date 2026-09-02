@@ -1,121 +1,85 @@
-import { ChevronDown, ChevronLeft } from "lucide-react";
-
-import { Button, Menu, SegmentedControl, Toolbar, ToolbarDivider } from "@/components/ui";
-import { cn } from "@/lib/cn";
+import { ComboBox, Toolbar, ToolbarDivider } from "@/components/ui";
 import { groupedNumber } from "@/lib/format";
-import { controlBase, overlayStates } from "@/lib/states";
-import {
-  GRAPH_MODES,
-  type GraphMode,
-  type SourceFilter,
-  type SourceOption,
-} from "../lib/graphMode";
-import { LAYOUTS, type LayoutMode } from "../lib/layout";
+import { describeRegion } from "../lib/regionLabel";
+import type { SourceFilter, SourceOption } from "../lib/sources";
+
+/** One region the graph can be narrowed to. */
+export interface RegionOption {
+  readonly id: string;
+  readonly count: number;
+}
 
 export interface TopologyToolbarProps {
-  mode: GraphMode;
-  onModeChange: (mode: GraphMode) => void;
   source: SourceFilter;
   sources: readonly SourceOption[];
   onSourceChange: (source: SourceFilter) => void;
-  /** Set when a region is open — switches the bar to a breadcrumb. */
-  openRegionId: string | null;
-  onLeaveRegion: () => void;
-  layout: LayoutMode;
-  onLayoutChange: (layout: LayoutMode) => void;
+  /** `null` when the graph is showing every region. */
+  region: string | null;
+  regions: readonly RegionOption[];
+  onRegionChange: (region: string | null) => void;
   nodeCount: number;
   linkCount: number;
 }
 
+/** Stands in for "do not narrow", since a combo box value has to be a string. */
+const EVERY_REGION = " all";
+
 /**
- * The controls above the canvas.
+ * What the graph is drawn from, and how much of it came back.
  *
- * Two states, because the two levels ask different questions. At the top level
- * you are choosing how to cut the network up and what evidence to trust. Inside
- * a region you already chose, and what you want is a way back out and a way to
- * rearrange what is in front of you.
+ * Two narrowing controls then a count: which part of the network, which
+ * evidence, how much. Each box names its current value beside a quiet label, so
+ * the bar reads as a sentence about what is on screen rather than as a row of
+ * unlabelled dropdowns.
  */
 export function TopologyToolbar({
-  mode,
-  onModeChange,
   source,
   sources,
   onSourceChange,
-  openRegionId,
-  onLeaveRegion,
-  layout,
-  onLayoutChange,
+  region,
+  regions,
+  onRegionChange,
   nodeCount,
   linkCount,
 }: TopologyToolbarProps) {
-  const active = sources.find((option) => option.value === source) ?? sources[0];
+  const total = regions.reduce((sum, entry) => sum + entry.count, 0);
 
   return (
     <Toolbar>
-      {openRegionId === null ? (
-        <>
-          <SegmentedControl
-            label="Group the graph by"
-            segments={GRAPH_MODES}
-            value={mode}
-            onChange={onModeChange}
-          />
+      <ComboBox
+        label="Region"
+        value={region ?? EVERY_REGION}
+        onChange={(value) => onRegionChange(value === EVERY_REGION ? null : value)}
+        mono
+        options={[
+          { value: EVERY_REGION, label: "all", hint: groupedNumber(total) },
+          ...regions.map((entry) => ({
+            value: entry.id,
+            label: describeRegion(entry.id).id,
+            hint: groupedNumber(entry.count),
+          })),
+        ]}
+      />
 
-          <Menu
-            label="Choose which discovery sources the graph is drawn from"
-            heading="Draw nodes known from"
-            items={sources.map((option) => ({
-              value: option.value,
-              label: option.label,
-              hint: groupedNumber(option.count),
-              selected: option.value === source,
-            }))}
-            onSelect={onSourceChange}
-            width={244}
-            triggerClassName={cn(
-              "rounded-control border-line bg-surface-2 flex h-8 items-center gap-2.5 px-3",
-              "text-small text-ink-muted hover:text-ink font-medium whitespace-nowrap",
-              controlBase,
-              overlayStates,
-            )}
-            trigger={
-              <>
-                Source: {active?.label.toLowerCase() ?? "every source"}
-                <ChevronDown size={13} className="text-ink-faint" />
-              </>
-            }
-          />
-        </>
-      ) : (
-        <>
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<ChevronLeft size={13} />}
-              onClick={onLeaveRegion}
-            >
-              All regions
-            </Button>
-            <span className="text-tiny text-ink-faint">/</span>
-            <span className="numeric text-small text-ink px-2">{openRegionId}</span>
-          </nav>
-
-          <ToolbarDivider />
-
-          <SegmentedControl
-            label="Arrange nodes as"
-            segments={LAYOUTS}
-            value={layout}
-            onChange={onLayoutChange}
-          />
-        </>
-      )}
+      <ComboBox
+        label="Known from"
+        value={source}
+        onChange={onSourceChange}
+        options={sources.map((option) => ({
+          value: option.value,
+          label: option.label.toLowerCase(),
+          hint: groupedNumber(option.count),
+        }))}
+      />
 
       <span className="flex-1" />
 
       <span className="numeric text-tiny text-ink-faint whitespace-nowrap">
-        {groupedNumber(nodeCount)} nodes · {groupedNumber(linkCount)} links
+        {groupedNumber(nodeCount)} nodes
+      </span>
+      <ToolbarDivider />
+      <span className="numeric text-tiny text-ink-faint whitespace-nowrap">
+        {groupedNumber(linkCount)} links
       </span>
     </Toolbar>
   );

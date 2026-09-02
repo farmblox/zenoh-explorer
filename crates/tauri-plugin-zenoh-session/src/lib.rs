@@ -16,7 +16,12 @@
 //!
 //! # Usage
 //!
-//! ```no_run
+//! Not compiled: the example names a sibling plugin this crate does not depend
+//! on, and `generate_context!` needs a real app's `tauri.conf.json`. Both are
+//! the point of the example — it shows how the shell wires the stack together,
+//! which is a thing only the shell can do.
+//!
+//! ```ignore
 //! tauri::Builder::default()
 //!     .plugin(tauri_plugin_zenoh_session::init())
 //!     .plugin(tauri_plugin_zenoh_topology::init())
@@ -84,6 +89,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::list_sessions,
             commands::session_summary,
             commands::transports,
+            commands::search,
         ])
         .setup(|app, _api| {
             let sink = Arc::new(TauriSink::new(app.clone()));

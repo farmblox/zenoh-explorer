@@ -1,26 +1,37 @@
 import { useState } from "react";
 import { AtSign, Play } from "lucide-react";
 
-import { Badge, Button, DataTable, EmptyState, Input, type Column } from "@/components/ui";
-import { KeyExpr } from "@/components/domain";
+import { Badge, Button, DataTable, EmptyState, type Column } from "@/components/ui";
+import { KeyExpr, KeyExprInput } from "@/components/domain";
 import { data as dataIpc, type SampleRecord } from "@/ipc";
 import { useAsync } from "@/hooks";
 import { bytes } from "@/lib/format";
 import { useActiveSessionId } from "@/stores";
 import { cn } from "@/lib/cn";
-import { focusRing, transitionFast } from "@/lib/states";
+import { pressable } from "@/lib/states";
 import { ViewHeader } from "@/shell/ViewHeader";
 
 /** Everything every node publishes about itself. */
 const DEFAULT_SELECTOR = "@/*/*";
 
-/** Subtrees worth one click, since the admin space is not self-documenting. */
+/**
+ * Subtrees worth one click, since the admin space is not self-documenting.
+ *
+ * One per handler Zenoh's admin space actually registers, so this is the whole
+ * surface rather than the parts that happened to get a button.
+ */
 const PRESETS = [
   { label: "Nodes", selector: "@/*/*" },
+  { label: "Config", selector: "@/*/*/config" },
   { label: "Link-state", selector: "@/*/*/linkstate/*" },
   { label: "Subscribers", selector: "@/*/*/subscriber/**" },
   { label: "Publishers", selector: "@/*/*/publisher/**" },
   { label: "Queryables", selector: "@/*/*/queryable/**" },
+  { label: "Queriers", selector: "@/*/*/querier/**" },
+  { label: "Live tokens", selector: "@/*/*/token/**" },
+  { label: "Routes", selector: "@/*/*/route/successor/**" },
+  { label: "Plugins", selector: "@/*/*/status/plugins/**" },
+  { label: "Storages", selector: "@/*/*/status/plugins/storage_manager/**" },
   { label: "Metrics", selector: "@/*/*/metrics" },
 ] as const;
 
@@ -86,10 +97,7 @@ export function AdminView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ViewHeader
-        title="Admin space"
-        subtitle={loading ? "Querying" : `${data?.length ?? 0} replies`}
-      />
+      <ViewHeader title="Admin space" />
 
       <div className="border-line shrink-0 space-y-2.5 border-b px-5 py-3">
         <form
@@ -99,14 +107,13 @@ export function AdminView() {
             setSubmitted(selector);
           }}
         >
-          <Input
+          <KeyExprInput
             value={selector}
-            onChange={(event) => setSelector(event.target.value)}
+            onChange={setSelector}
+            sessionId={sessionId}
             prefix="selector"
-            mono
-            spellCheck={false}
-            autoComplete="off"
-            containerClassName="flex-1"
+            placeholder="@/*/*/linkstate/*"
+            className="flex-1"
           />
           <Button type="submit" variant="primary" icon={<Play size={13} />} disabled={loading}>
             Query
@@ -122,7 +129,7 @@ export function AdminView() {
                 setSelector(preset.selector);
                 setSubmitted(preset.selector);
               }}
-              className={cn("rounded-inner", focusRing, transitionFast)}
+              className={cn("rounded-inner", pressable)}
             >
               <Badge tone={submitted === preset.selector ? "accent" : "neutral"}>
                 {preset.label}
@@ -137,6 +144,7 @@ export function AdminView() {
       ) : null}
 
       <DataTable
+        id="admin-replies"
         columns={COLUMNS}
         rows={data ?? []}
         rowKey={(row) => `${row.keyExpr}:${row.seq}`}

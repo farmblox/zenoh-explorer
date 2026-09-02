@@ -1,7 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { controlBase, disabledState, overlayStates } from "@/lib/states";
+import { Spinner } from "./Spinner";
+import { controlBase, disabledState, overlayStates, pressMotion } from "@/lib/states";
 
 /**
  * Visual weight, in descending order of how much attention it demands.
@@ -10,7 +11,18 @@ import { controlBase, disabledState, overlayStates } from "@/lib/states";
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md";
 
+/**
+ * Marks the action as running.
+ *
+ * The button keeps its label and its width — swapping the text for a spinner
+ * makes the row jump and loses the one word that says what you are waiting
+ * for. The icon slot carries the spinner instead, and the button stops
+ * accepting clicks, because Connect taking four seconds is exactly when
+ * someone presses it again.
+ */
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  /** Runs the action's spinner and blocks further presses. */
+  loading?: boolean;
   variant?: ButtonVariant;
   size?: ButtonSize;
   /** Rendered before the label, sized to match. */
@@ -43,8 +55,10 @@ export function Button({
   variant = "secondary",
   size = "md",
   icon,
+  loading,
   hint,
   className,
+  disabled,
   children,
   type = "button",
   ...props
@@ -52,11 +66,14 @@ export function Button({
   return (
     <button
       type={type}
+      disabled={disabled === true || loading === true}
+      aria-busy={loading === true || undefined}
       className={cn(
         "rounded-control inline-flex shrink-0 items-center justify-center",
         "font-medium whitespace-nowrap",
         controlBase,
         overlayStates,
+        pressMotion,
         disabledState,
         VARIANTS[variant],
         SIZES[size],
@@ -64,7 +81,11 @@ export function Button({
       )}
       {...props}
     >
-      {icon}
+      {/* The spinner takes the icon's slot rather than replacing the label,
+          so the button keeps its width and the word that says what is running.
+          A button with no icon still reserves the space while busy, for the
+          same reason. */}
+      {loading ? <Spinner /> : icon}
       {children}
       {hint ? <span className="numeric text-ink-faint text-tiny ml-1">{hint}</span> : null}
     </button>

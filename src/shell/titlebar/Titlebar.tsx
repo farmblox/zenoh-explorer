@@ -1,8 +1,9 @@
 import { PanelLeft } from "lucide-react";
 
+import { Tooltip } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { TRAFFIC_LIGHT_INSET } from "@/lib/platform";
-import { focusRingOnChrome, transitionFast } from "@/lib/states";
+import { focusRing, transitionFast } from "@/lib/states";
 import { useUiStore } from "@/stores";
 import { SessionTabs } from "./SessionTabs";
 
@@ -12,6 +13,15 @@ const NAV_WIDTH_COLLAPSED = 72;
 
 /** The toggle button plus the gap it needs from the traffic lights. */
 const TOGGLE_SLOT = 38;
+
+/**
+ * Height of the strip, in pixels.
+ *
+ * Deep enough that a 40px tab sits IN it with a margin, rather than filling it
+ * edge to edge. A tab strip that is barely taller than its tabs reads as window
+ * chrome the tabs were squeezed into.
+ */
+const HEIGHT = 56;
 
 /**
  * The window's top strip.
@@ -41,7 +51,11 @@ export function Titlebar() {
   const leftWidth = Math.max(navWidth, TRAFFIC_LIGHT_INSET + TOGGLE_SLOT);
 
   return (
-    <header data-tauri-drag-region="deep" className="bg-surface-0 flex h-12 shrink-0 items-stretch">
+    <header
+      data-tauri-drag-region="deep"
+      style={{ height: HEIGHT }}
+      className="bg-surface-0 flex shrink-0 items-stretch"
+    >
       <div
         style={{ width: leftWidth, paddingLeft: TRAFFIC_LIGHT_INSET }}
         className={cn(
@@ -49,21 +63,22 @@ export function Titlebar() {
           "transition-[width] duration-(--duration-base) ease-(--ease-out)",
         )}
       >
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-expanded={!collapsed}
-          className={cn(
-            "rounded-inner text-ink-faint hover:bg-surface-2 hover:text-ink",
-            "flex size-6.5 items-center justify-center",
-            transitionFast,
-            focusRingOnChrome,
-          )}
-        >
-          <PanelLeft size={14} />
-        </button>
+        <Tooltip content={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="bottom">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            className={cn(
+              "rounded-inner text-ink-faint hover:bg-surface-2 hover:text-ink",
+              "flex size-7 items-center justify-center",
+              transitionFast,
+              focusRing,
+            )}
+          >
+            <PanelLeft size={15} />
+          </button>
+        </Tooltip>
       </div>
 
       <SessionTabs />

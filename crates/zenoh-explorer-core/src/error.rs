@@ -38,6 +38,13 @@ pub enum Error {
     #[error("{}", .0.summary)]
     Connect(Box<crate::diagnose::Diagnosis>),
 
+    /// An operation failed with guidance suitable for showing to a person.
+    ///
+    /// The operation-specific diagnosis keeps this separate from [`Error::Zenoh`],
+    /// whose raw message is intended for failures we do not yet understand.
+    #[error("{}", .0.summary)]
+    Diagnosed(Box<crate::diagnose::Diagnosis>),
+
     /// A query to the admin space returned a reply we could not read.
     #[error("malformed admin-space reply for {key}: {reason}")]
     AdminReply {

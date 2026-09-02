@@ -1,6 +1,7 @@
-import { useCallback, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
-import { useDismiss } from "@/hooks";
+import { useAnchored, useDismiss, usePresence } from "@/hooks";
 import { cn } from "@/lib/cn";
 import { focusRing } from "@/lib/states";
 
@@ -22,21 +23,32 @@ export interface PopoverProps {
   children: ReactNode | ((props: PopoverRenderProps) => ReactNode);
   side?: PopoverSide | undefined;
   align?: PopoverAlign | undefined;
+  /**
+   * What kind of thing the panel is, for assistive technology.
+   *
+   * `dialog` for a panel of controls, `listbox` when the panel is a list of
+   * values to choose from.
+   */
+  haspopup?: "dialog" | "listbox" | "menu" | undefined;
   /** Class for the trigger button. */
   triggerClassName?: string | undefined;
   /** Class for the floating panel. */
   className?: string | undefined;
 }
 
-const SIDES: Record<PopoverSide, string> = {
-  bottom: "top-[calc(100%+5px)] origin-top",
-  top: "bottom-[calc(100%+5px)] origin-bottom",
+const ORIGINS: Record<PopoverSide, string> = {
+  bottom: "origin-top",
+  top: "origin-bottom",
 };
 
-const ALIGNS: Record<PopoverAlign, string> = {
-  start: "left-0",
-  end: "right-0",
-};
+/** Distance from the trigger's edge. */
+const GAP = 5;
+
+/** Closest the panel may come to the window's edge. */
+const MARGIN = 8;
+
+/** How long the exit animation runs. Mirrors `--duration-exit`. */
+const EXIT_MS = 120;
 
 /**
  * A panel anchored to the control that opened it.
@@ -44,6 +56,9 @@ const ALIGNS: Record<PopoverAlign, string> = {
  * Defined by its hairline, with only enough shadow to say it is above the page.
  * That is the rule for every floating layer here: the border separates, the
  * shadow only lifts.
+ *
+ * Portalled to a measured position by [`useAnchored`], which is where the
+ * reasoning about clipping and the top layer lives.
  */
 export function Popover({
   trigger,
@@ -51,15 +66,38 @@ export function Popover({
   children,
   side = "bottom",
   align = "start",
+  haspopup = "dialog",
   triggerClassName,
   className,
 }: PopoverProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { rect, host, measure } = useAnchored(containerRef);
+  const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
 
   const close = useCallback(() => setOpen(false), []);
-  useDismiss(containerRef, open, close);
+  // Both parts: the panel lives in a portal, so a click inside it is not
+  // inside the container.
+  useDismiss([containerRef, panelRef], open, close);
+
+  // Held on screen for one exit duration so the panel can animate away. Without
+  // it the panel scales in and then disappears on a hard cut.
+  const { mounted, state } = usePresence(open, EXIT_MS);
+
+  // The panel's width is its content's, so whether it fits is only knowable
+  // once it is on screen. Measured and nudged in a layout effect, before the
+  // browser paints — a panel that appears off the edge and then jumps back is
+  // worse than one that was never off it.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!mounted || !panel) return;
+
+    const bounds = panel.getBoundingClientRect();
+    const overshoot = bounds.right - (window.innerWidth - MARGIN);
+    if (overshoot > 0) panel.style.left = `${Math.max(MARGIN, bounds.left - overshoot)}px`;
+    if (bounds.left < MARGIN) panel.style.left = `${MARGIN}px`;
+  }, [mounted, rect]);
 
   return (
     <div ref={containerRef} className="relative shrink-0">
@@ -67,9 +105,12 @@ export function Popover({
         type="button"
         aria-label={label}
         aria-expanded={open}
-        aria-haspopup="dialog"
+        aria-haspopup={haspopup}
         aria-controls={open ? panelId : undefined}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          measure();
+          setOpen((current) => !current);
+        }}
         // The ring is the component's, not the caller's: a trigger that is only
         // focusable-looking when someone remembers to pass a class is a trigger
         // that will be invisible to the keyboard somewhere.
@@ -78,20 +119,33 @@ export function Popover({
         {trigger}
       </button>
 
-      {open ? (
-        <div
-          id={panelId}
-          className={cn(
-            "rounded-panel border-line bg-surface-2 absolute z-30 border p-1.5",
-            "shadow-popover animate-scale-in",
-            SIDES[side],
-            ALIGNS[align],
-            className,
-          )}
-        >
-          {typeof children === "function" ? children({ close }) : children}
-        </div>
-      ) : null}
+      {mounted && rect && host
+        ? createPortal(
+            <div
+              ref={panelRef}
+              id={panelId}
+              data-state={state}
+              style={{
+                position: "fixed",
+                top: side === "bottom" ? rect.bottom + GAP : undefined,
+                bottom: side === "top" ? window.innerHeight - rect.top + GAP : undefined,
+                left: align === "start" ? rect.left : undefined,
+                right: align === "end" ? window.innerWidth - rect.right : undefined,
+              }}
+              className={cn(
+                "rounded-dialog border-line-elevated bg-surface-2 z-50 border p-2",
+                "shadow-popover",
+                "motion-safe:data-[state=open]:animate-scale-in",
+                "motion-safe:data-[state=closed]:animate-scale-out",
+                ORIGINS[side],
+                className,
+              )}
+            >
+              {typeof children === "function" ? children({ close }) : children}
+            </div>,
+            host,
+          )
+        : null}
     </div>
   );
 }

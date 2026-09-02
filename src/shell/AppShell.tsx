@@ -2,6 +2,8 @@ import { ErrorBoundary } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useNavigation } from "@/navigation/useNavigation";
 import { ConnectDialog } from "@/features/connect";
+import { CommandPalette } from "@/features/palette";
+import { SettingsDialog } from "@/features/settings";
 import { useActiveSessionId } from "@/stores";
 import { Sidebar } from "./sidebar/Sidebar";
 import { StatusBar } from "./statusbar/StatusBar";
@@ -57,7 +59,9 @@ export function AppShell() {
       </div>
 
       <StatusBar />
+      <CommandPalette />
       <ConnectDialog />
+      <SettingsDialog />
       {/* Positioned against the window, so it clears the status bar rather
           than being clipped by the content pane's overflow. */}
       <Toaster />

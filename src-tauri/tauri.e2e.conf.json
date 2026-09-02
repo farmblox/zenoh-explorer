@@ -1,5 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeBuildCommand": "pnpm build:vite --mode e2e"
+  },
   "app": {
     "security": {
       "capabilities": [

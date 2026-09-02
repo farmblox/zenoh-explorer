@@ -59,3 +59,11 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Design review screenshots, produced by `pnpm capture`
+/design/captures
+
+# Design-canvas scratch. The .dc.html sources are authored for another tool's
+# parser and the page they seed is a ~2 MiB generated payload — neither belongs
+# in the repo. The published canvas is the shareable artifact.
+design/canvas

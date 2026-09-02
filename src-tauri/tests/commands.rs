@@ -26,6 +26,7 @@ fn test_app() -> tauri::App<tauri::test::MockRuntime> {
     mock_builder()
         .plugin(tauri_plugin_zenoh_session::init())
         .plugin(tauri_plugin_zenoh_keyspace::init())
+        .plugin(tauri_plugin_zenoh_data::init())
         .build(tauri::generate_context!())
         .expect("the mock app must build")
 }
@@ -131,6 +132,32 @@ fn a_command_against_an_unknown_session_reports_the_right_code() {
 
     // The discriminant is the contract the frontend branches on, so it is
     // asserted rather than the prose message.
+    assert_eq!(error["code"], json!("unknownSession"));
+}
+
+#[test]
+fn start_tap_is_allowed_through_the_data_permission_set() {
+    let app = test_app();
+    let error: serde_json::Value = invoke::<serde_json::Value>(
+        &app,
+        "plugin:zenoh-data|start_tap",
+        json!({
+            "sessionId": "ses_does_not_exist",
+            "spec": {
+                "keyExpr": "fleet/**",
+                "buffer": 4096,
+                "flushMs": 80
+            },
+            // This is the wire representation Tauri's JavaScript `Channel`
+            // sends. The unknown session fails before anything can be emitted.
+            "onBatch": "__CHANNEL__:1"
+        }),
+    )
+    .expect_err("an unknown session must fail after the ACL permits the command");
+
+    // With a broken permission set this is Tauri's unstructured "not allowed"
+    // rejection. Reaching the core's typed error proves the command crossed
+    // the same ACL boundary as the real webview.
     assert_eq!(error["code"], json!("unknownSession"));
 }
 

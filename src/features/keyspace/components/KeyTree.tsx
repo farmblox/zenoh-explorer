@@ -3,14 +3,14 @@ import { ChevronRight } from "lucide-react";
 import { Spinner } from "@/components/ui";
 import type { KeyNode } from "@/ipc";
 import { cn } from "@/lib/cn";
-import { focusRing, transitionFast } from "@/lib/states";
+import { focusRing, iconButton, transitionFast } from "@/lib/states";
 import { compactNumber } from "@/lib/format";
 import type { KeyTreeState } from "../hooks/useKeyTree";
 
 export interface KeyTreeProps {
   tree: KeyTreeState;
   selected: string | null;
-  onSelect: (key: string) => void;
+  onSelect: (node: KeyNode) => void;
 }
 
 /**
@@ -65,9 +65,9 @@ export function KeyTree({ tree, selected, onSelect }: KeyTreeProps) {
           aria-expanded={expandable ? isOpen : undefined}
           aria-selected={selected === node.key}
           tabIndex={0}
-          onClick={() => onSelect(node.key)}
+          onClick={() => onSelect(node)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") onSelect(node.key);
+            if (event.key === "Enter") onSelect(node);
             if (event.key === "ArrowRight" && expandable && !isOpen) tree.toggle(node.key);
             if (event.key === "ArrowLeft" && isOpen) tree.toggle(node.key);
           }}
@@ -90,10 +90,7 @@ export function KeyTree({ tree, selected, onSelect }: KeyTreeProps) {
               if (expandable) tree.toggle(node.key);
             }}
             aria-label={isOpen ? "Collapse" : "Expand"}
-            className={cn(
-              "text-ink-faint flex size-4 shrink-0 items-center justify-center",
-              !expandable && "invisible",
-            )}
+            className={cn(iconButton, "size-4", !expandable && "invisible")}
           >
             <ChevronRight
               size={12}

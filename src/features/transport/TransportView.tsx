@@ -161,10 +161,7 @@ export function TransportView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ViewHeader
-        title="Transport"
-        subtitle={`${groupedNumber(totals.links)} links across ${groupedNumber(totals.transports)} transports`}
-      />
+      <ViewHeader title="Transport" />
 
       <div className="border-line shrink-0 border-b">
         <StatGrid columns={4}>
@@ -185,6 +182,7 @@ export function TransportView() {
 
       <div className="flex min-h-0 flex-1">
         <DataTable
+          id="transport-links"
           className="flex-1"
           columns={COLUMNS}
           rows={rows}

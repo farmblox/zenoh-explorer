@@ -1,36 +1,33 @@
+import { useMemo } from "react";
+
 import { useHotkeys, type Hotkey } from "@/hooks";
 import { AppShell } from "@/shell/AppShell";
-import { useNavigation } from "@/navigation/useNavigation";
-import { useActiveSessionId, useTopologyStore, useUiStore } from "@/stores";
-import { useMemo } from "react";
+import { SHORTCUTS } from "./shortcuts";
+import { useAppActions } from "./useAppActions";
+import { useMenu } from "./useMenu";
 
 /**
  * The application root.
  *
- * Holds the shortcuts that must work from anywhere, then hands off to the
- * shell. Everything else is composed further down.
+ * Binds the two entry points that must work from anywhere — the keyboard and
+ * the native menu — to the same action map, then hands off to the shell.
+ * Everything else is composed further down.
  */
 export function App() {
-  const openOverlay = useUiStore((state) => state.openOverlay);
-  const closeOverlay = useUiStore((state) => state.closeOverlay);
-  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
-  const resync = useTopologyStore((state) => state.resync);
-  const sessionId = useActiveSessionId();
-  const { navigate } = useNavigation();
+  const actions = useAppActions();
 
+  useMenu();
+
+  // Every shortcut in `SHORTCUTS` is bound, and nothing else is: the map is
+  // keyed by id, so a combo with no handler cannot compile.
   const hotkeys = useMemo<Hotkey[]>(
-    () => [
-      { combo: "mod+k", handler: () => openOverlay("palette"), allowInInput: true },
-      { combo: "mod+n", handler: () => openOverlay("connect") },
-      { combo: "mod+b", handler: toggleSidebar },
-      { combo: "mod+r", handler: () => sessionId && void resync(sessionId) },
-      { combo: "escape", handler: closeOverlay, allowInInput: true },
-      // Digit shortcuts jump between the views people move between constantly.
-      { combo: "mod+1", handler: () => navigate("topology") },
-      { combo: "mod+2", handler: () => navigate("peers") },
-      { combo: "mod+3", handler: () => navigate("keyspace") },
-    ],
-    [openOverlay, closeOverlay, toggleSidebar, resync, sessionId, navigate],
+    () =>
+      SHORTCUTS.map((shortcut) => ({
+        combo: shortcut.combo,
+        handler: actions[shortcut.id],
+        ...(shortcut.allowInInput === undefined ? {} : { allowInInput: shortcut.allowInInput }),
+      })),
+    [actions],
   );
 
   useHotkeys(hotkeys);

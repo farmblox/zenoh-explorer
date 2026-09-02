@@ -7,7 +7,7 @@
  */
 import type { LinkSummary, NodeSummary, TopologySnapshot } from "@/ipc";
 
-/** Nodes that report no region end up here. */
+/** Nodes advertising no region end up here. */
 export const UNGROUPED = "ungrouped";
 
 /** One region and everything in it. */
@@ -80,25 +80,54 @@ export function buildRegionView(snapshot: TopologySnapshot): RegionView {
   return { regions, links: [...tallies.values()] };
 }
 
-/** The nodes and links inside one region. */
-export interface RegionDetail {
-  readonly region: Region;
+/** A snapshot narrowed to one region, plus what holds it to the network. */
+export interface NarrowedRegion {
+  readonly nodes: readonly NodeSummary[];
   readonly links: readonly LinkSummary[];
+  /**
+   * Zids drawn only because something inside the group links to them.
+   *
+   * The canvas and the list draw these as context so the count of what is IN
+   * the region stays honest.
+   */
+  readonly anchors: ReadonlySet<string>;
 }
 
-/** Narrows a snapshot to one region, keeping only links with both ends inside. */
-export function buildRegionDetail(
-  snapshot: TopologySnapshot,
-  regionId: string,
-): RegionDetail | null {
-  const view = buildRegionView(snapshot);
-  const region = view.regions.find((candidate) => candidate.id === regionId);
-  if (!region) return null;
+/**
+ * Narrows a snapshot to one region, keeping the nodes that anchor it.
+ *
+ * Dropping every link that leaves the region produces orphans rather than a
+ * smaller network, and on a real Zenoh topology that is the common case, not the
+ * edge case. A client holds exactly one transport — to its router — and never
+ * peers with anything, so a region of clients has no internal links at all: keep
+ * only what is inside it and you get a row of nodes floating in empty canvas,
+ * each labelled "no links". The routers they hang off are the whole answer to
+ * "how is this region attached", so they come too, marked as context.
+ *
+ * Every drawn link touches the region. A link between two anchors belongs to
+ * whichever region those two are in, not to this one.
+ */
+export function narrowToRegion(snapshot: TopologySnapshot, region: string): NarrowedRegion {
+  const inside = new Set(
+    snapshot.nodes.filter((node) => (node.region ?? UNGROUPED) === region).map((node) => node.zid),
+  );
 
-  const inside = new Set(region.nodes.map((node) => node.zid));
+  const anchors = new Set<string>();
+  for (const link of snapshot.links) {
+    if (inside.has(link.from) === inside.has(link.to)) continue;
+    anchors.add(inside.has(link.from) ? link.to : link.from);
+  }
+
+  const drawn = new Set([...inside, ...anchors]);
   return {
-    region,
-    links: snapshot.links.filter((link) => inside.has(link.from) && inside.has(link.to)),
+    nodes: snapshot.nodes.filter((node) => drawn.has(node.zid)),
+    links: snapshot.links.filter(
+      (link) =>
+        drawn.has(link.from) &&
+        drawn.has(link.to) &&
+        (inside.has(link.from) || inside.has(link.to)),
+    ),
+    anchors,
   };
 }
 

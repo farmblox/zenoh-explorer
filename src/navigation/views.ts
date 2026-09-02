@@ -21,7 +21,7 @@ import { AdminView } from "@/features/admin";
 import { ConfigView } from "@/features/config";
 import { EventsView } from "@/features/events";
 import { KeyspaceView } from "@/features/keyspace";
-import { PeersView } from "@/features/peers";
+import { NodesView } from "@/features/nodes";
 import { RegionsView } from "@/features/regions";
 import { ScoutingView } from "@/features/scouting";
 import { TopologyView } from "@/features/topology";
@@ -36,23 +36,23 @@ export const VIEWS: readonly ViewDefinition[] = [
     label: "Topology",
     group: "explore",
     icon: Network,
-    description: "The network graph, grouped by region",
+    description: "The network graph, and the links between its nodes",
     component: TopologyView,
   },
   {
-    id: "peers",
-    label: "Peers & sessions",
+    id: "nodes",
+    label: "Nodes",
     group: "explore",
     icon: Users,
-    description: "Transports this session holds open",
-    component: PeersView,
+    description: "Every router, peer and client on the network",
+    component: NodesView,
   },
   {
     id: "regions",
     label: "Regions",
     group: "explore",
     icon: Boxes,
-    description: "Routing regions and the gateways between them",
+    description: "What each region holds, and how it is attached",
     component: RegionsView,
   },
   {
@@ -97,7 +97,6 @@ export const VIEWS: readonly ViewDefinition[] = [
     icon: Cable,
     description: "Link detail: MTU, interfaces, priorities and reliability",
     component: TransportView,
-    secondary: true,
   },
   {
     id: "config",
@@ -106,7 +105,6 @@ export const VIEWS: readonly ViewDefinition[] = [
     icon: SlidersHorizontal,
     description: "The effective configuration of each node",
     component: ConfigView,
-    secondary: true,
   },
 ];
 
@@ -114,9 +112,3 @@ export const VIEWS: readonly ViewDefinition[] = [
 export const VIEW_BY_ID: ReadonlyMap<ViewId, ViewDefinition> = new Map(
   VIEWS.map((view) => [view.id, view]),
 );
-
-/** Views always visible in the sidebar. */
-export const PRIMARY_VIEWS: readonly ViewDefinition[] = VIEWS.filter((view) => !view.secondary);
-
-/** Views behind the sidebar's "More" toggle. */
-export const SECONDARY_VIEWS: readonly ViewDefinition[] = VIEWS.filter((view) => view.secondary);

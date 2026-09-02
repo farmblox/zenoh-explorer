@@ -6,6 +6,7 @@ use tauri::{AppHandle, Runtime};
 use tauri_plugin_zenoh_session::{Result, ZenohSessionExt};
 use zenoh_explorer_core::model::SessionId;
 use zenoh_explorer_core::scout::ScoutedNode;
+use zenoh_explorer_core::trace::Trace;
 
 /// Longest scouting window we will honour, so a stray value cannot hang the UI.
 const MAX_SCOUT_MS: u64 = 10_000;
@@ -31,21 +32,25 @@ pub(crate) async fn scout(duration_ms: Option<u64>) -> Result<Vec<ScoutedNode>> 
     Ok(zenoh_explorer_core::scout::scout_once(window).await?)
 }
 
-/// Asks the routers on the path which node they would forward to next.
+/// The path a message would take between two nodes.
 ///
-/// Backs the route-trace panel: each hop is one admin-space query against
-/// `@/*/*/route/successor/src/<from>/dst/<to>`.
+/// A graph shows which links exist; this shows which one Zenoh would pick. On
+/// any mesh with more than one route those are different questions, and "why is
+/// this slow" often turns out to be "it is not going the way you think".
+///
+/// One query for the whole path, assembled in the core rather than returned as
+/// raw replies for the caller to chain: which router forwards where is a fact
+/// about the network, not a rendering decision.
 #[tauri::command]
 pub(crate) async fn route_trace<R: Runtime>(
     app: AppHandle<R>,
     session_id: SessionId,
     from: String,
     to: String,
-) -> Result<Vec<zenoh_explorer_core::model::SampleRecord>> {
-    let selector = format!("@/*/*/route/successor/src/{from}/dst/{to}");
-    Ok(app
-        .zenoh_sessions()?
+) -> Result<Trace> {
+    app.zenoh_sessions()?
         .get(&session_id)?
-        .query(&selector, 2_500)
-        .await?)
+        .trace_route(&from, &to)
+        .await
+        .map_err(Into::into)
 }

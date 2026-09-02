@@ -10,6 +10,8 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import type { AppEvent } from "@/ipc/generated/AppEvent";
 import type { ConnectionProfile } from "@/ipc/generated/ConnectionProfile";
+import type { SearchCandidate } from "@/ipc/generated/SearchCandidate";
+import type { SearchResults } from "@/ipc/generated/SearchResults";
 import type { SessionId } from "@/ipc/generated/SessionId";
 import type { SessionSummary } from "@/ipc/generated/SessionSummary";
 import type { TransportSummary } from "@/ipc/generated/TransportSummary";
@@ -40,6 +42,27 @@ export function sessionSummary(sessionId: SessionId): Promise<SessionSummary> {
 /** Transports the session holds open right now. */
 export function transports(sessionId: SessionId): Promise<TransportSummary[]> {
   return invoke("plugin:zenoh-session|transports", { sessionId });
+}
+
+/**
+ * Ranks nodes and key expressions against one query.
+ *
+ * Answered from state the session already holds, so it puts nothing on the
+ * network and is safe to call on every keystroke. The ranking and the matched
+ * character offsets both come from here — the palette highlights exactly what
+ * the matcher scored rather than re-deriving spans with a substring search.
+ *
+ * `commands` are the palette's own entries, passed in to be scored by the same
+ * matcher as everything else. Pass `null` for the session to search them alone,
+ * which is what the palette does before anything is connected.
+ */
+export function search(
+  sessionId: SessionId | null,
+  query: string,
+  limit: number,
+  commands: SearchCandidate[],
+): Promise<SearchResults> {
+  return invoke("plugin:zenoh-session|search", { sessionId, query, limit, commands });
 }
 
 /**

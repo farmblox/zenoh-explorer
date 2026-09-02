@@ -1,8 +1,8 @@
 /** TypeScript client for the `zenoh-topology` plugin. */
 import { invoke } from "@tauri-apps/api/core";
 
-import type { SampleRecord } from "@/ipc/generated/SampleRecord";
 import type { ScoutedNode } from "@/ipc/generated/ScoutedNode";
+import type { Trace } from "@/ipc/generated/Trace";
 import type { SessionId } from "@/ipc/generated/SessionId";
 
 /**
@@ -31,11 +31,14 @@ export function scout(durationMs?: number): Promise<ScoutedNode[]> {
   return invoke("plugin:zenoh-topology|scout", { durationMs });
 }
 
-/** Asks the routers along the path which node they would forward to next. */
-export function routeTrace(
-  sessionId: SessionId,
-  from: string,
-  to: string,
-): Promise<SampleRecord[]> {
+/**
+ * The path a message would take between two nodes.
+ *
+ * A graph shows which links exist; this shows which one Zenoh would pick. Only
+ * routers hold a routing table, so a trace that starts at a client or peer
+ * stops immediately with `noSuccessor` — that is the near end having nothing to
+ * report, not a fault.
+ */
+export function routeTrace(sessionId: SessionId, from: string, to: string): Promise<Trace> {
   return invoke("plugin:zenoh-topology|route_trace", { sessionId, from, to });
 }

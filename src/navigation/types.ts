@@ -6,7 +6,7 @@ import type { ComponentType } from "react";
  */
 export type ViewId =
   | "topology"
-  | "peers"
+  | "nodes"
   | "regions"
   | "keyspace"
   | "admin"
@@ -15,7 +15,12 @@ export type ViewId =
   | "transport"
   | "config";
 
-/** Sidebar groupings, in the order they appear. */
+/**
+ * Which cluster a view sits in, in the order they appear.
+ *
+ * The sidebar draws a hairline wherever this changes and never renders the name,
+ * so these are seams rather than headings.
+ */
 export type ViewGroup = "explore" | "data" | "activity" | "session";
 
 /** Everything the shell needs to know about a view, without importing it. */
@@ -27,15 +32,10 @@ export interface ViewDefinition {
   readonly group: ViewGroup;
   /** Icon component, from lucide-react. */
   readonly icon: ComponentType<{ className?: string; size?: number }>;
-  /** One line explaining the view; used as the header subtitle and tooltip. */
+  /** One line explaining the view, read by the command palette. */
   readonly description: string;
   /** The view itself. */
   readonly component: ComponentType;
-  /**
-   * Views below the fold, revealed by the sidebar's "More" toggle. Keeps the
-   * primary list to the handful of things people use constantly.
-   */
-  readonly secondary?: boolean;
   /** `false` for views that work without an open session, e.g. scouting. */
   readonly requiresSession?: boolean;
 }

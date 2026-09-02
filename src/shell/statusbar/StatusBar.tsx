@@ -2,9 +2,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { StatusDot } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { focusRingOnChrome, transitionFast } from "@/lib/states";
+import { pressable } from "@/lib/states";
 import { groupedNumber } from "@/lib/format";
 import { useActiveSession, useTopology, useUiStore } from "@/stores";
+import { describeCoverage } from "@/features/topology";
 import { LiveIndicator } from "./LiveIndicator";
 
 /**
@@ -21,6 +22,7 @@ export function StatusBar() {
 
   const session = useActiveSession();
   const { snapshot } = useTopology(session?.id ?? null);
+  const coverage = snapshot ? describeCoverage(snapshot) : null;
 
   const counts = snapshot
     ? snapshot.nodes.reduce(
@@ -84,8 +86,7 @@ export function StatusBar() {
             aria-expanded={expanded}
             className={cn(
               "rounded-inner hover:text-ink -mx-1 flex shrink-0 items-center gap-1 px-1",
-              focusRingOnChrome,
-              transitionFast,
+              pressable,
             )}
           >
             {expanded ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
@@ -101,9 +102,9 @@ export function StatusBar() {
 
       <span className="flex-1" />
 
-      {snapshot?.partial ? (
-        <span className="text-warn" title="Some nodes did not answer the admin-space query">
-          Partial view
+      {coverage ? (
+        <span className="text-warn" title={coverage.detail}>
+          {coverage.label}
         </span>
       ) : null}
     </footer>

@@ -1,8 +1,12 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 
+import { usePresence } from "@/hooks";
 import { cn } from "@/lib/cn";
 import { focusRing, transitionFast } from "@/lib/states";
+
+/** How long the exit animation runs. Mirrors `--duration-exit`. */
+const EXIT_MS = 120;
 
 export interface DialogProps {
   open: boolean;
@@ -36,11 +40,16 @@ export function Dialog({
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
+  // A native <dialog> that is `close()`d is removed from the top layer at once,
+  // so closing on the prop would cut the exit animation off before its first
+  // frame. The element stays open for one exit duration and closes after.
+  const { mounted, state } = usePresence(open, EXIT_MS);
+
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
 
-    if (open && !dialog.open) {
+    if (mounted && !dialog.open) {
       dialog.showModal();
 
       // `showModal()` focuses the first tabbable descendant, which is whatever
@@ -50,14 +59,15 @@ export function Dialog({
       // a no-op. Marking the intended field and focusing it here is the only
       // reliable way to land where the user expects to start typing.
       dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
-    } else if (!open && dialog.open) {
+    } else if (!mounted && dialog.open) {
       dialog.close();
     }
-  }, [open]);
+  }, [mounted]);
 
   return (
     <dialog
       ref={ref}
+      data-state={state}
       aria-label={title}
       onCancel={(event) => {
         // Take Escape ourselves so React state stays the single source of
@@ -72,7 +82,8 @@ export function Dialog({
       }}
       className={cn(
         "text-ink backdrop:bg-scrim m-0 max-h-none max-w-none bg-transparent p-0",
-        "backdrop:animate-[var(--animate-fade-in)]",
+        "motion-safe:data-[state=open]:backdrop:animate-[var(--animate-fade-in)]",
+        "motion-safe:data-[state=closed]:backdrop:animate-[var(--animate-fade-out)]",
         "h-full w-full",
         // `hidden open:flex`, not a bare `flex`. A closed <dialog> is hidden by
         // the user-agent stylesheet, and any author `display` rule beats that —
@@ -85,8 +96,9 @@ export function Dialog({
       <div
         className={cn(
           "flex max-h-[80vh] w-[min(660px,90vw)] flex-col overflow-hidden",
-          "rounded-dialog border-line bg-surface-1 shadow-dialog border",
-          "animate-[var(--animate-scale-in)]",
+          "rounded-dialog border-line-elevated bg-surface-2 shadow-dialog border",
+          "motion-safe:data-[state=open]:animate-[var(--animate-scale-in)]",
+          "motion-safe:data-[state=closed]:animate-[var(--animate-scale-out)]",
           className,
         )}
       >

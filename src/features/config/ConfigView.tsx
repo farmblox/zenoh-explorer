@@ -4,6 +4,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { Zid } from "@/components/domain";
 import {
   Badge,
+  CodeEditor,
   EmptyState,
   Input,
   ListRow,
@@ -11,12 +12,15 @@ import {
   ScrollArea,
   Spinner,
   Toolbar,
+  ToolbarDivider,
 } from "@/components/ui";
 import { useAsync } from "@/hooks";
 import { data as dataIpc, type SampleRecord } from "@/ipc";
-import { bytes } from "@/lib/format";
-import { useActiveSessionId, useLiveEpoch } from "@/stores";
+import { cn } from "@/lib/cn";
+import { groupedNumber } from "@/lib/format";
+import { useActiveSessionId, useLiveEpoch, useTopology } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
+import { readHighlights } from "./lib/highlights";
 
 /** Every node's effective configuration, as published in its own admin space. */
 const CONFIG_SELECTOR = "@/*/*/config";
@@ -24,6 +28,7 @@ const CONFIG_SELECTOR = "@/*/*/config";
 /** Generous: a config document is large and every node answers separately. */
 const TIMEOUT_MS = 6_000;
 
+/** Colour per token. Keys carry the structure, so they are the brightest. */
 /** One node's reply, with its identity pulled out of the admin key. */
 interface ConfigReply {
   readonly zid: string;
@@ -59,6 +64,7 @@ export function ConfigView() {
   // closest honest thing — a node that just joined gets read, and a node that
   // was quietly reconfigured does not, which is exactly what is true.
   const epoch = useLiveEpoch(sessionId);
+  const snapshot = useTopology(sessionId).snapshot;
 
   const {
     data: samples,
@@ -83,6 +89,18 @@ export function ConfigView() {
 
   const active = replies.find((reply) => reply.zid === selected) ?? replies[0] ?? null;
 
+  /**
+   * The node's own name, when the topology knows it.
+   *
+   * `null` rather than a hex prefix when it does not: the caller shows the zid
+   * itself in that case, and a truncated zid standing in for a name means the
+   * same string appears twice on one line.
+   */
+  const nameOf = (zid: string): string | null => {
+    const node = snapshot?.nodes.find((candidate) => candidate.zid === zid);
+    return node?.name ?? null;
+  };
+
   // Pretty-printed if it parses, raw if it does not. A config that will not
   // parse is itself worth seeing rather than hiding behind an error.
   const document = useMemo(() => {
@@ -94,13 +112,15 @@ export function ConfigView() {
     }
   }, [active]);
 
-  const lines = useMemo(() => {
-    const all = document.split("\n");
+  const highlights = useMemo(() => (document ? readHighlights(document) : null), [document]);
+
+  // Counted rather than filtered. Hiding the lines that do not match takes the
+  // nesting with them, and in a config the nesting is what says which section a
+  // setting is in — `enabled: true` on its own means nothing.
+  const matches = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    if (!needle) return all.map((text, index) => ({ text, number: index + 1 }));
-    return all
-      .map((text, index) => ({ text, number: index + 1 }))
-      .filter((line) => line.text.toLowerCase().includes(needle));
+    if (needle === "") return 0;
+    return document.split("\n").filter((line) => line.toLowerCase().includes(needle)).length;
   }, [document, filter]);
 
   if (!sessionId) {
@@ -115,26 +135,29 @@ export function ConfigView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ViewHeader
-        title="Configuration"
-        subtitle={
-          active
-            ? `${active.whatami} ${active.zid.slice(0, 8)} · ${bytes(active.sample.payloadLen)}`
-            : "What each node resolved at startup"
-        }
-      />
+      <ViewHeader title="Configuration" />
 
       <Toolbar>
         <Input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          placeholder="Filter lines"
+          placeholder="Find in this config"
           mono
           spellCheck={false}
           autoComplete="off"
+          disabled={active === null}
           containerClassName="max-w-[320px] flex-1"
         />
+        {filter.trim() && active ? (
+          <span className="numeric text-tiny text-ink-faint">
+            {groupedNumber(matches)} {matches === 1 ? "line matches" : "lines match"}
+          </span>
+        ) : null}
         <span className="flex-1" />
+        <span className="numeric text-tiny text-ink-faint">
+          {groupedNumber(replies.length)} answered
+        </span>
+        <ToolbarDivider />
         <span className="numeric text-tiny text-ink-faint">{CONFIG_SELECTOR}</span>
       </Toolbar>
 
@@ -142,30 +165,36 @@ export function ConfigView() {
         <p className="bg-danger-subtle text-tiny text-danger shrink-0 px-5 py-2">{error}</p>
       ) : null}
 
-      <div className="flex min-h-0 flex-1">
-        <ResizablePanel
-          id="config-nodes"
-          side="left"
-          defaultWidth={264}
-          minWidth={200}
-          maxWidth={420}
-          label="Resize the node list"
-          className="border-line bg-surface-0 border-r"
-        >
-          <ScrollArea className="flex-1">
-            {replies.length === 0 ? (
-              <p className="text-tiny text-ink-faint px-4 py-3 leading-relaxed">
-                No node answered. Zenoh only publishes its configuration when
-                <span className="numeric text-ink-muted"> adminspace.enabled</span> is on and
-                <span className="numeric text-ink-muted"> adminspace.permissions.read</span> allows
-                it.
-              </p>
-            ) : (
-              replies.map((reply) => (
+      {active === null ? (
+        // One message, across the whole area. There used to be a node list
+        // holding a paragraph of explanation next to an empty state saying the
+        // same thing — two answers to one question, neither of them the view.
+        <EmptyState
+          icon={loading ? <Spinner /> : <SlidersHorizontal />}
+          title={loading ? "Asking every node" : "No node published its configuration"}
+          description={
+            loading
+              ? `Running ${CONFIG_SELECTOR} across the network.`
+              : "Zenoh publishes a node's configuration only when adminspace.enabled is on and adminspace.permissions.read allows it. Both are off by default, so a network of untouched nodes answers nothing here."
+          }
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <ResizablePanel
+            id="config-nodes"
+            side="left"
+            defaultWidth={248}
+            minWidth={190}
+            maxWidth={420}
+            label="Resize the node list"
+            className="border-line bg-surface-0 border-r"
+          >
+            <ScrollArea className="flex-1 p-2">
+              {replies.map((reply) => (
                 <ListRow
                   key={reply.zid}
                   size="comfortable"
-                  selected={active?.zid === reply.zid}
+                  selected={active.zid === reply.zid}
                   onClick={() => setSelected(reply.zid)}
                   icon={
                     <Badge tone={reply.whatami === "router" ? "accent" : "neutral"}>
@@ -173,41 +202,96 @@ export function ConfigView() {
                     </Badge>
                   }
                 >
-                  <Zid zid={reply.zid} />
+                  {nameOf(reply.zid) ?? <Zid zid={reply.zid} />}
                 </ListRow>
-              ))
-            )}
-          </ScrollArea>
-        </ResizablePanel>
-
-        {active ? (
-          <ScrollArea className="min-w-0 flex-1">
-            <pre className="numeric text-tiny p-5 leading-[1.85]">
-              {lines.map((line) => (
-                <div key={line.number} className="flex">
-                  <span className="text-ink-faint w-12 shrink-0 pr-4 text-right select-none">
-                    {line.number}
-                  </span>
-                  <span className="selectable text-ink-muted whitespace-pre-wrap">{line.text}</span>
-                </div>
               ))}
-              {lines.length === 0 ? (
-                <span className="text-ink-faint">No line matches “{filter}”.</span>
-              ) : null}
-            </pre>
-          </ScrollArea>
-        ) : (
-          <EmptyState
-            icon={loading ? <Spinner /> : <SlidersHorizontal />}
-            title={loading ? "Asking every node" : "Nothing to show"}
-            description={
-              loading
-                ? `Running ${CONFIG_SELECTOR} across the network.`
-                : "No node published its configuration."
-            }
-          />
-        )}
-      </div>
+            </ScrollArea>
+          </ResizablePanel>
+
+          <div className="flex min-w-0 flex-1 flex-col p-4">
+            <div className="border-line rounded-panel bg-surface-1 flex min-h-0 flex-1 flex-col overflow-hidden border">
+              <header className="border-line-soft flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3">
+                <span className="numeric text-small text-ink">
+                  {nameOf(active.zid) ?? active.whatami} · config
+                </span>
+                <Zid zid={active.zid} copyable />
+                <span className="flex-1" />
+                {highlights ? <Permissions highlights={highlights} /> : null}
+              </header>
+
+              <CodeEditor
+                label={`Configuration of ${nameOf(active.zid) ?? active.zid}`}
+                value={document}
+                highlight={filter.trim()}
+                className="min-w-0 flex-1"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * Whether this node answers for itself, and whether it can be rewritten.
+ *
+ * On the document's header rather than in a panel of its own: it is two facts,
+ * and it is the reason the document is on screen at all. `write: true` is drawn
+ * as a warning because a node that accepts configuration over the network is a
+ * node anyone on that network can reconfigure.
+ */
+function Permissions({
+  highlights,
+}: {
+  highlights: NonNullable<ReturnType<typeof readHighlights>>;
+}) {
+  return (
+    <span className="flex shrink-0 items-center gap-2">
+      {highlights.mode ? (
+        <span className="numeric text-tiny text-ink-faint">{highlights.mode}</span>
+      ) : null}
+      <Flag label="read" value={highlights.adminRead} />
+      <Flag
+        label="write"
+        value={highlights.adminWrite}
+        warnWhen
+        title={
+          highlights.adminWrite === true
+            ? "This node accepts configuration changes over the network"
+            : undefined
+        }
+      />
+    </span>
+  );
+}
+
+function Flag({
+  label,
+  value,
+  warnWhen,
+  title,
+}: {
+  label: string;
+  value: boolean | null;
+  warnWhen?: boolean;
+  title?: string | undefined;
+}) {
+  if (value === null) return null;
+
+  return (
+    <span
+      title={title}
+      className={cn(
+        "rounded-inner numeric text-tiny px-1.5 py-0.5",
+        value
+          ? warnWhen
+            ? "bg-warn-subtle text-warn"
+            : "bg-ok-subtle text-ok"
+          : "bg-surface-2 text-ink-faint",
+      )}
+    >
+      {label} {value ? "on" : "off"}
+    </span>
   );
 }

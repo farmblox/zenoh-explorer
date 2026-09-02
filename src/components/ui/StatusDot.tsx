@@ -6,7 +6,7 @@ export type Status = "live" | "connecting" | "degraded" | "down" | "idle";
 export interface StatusDotProps {
   status: Status;
   /** Adds a slow, continuous pulse. Reserved for genuinely live state. */
-  pulse?: boolean;
+  pulse?: boolean | undefined;
   /**
    * Draws a ring that expands once and fades.
    *
@@ -14,8 +14,8 @@ export interface StatusDotProps {
    * restarts on mount, which means no timer and no state to hold "am I
    * currently animating".
    */
-  ping?: boolean;
-  className?: string;
+  ping?: boolean | undefined;
+  className?: string | undefined;
 }
 
 const COLORS: Record<Status, string> = {

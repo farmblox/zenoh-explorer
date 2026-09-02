@@ -1,6 +1,14 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
-import { Badge, Disclosure, Input, SegmentedControl } from "@/components/ui";
+import {
+  Badge,
+  Checkbox,
+  CodeEditor,
+  Disclosure,
+  Field,
+  Input,
+  SegmentedControl,
+} from "@/components/ui";
 import type {
   CertSource,
   ConnectionOptions,
@@ -12,7 +20,7 @@ import type {
 import { cn } from "@/lib/cn";
 import { focusRing, transitionFast } from "@/lib/states";
 import { CertField } from "./CertField";
-import { DEFAULT_ADDRESS, hostOf } from "./defaults";
+import { DEFAULT_ADDRESS, DEFAULT_NAME, hostOf } from "./defaults";
 
 const MODES = [
   { value: "client", label: "Client" },
@@ -327,6 +335,36 @@ export function ConnectForm({ initial, onChange, onSubmit }: ConnectFormProps) {
             </div>
           </Field>
 
+          <Field label="Identity" hint="What other nodes see when they look at this explorer">
+            <div className="space-y-2">
+              <Checkbox
+                label="Answer for ourselves"
+                hint="Lets nodes we connect to read our name and version. Read-only — nothing on the network can change our settings."
+                checked={options.adminSpace ?? false}
+                onChange={(on) => {
+                  const next = { ...options, adminSpace: on };
+                  setOptions(next);
+                  report({ options: next });
+                }}
+              />
+              <Input
+                size="lg"
+                value={options.advertisedName ?? ""}
+                placeholder={DEFAULT_NAME}
+                disabled={options.adminSpace !== true}
+                spellCheck={false}
+                autoComplete="off"
+                aria-label="Name to advertise"
+                onChange={(event) => {
+                  const raw = event.target.value;
+                  const next = { ...options, advertisedName: raw.length > 0 ? raw : null };
+                  setOptions(next);
+                  report({ options: next });
+                }}
+              />
+            </div>
+          </Field>
+
           <Field label="Connect timeout" hint="Milliseconds. Blank leaves Zenoh's default">
             <Input
               size="lg"
@@ -347,7 +385,7 @@ export function ConnectForm({ initial, onChange, onSubmit }: ConnectFormProps) {
             />
           </Field>
 
-          <Field label="Retry" hint="Backoff when the router is unreachable">
+          <Field label="Retry" hint="Keeps trying when the router is unreachable">
             <div className="flex items-center gap-3">
               <Checkbox
                 label="Retry automatically"
@@ -373,62 +411,20 @@ export function ConnectForm({ initial, onChange, onSubmit }: ConnectFormProps) {
           </Field>
 
           <Field label="Raw config" hint="JSON5, merged first. For anything not covered above">
-            <textarea
-              value={advanced}
-              onChange={(event) => {
-                setAdvanced(event.target.value);
-                report({ advancedJson5: event.target.value.trim() || null });
-              }}
-              rows={4}
-              spellCheck={false}
-              placeholder="{ transport: { unicast: { max_sessions: 100 } } }"
-              className={cn(
-                "numeric selectable rounded-control border-line bg-surface-2 w-full resize-y border p-3",
-                "text-tiny text-ink placeholder:text-ink-faint outline-none",
-                transitionFast,
-                "focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-subtle)]",
-              )}
-            />
+            <div className="rounded-control border-line bg-surface-2 focus-within:border-accent h-32 overflow-hidden border">
+              <CodeEditor
+                label="Raw configuration"
+                value={advanced}
+                onChange={(next) => {
+                  setAdvanced(next);
+                  report({ advancedJson5: next.trim() || null });
+                }}
+                placeholder="{ transport: { unicast: { max_sessions: 100 } } }"
+              />
+            </div>
           </Field>
         </div>
       </Disclosure>
     </form>
-  );
-}
-
-function Field({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
-  return (
-    <label className="block space-y-2">
-      <span className="flex items-baseline gap-2">
-        <span className="text-small text-ink font-medium">{label}</span>
-        <span className="text-tiny text-ink-faint">{hint}</span>
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function Checkbox({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-baseline gap-2">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="accent-accent size-3.5 cursor-pointer"
-      />
-      <span className="text-small text-ink-muted">{label}</span>
-      {hint ? <span className="text-tiny text-ink-faint">{hint}</span> : null}
-    </label>
   );
 }

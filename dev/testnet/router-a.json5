@@ -1,0 +1,26 @@
+{
+  // The hub. B and C connect in to it, so the explorer sees a real multi-router
+  // topology rather than one node talking to itself.
+  mode: "router",
+  listen: { endpoints: ["tcp/0.0.0.0:7447"] },
+
+  // Off by default in Zenoh 1.x, which is the single most common reason the
+  // explorer sees nothing. On here, read-only.
+  adminspace: { enabled: true, permissions: { read: true, write: false } },
+
+  plugins: {
+    // Lets you publish test data with curl — see the README.
+    rest: { http_port: 8000 },
+
+    // Each storage declares a SUBSCRIBER and a QUERYABLE on its key expression,
+    // which is what puts entries in the explorer's keyspace tree. Without one,
+    // a network can be perfectly healthy and still have an empty keyspace.
+    storage_manager: {
+      storages: {
+        fleet: { key_expr: "fleet/**", volume: "memory" },
+        vision: { key_expr: "vision/**", volume: "memory" },
+        config: { key_expr: "fleet/config/**", volume: "memory" },
+      },
+    },
+  },
+}

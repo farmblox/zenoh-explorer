@@ -5,6 +5,11 @@ on:
     tags: ["v*"]
   # Handy for rehearsing the workflow without cutting a tag.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (for example, v0.1.0)
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -65,8 +70,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Zenoh Explorer ${{ github.ref_name }}
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: Zenoh Explorer ${{ inputs.tag || github.ref_name }}
           releaseBody: |
             See the assets below to download this version.
           # Published by hand after checking the artifacts. A bad build is then

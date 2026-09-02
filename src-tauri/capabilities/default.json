@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Everything the main window is allowed to do. The explorer is read-only against the networks it inspects unless `zenoh-data:read-write` is granted below.",
+  "description": "Everything the main window is allowed to do. Publishing and deleting are granted here, but the window keeps them behind a per-session arming that defaults to off — a tool pointed at a live deployment should not be able to change it by a misplaced click.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -11,7 +11,7 @@
     "zenoh-session:default",
     "zenoh-topology:default",
     "zenoh-keyspace:default",
-    "zenoh-data:default",
+    "zenoh-data:read-write",
     "zenoh-profiles:default",
     "os:default",
     "clipboard-manager:allow-write-text",

@@ -11,12 +11,18 @@ import type { Options } from "@wdio/types";
  *
  * Run with:  pnpm e2e   (which builds `--features e2e` first)
  */
+/**
+ * The binary `pnpm build:e2e` actually produces.
+ *
+ * Two things decide this path and neither is obvious. `--no-bundle` means there
+ * is no `.app` on macOS, just the executable; and because the crates live in a
+ * Cargo workspace, the target directory is at the repository root rather than
+ * under `src-tauri/`.
+ */
 const BINARY =
-  process.platform === "darwin"
-    ? "./src-tauri/target/release/bundle/macos/Zenoh Explorer.app/Contents/MacOS/zenoh-explorer"
-    : process.platform === "win32"
-      ? "./src-tauri/target/release/zenoh-explorer.exe"
-      : "./src-tauri/target/release/zenoh-explorer";
+  process.platform === "win32"
+    ? "./target/release/zenoh-explorer.exe"
+    : "./target/release/zenoh-explorer";
 
 export const config: Options.Testrunner = {
   runner: "local",

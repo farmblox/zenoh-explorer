@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Boxes, Network } from "lucide-react";
 
 import {
+  Badge,
   EmptyState,
   Mix,
   Panel,
@@ -19,10 +20,12 @@ import { ViewHeader } from "@/shell/ViewHeader";
 /**
  * Regions, as a list rather than a graph.
  *
- * The topology view answers "how is this network shaped"; this one answers
- * "what is in each part of it, and is any part cut off". Same snapshot, same
- * grouping — a card here and a card on the canvas always agree, because both
- * come from `buildRegionView`.
+ * A region is what a node advertises as its `metadata.location`, which is the
+ * only region on a Zenoh network that groups nodes. Zenoh's own routing regions
+ * belong to a LINK — see `regionLabel.ts` — so they group nothing.
+ *
+ * The topology view answers "how is this network shaped"; this one answers "what
+ * is in each part of it, and is any part cut off".
  */
 export function RegionsView() {
   const sessionId = useActiveSessionId();
@@ -35,21 +38,14 @@ export function RegionsView() {
       <EmptyState
         icon={<Boxes />}
         title="No session"
-        description="Connect to a Zenoh network to see how it divides into regions."
+        description="Connect to a Zenoh network to see how it divides up."
       />
     );
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ViewHeader
-        title="Regions"
-        subtitle={
-          view
-            ? `${groupedNumber(view.regions.length)} regions · ${groupedNumber(view.links.length)} links between them`
-            : "Reading the admin space"
-        }
-      />
+      <ViewHeader title="Regions" />
 
       {error ? (
         <p className="bg-danger-subtle text-tiny text-danger shrink-0 px-5 py-2">{error}</p>
@@ -91,11 +87,18 @@ export function RegionsView() {
                         {description.id}
                       </h2>
                       {region.containsLocal ? (
-                        <span className="text-tiny text-accent shrink-0">this explorer</span>
+                        // A badge, not accent text: accent text beside a title
+                        // reads as a link to somewhere.
+                        <Badge tone="accent">this explorer</Badge>
                       ) : null}
                     </div>
-                    <p className="text-tiny text-ink-faint mt-2 leading-relaxed">
-                      {description.description}
+                    {/* The short form, so every card in a row is the same
+                        height. The full explanation is the tooltip. */}
+                    <p
+                      className="text-tiny text-ink-faint mt-2 truncate"
+                      title={description.description}
+                    >
+                      {description.summary}
                     </p>
                   </header>
 
@@ -114,8 +117,13 @@ export function RegionsView() {
                       legend
                       segments={[
                         { key: "routers", label: "routers", value: region.routers, tone: "accent" },
-                        { key: "peers", label: "peers", value: region.peers, tone: "neutral" },
-                        { key: "clients", label: "clients", value: region.clients, tone: "ok" },
+                        { key: "peers", label: "peers", value: region.peers, tone: "accent-soft" },
+                        {
+                          key: "clients",
+                          label: "clients",
+                          value: region.clients,
+                          tone: "accent-faint",
+                        },
                       ]}
                     />
 

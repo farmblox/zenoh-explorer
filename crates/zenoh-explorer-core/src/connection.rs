@@ -64,6 +64,13 @@ impl Default for OpenConditions {
     }
 }
 
+/// What the explorer calls itself when nothing else is configured.
+///
+/// The product name rather than the host or the profile name: a profile can be
+/// called anything — "prod-customer-x" — and a profile name is the user's note
+/// to themselves, not something to put on somebody else's network.
+pub const DEFAULT_NAME: &str = "zenoh-explorer";
+
 /// Everything about *how* the explorer connects, as opposed to where.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -102,6 +109,31 @@ pub struct ConnectionOptions {
     #[serde(default)]
     pub multicast_listen: Option<bool>,
 
+    /// What the explorer calls itself on the network.
+    ///
+    /// Written into the config's `metadata`, which Zenoh describes as "arbitrary
+    /// json data available from the admin space" — so this is only ever visible
+    /// through [`ConnectionOptions::admin_space`], and setting a name with that
+    /// off names nothing.
+    ///
+    /// `None` uses [`DEFAULT_NAME`]. An empty string advertises no name at all.
+    #[serde(default)]
+    pub advertised_name: Option<String>,
+
+    /// Answer admin-space queries about ourselves.
+    ///
+    /// This is what makes the explorer identifiable. Without it the session is
+    /// an anonymous zid attached to somebody's router — which, for an operator
+    /// looking at their own network, is an unexplained client and a reasonable
+    /// thing to be alarmed by.
+    ///
+    /// Read-only: `adminspace.permissions.write` is set false explicitly, so
+    /// nothing on the network can reconfigure the explorer through it. What it
+    /// does expose is this session's own account of itself — its name, version,
+    /// locators and the transports it holds.
+    #[serde(default)]
+    pub admin_space: Option<bool>,
+
     /// What `open` blocks on.
     #[serde(default)]
     pub open: OpenConditions,
@@ -121,6 +153,17 @@ impl Default for ConnectionOptions {
             // segment. It is here to watch, and answering scouts makes it a
             // discovery target for every other node.
             multicast_listen: Some(false),
+            advertised_name: None,
+            // Deliberately on, which is not Zenoh's default.
+            //
+            // Not being discoverable by broadcast and not saying who you are
+            // once connected are different things. Multicast listen is off above
+            // because the explorer has no business answering scouts from the
+            // whole segment. This is the opposite case: these are nodes we have
+            // already dialled, on a network the operator runs, and leaving them
+            // with an anonymous client they cannot account for is worse
+            // behaviour than answering for ourselves.
+            admin_space: Some(true),
             open: OpenConditions::default(),
         }
     }
@@ -147,17 +190,35 @@ impl ConnectionOptions {
         push("connect/exit_on_failure", "false".to_owned());
 
         if let Some(retry) = &self.retry {
+            // A backoff is inert without a non-zero global connect timeout.
+            //
+            // Zenoh reads `connect/timeout_ms` before it reads the backoff, and
+            // takes a "connect once, do not retry" path when it is zero. That
+            // default is MODE-DEPENDENT: -1 for a router or peer, but 0 for a
+            // client — which is how this explorer connects by default. So
+            // asking for a backoff in client mode configured something Zenoh
+            // then declined to consult.
+            //
+            // -1 is "keep trying", the same value a peer gets. An explicit
+            // timeout wins: it is set below and this leaves it alone.
+            if self.connect_timeout_ms.is_none() {
+                push("connect/timeout_ms", "-1".to_owned());
+            }
+
+            // The whole object in one write, not three nested keys.
+            // `connect.retry` is `Option` in Zenoh's schema, and `insert_json5`
+            // resolves a path against what already exists rather than creating
+            // it — so writing `connect/retry/period_init_ms` into a config
+            // where `retry` is unset is rejected with "unknown key". Every
+            // other nested block we touch (`scouting/multicast`,
+            // `transport/link/tls`) derives Default and is always present,
+            // which is why this is the only one that needs it.
             push(
-                "connect/retry/period_init_ms",
-                retry.period_init_ms.to_string(),
-            );
-            push(
-                "connect/retry/period_max_ms",
-                retry.period_max_ms.to_string(),
-            );
-            push(
-                "connect/retry/period_increase_factor",
-                retry.period_increase_factor.to_string(),
+                "connect/retry",
+                format!(
+                    "{{ period_init_ms: {}, period_max_ms: {}, period_increase_factor: {} }}",
+                    retry.period_init_ms, retry.period_max_ms, retry.period_increase_factor
+                ),
             );
         }
 
@@ -178,6 +239,33 @@ impl ConnectionOptions {
         }
         if let Some(listen) = self.multicast_listen {
             push("scouting/multicast/listen", listen.to_string());
+        }
+
+        if self.admin_space == Some(true) {
+            push("adminspace/enabled", "true".to_owned());
+            // Explicit, not inherited. `write` already defaults to false, but a
+            // default that happens to be right is not the same as a decision,
+            // and this one decides whether the network can reconfigure us.
+            push("adminspace/permissions/read", "true".to_owned());
+            push("adminspace/permissions/write", "false".to_owned());
+        } else if self.admin_space == Some(false) {
+            push("adminspace/enabled", "false".to_owned());
+        }
+
+        // Only worth writing when something can read it: metadata lives in the
+        // admin space and nowhere else.
+        if self.admin_space != Some(false) {
+            let name = self.advertised_name.as_deref().unwrap_or(DEFAULT_NAME);
+            if !name.is_empty() {
+                push(
+                    "metadata",
+                    format!(
+                        "{{ name: {}, version: {} }}",
+                        json_string(name),
+                        json_string(env!("CARGO_PKG_VERSION"))
+                    ),
+                );
+            }
         }
 
         push(
@@ -215,19 +303,52 @@ mod tests {
         assert_eq!(map["scouting/multicast/listen"], "false");
         // Leaves Zenoh's own timing alone.
         assert!(!map.contains_key("connect/timeout_ms"));
-        assert!(!map.contains_key("connect/retry/period_init_ms"));
+        assert!(!map.contains_key("connect/retry"));
     }
 
+    /// Asking for a backoff also opens the window Zenoh needs to use it.
+    ///
+    /// `connect/timeout_ms` defaults to 0 in client mode, and Zenoh treats a
+    /// zero global timeout as "connect once, do not retry" — so the backoff
+    /// would be configured and then ignored, which is exactly how it behaved.
     #[test]
-    fn retry_emits_all_three_backoff_keys_together() {
+    fn retry_sets_a_connect_timeout_so_the_backoff_is_used() {
+        let options = ConnectionOptions {
+            retry: Some(RetryConfig::default()),
+            ..Default::default()
+        };
+        assert_eq!(entries(&options)["connect/timeout_ms"], "-1");
+    }
+
+    /// An explicit timeout is the user's, and outranks the one retry implies.
+    #[test]
+    fn an_explicit_connect_timeout_wins_over_the_retry_default() {
+        let options = ConnectionOptions {
+            retry: Some(RetryConfig::default()),
+            connect_timeout_ms: Some(2_500),
+            ..Default::default()
+        };
+        assert_eq!(entries(&options)["connect/timeout_ms"], "2500");
+    }
+
+    /// The backoff goes in as ONE object.
+    ///
+    /// `connect.retry` is `Option` in Zenoh's schema and `insert_json5`
+    /// resolves against what exists, so the three keys written separately are
+    /// rejected with "unknown key". `config.rs` has the test that proves Zenoh
+    /// accepts what this produces; this one pins the shape.
+    #[test]
+    fn retry_emits_the_backoff_as_a_single_object() {
         let options = ConnectionOptions {
             retry: Some(RetryConfig::default()),
             ..Default::default()
         };
         let map = entries(&options);
-        assert_eq!(map["connect/retry/period_init_ms"], "1000");
-        assert_eq!(map["connect/retry/period_max_ms"], "5000");
-        assert_eq!(map["connect/retry/period_increase_factor"], "2");
+        assert_eq!(
+            map["connect/retry"],
+            "{ period_init_ms: 1000, period_max_ms: 5000, period_increase_factor: 2 }"
+        );
+        assert!(!map.contains_key("connect/retry/period_init_ms"));
     }
 
     #[test]

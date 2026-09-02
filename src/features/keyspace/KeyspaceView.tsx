@@ -1,12 +1,18 @@
 import { useCallback, useMemo, useState } from "react";
-import { Binary, FlaskConical, Radio, Trash2 } from "lucide-react";
+import { Binary, CornerDownLeft, FlaskConical, Radio, Send, Trash2 } from "lucide-react";
 
-import { KeyExpr } from "@/components/domain";
+import { KeyExpr, KeyExprInput } from "@/components/domain";
+import { DeclarationList } from "./components/DeclarationList";
+import { PublishDialog } from "./components/PublishDialog";
+import { QueryReplies } from "./components/QueryReplies";
+import { KeyInsight } from "./components/KeyInsight";
+import { useDeclarations } from "./hooks/useDeclarations";
+import { useQuery } from "./hooks/useQuery";
+import { useKeyInsight } from "./hooks/useKeyInsight";
 import {
   Badge,
   Button,
   EmptyState,
-  Input,
   Panel,
   ResizablePanel,
   ScrollArea,
@@ -15,9 +21,10 @@ import {
   StatGrid,
   Toolbar,
 } from "@/components/ui";
-import type { SampleRecord, SessionId } from "@/ipc";
+import type { DeclarationKind, KeyNode, SampleRecord, SessionId } from "@/ipc";
 import { compactNumber, groupedNumber } from "@/lib/format";
-import { useActiveSessionId, useTap, useTapStore } from "@/stores";
+import { useReveal } from "@/navigation/useReveal";
+import { useActiveSession, useActiveSessionId, useTap, useTapStore } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
 import { KeyTree } from "./components/KeyTree";
 import { MatchTester } from "./components/MatchTester";
@@ -25,6 +32,26 @@ import { SampleTable } from "./components/SampleTable";
 import { useKeyTree } from "./hooks/useKeyTree";
 
 /** Where a new subscription starts, before you have picked a key. */
+/**
+ * The five kinds of interest Zenoh publishes, in the order they read.
+ *
+ * Consumers before providers within each pair — subscriber/publisher, then
+ * queryable/querier — and presence last, because a liveliness token is not
+ * half of a pair at all.
+ */
+const DECLARED = [
+  { kind: "subscriber", label: "Subscribers", field: "subscribers", tone: "accent" },
+  { kind: "publisher", label: "Publishers", field: "publishers", tone: "accent" },
+  { kind: "queryable", label: "Queryables", field: "queryables", tone: "accent" },
+  { kind: "querier", label: "Queriers", field: "queriers", tone: "accent" },
+  { kind: "token", label: "Live tokens", field: "tokens", tone: "ok" },
+] as const satisfies ReadonlyArray<{
+  kind: DeclarationKind;
+  label: string;
+  field: "subscribers" | "publishers" | "queryables" | "queriers" | "tokens";
+  tone: "accent" | "ok";
+}>;
+
 const DEFAULT_KEY_EXPR = "**";
 
 /**
@@ -66,13 +93,59 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
   const [sample, setSample] = useState<SampleRecord | null>(null);
   const [testerOpen, setTesterOpen] = useState(false);
 
+  // Durability and access control for whatever is selected.
+  const insight = useKeyInsight(sessionId, selected);
+
+  // The same question about the expression the toolbar will actually subscribe
+  // to, which is not always the key selected in the tree. A policy that would
+  // refuse it is worth knowing before pressing the button rather than after,
+  // when it arrives as whatever Zenoh happened to say.
+  const aim = useKeyInsight(sessionId, keyExpr.trim() === "" ? null : keyExpr.trim());
+  const refusals = aim.acl.filter((finding) => finding.permission === "deny");
+
+  // Which counter has been opened onto its list, if any. One at a time: five
+  // lists at once is the table this panel exists to avoid.
+  const [openKind, setOpenKind] = useState<DeclarationKind | null>(null);
+  const declarations = useDeclarations(sessionId, selected, openKind);
+
+  // Three verbs on one expression: read it once, watch it, or change it. The
+  // first two fill the pane below; the third interrupts, because it is the only
+  // one that changes the network rather than asking it something.
+  const query = useQuery(sessionId);
+  // The dialog names the network it is about to change, so it needs what the
+  // user called it rather than its zid.
+  const sessionName = useActiveSession()?.profile.name ?? "this network";
+  const [publishing, setPublishing] = useState(false);
+
   // Picking a key in the tree aims the subscription at it. It does not start
   // one: subscribing is a deliberate act, and clicking through a tree should
   // not silently open sockets behind you.
-  const selectKey = useCallback((key: string) => {
-    setSelected(key);
-    setKeyExpr(key);
+  const selectKey = useCallback((node: KeyNode) => {
+    setSelected(node.key);
+    // A branch aimed at literally would subscribe to nothing: `fleet/agv`
+    // matches the key `fleet/agv` and not one thing published beneath it, so
+    // clicking a subtree with 148 keys under it and pressing Subscribe would
+    // sit there receiving silence. `**` matches zero or more chunks, so the
+    // wildcard form covers the branch key itself as well.
+    setKeyExpr(node.childCount > 0 ? `${node.key}/**` : node.key);
   }, []);
+
+  // The palette can name a key at any depth, so the tree has to be opened down
+  // to it before there is a row to select. Destructured rather than reached
+  // through `tree`, whose identity changes every render.
+  const { expandTo } = tree;
+  const revealKey = useCallback(
+    (key: string) => {
+      expandTo(key);
+      setSelected(key);
+      // The palette carries a key, not a tree node, so whether this one has
+      // children is not known here. `**` is the safe aim: it matches the key
+      // itself too, so a leaf is not made unreachable by it.
+      setKeyExpr(`${key}/**`);
+    },
+    [expandTo],
+  );
+  useReveal("keyspace", revealKey);
 
   const subscribe = useCallback(() => {
     if (tap.streaming) void stop(sessionId);
@@ -89,17 +162,10 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
     return level.nodes.find((node) => node.key === selected) ?? null;
   }, [selected, tree.levels]);
 
-  const listeners = (selectedNode?.subscribers ?? 0) + (selectedNode?.queryables ?? 0);
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ViewHeader
         title="Keyspace"
-        subtitle={
-          tap.streaming
-            ? `${groupedNumber(tap.total)} samples · ${compactNumber(tap.samples.length)} in view`
-            : `${groupedNumber(tree.totalKeys)} keys declared or observed`
-        }
         actions={
           <>
             {tap.dropped > 0 ? (
@@ -119,19 +185,16 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
       />
 
       <Toolbar>
-        <Input
+        <KeyExprInput
           value={keyExpr}
-          onChange={(event) => setKeyExpr(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !tap.streaming) subscribe();
+          onChange={setKeyExpr}
+          sessionId={sessionId}
+          onSubmit={() => {
+            if (!tap.streaming) subscribe();
           }}
           prefix="key expr"
-          mono
-          spellCheck={false}
-          autoComplete="off"
-          disabled={tap.streaming}
-          containerClassName="flex-1"
           placeholder="fleet/**/telemetry/*"
+          className="flex-1"
         />
         <Button
           variant={tap.streaming ? "danger" : "primary"}
@@ -146,6 +209,22 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
           </Button>
         ) : null}
         <Button
+          variant="secondary"
+          icon={<CornerDownLeft size={13} />}
+          disabled={tap.streaming || query.running}
+          onClick={() => {
+            setOpenKind(null);
+            query.run(keyExpr);
+          }}
+        >
+          Get
+        </Button>
+        {/* The ellipsis is the difference: everything else here acts, this one
+            opens something first. */}
+        <Button variant="secondary" icon={<Send size={13} />} onClick={() => setPublishing(true)}>
+          Publish…
+        </Button>
+        <Button
           variant="ghost"
           icon={<Trash2 size={13} />}
           onClick={() => clear(sessionId)}
@@ -156,6 +235,13 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
 
       {tap.error ? (
         <p className="bg-danger-subtle text-tiny text-danger shrink-0 px-5 py-2">{tap.error}</p>
+      ) : refusals.length > 0 && !tap.streaming ? (
+        <p className="bg-warn-subtle text-tiny text-warn shrink-0 px-5 py-2">
+          {refusals[0]?.nodeName ?? refusals[0]?.zid.slice(0, 8)} denies{" "}
+          <span className="numeric">declare_subscriber</span> on{" "}
+          <span className="numeric">{refusals[0]?.keyExpr}</span>, which covers this. Subscribing
+          will return nothing.
+        </p>
       ) : null}
 
       <div className="flex min-h-0 flex-1">
@@ -175,23 +261,14 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {selected ? (
-            <div className="border-line-soft shrink-0 border-b px-5 py-4">
-              <div className="flex items-center gap-3">
-                <KeyExpr value={selected} className="text-base" />
-                <Badge tone={listeners > 0 ? "accent" : "neutral"}>
-                  {listeners > 0 ? `${listeners} listening` : "nobody listening"}
-                </Badge>
-                <span className="flex-1" />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Radio size={12} />}
-                  onClick={subscribe}
-                  disabled={tap.streaming}
-                >
-                  Subscribe to this key
-                </Button>
-              </div>
+            <div
+              // Bounded, and scrolls. Left alone this grows with every panel
+              // that has something to say, and it shares a column with the live
+              // sample table — so the more interesting the key, the further it
+              // pushed the data describing it off the bottom of the screen.
+              className="border-line-soft scroll-thin max-h-[45%] shrink-0 overflow-y-auto border-b px-5 py-4"
+            >
+              <KeyExpr value={selected} className="text-base" />
 
               {testerOpen ? (
                 <div className="mt-4">
@@ -199,37 +276,75 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
                 </div>
               ) : null}
 
-              <Panel title="At or below this key" flush className="mt-4">
-                <StatGrid columns={4}>
-                  <StatCell
-                    label="Subscribers"
-                    value={groupedNumber(selectedNode?.subscribers ?? 0)}
-                    tone={selectedNode?.subscribers ? "accent" : "ink"}
-                    size="sm"
-                  />
-                  <StatCell
-                    label="Queryables"
-                    value={groupedNumber(selectedNode?.queryables ?? 0)}
-                    tone={selectedNode?.queryables ? "accent" : "ink"}
-                    size="sm"
-                  />
-                  <StatCell
-                    label="Keys with data"
-                    value={groupedNumber(selectedNode?.descendantKeys ?? 0)}
-                    size="sm"
-                  />
-                  <StatCell
-                    label="Samples seen"
-                    value={groupedNumber(selectedNode?.sampleCount ?? 0)}
-                    size="sm"
-                  />
+              <KeyInsight insight={insight} />
+
+              <Panel flush className="mt-4">
+                <StatGrid columns={5}>
+                  {DECLARED.map((tile) => {
+                    const count = selectedNode?.[tile.field] ?? 0;
+                    return (
+                      <StatCell
+                        key={tile.kind}
+                        label={tile.label}
+                        value={groupedNumber(count)}
+                        tone={count ? tile.tone : "ink"}
+                        size="sm"
+                        // A count of nothing has no list to open.
+                        {...(count
+                          ? {
+                              open: openKind === tile.kind,
+                              onClick: () =>
+                                setOpenKind((current) =>
+                                  current === tile.kind ? null : tile.kind,
+                                ),
+                            }
+                          : {})}
+                      />
+                    );
+                  })}
                 </StatGrid>
+
+                {/* What has happened, as against what is declared. The
+                    distinction is worth keeping; two numbers are not worth a
+                    second bordered card to keep it in. */}
+                <p className="border-line-soft text-tiny text-ink-faint flex items-center gap-2 border-t px-4 py-2.5">
+                  <span>
+                    <span className="numeric text-ink-muted">
+                      {groupedNumber(selectedNode?.descendantKeys ?? 0)}
+                    </span>{" "}
+                    keys have carried data
+                  </span>
+                  <span aria-hidden>·</span>
+                  <span>
+                    <span className="numeric text-ink-muted">
+                      {groupedNumber(selectedNode?.sampleCount ?? 0)}
+                    </span>{" "}
+                    samples seen
+                  </span>
+                </p>
               </Panel>
             </div>
           ) : null}
 
+          {/* One pane, two things it can hold. Opening a counter swaps the
+              stream for what it counted, because that list is the thing being
+              read at that moment — and a key can carry hundreds of them. */}
           <div className="flex min-h-0 flex-1">
-            {tap.samples.length === 0 ? (
+            {openKind ? (
+              <DeclarationList
+                kind={openKind}
+                declarations={declarations}
+                onClose={() => setOpenKind(null)}
+              />
+            ) : query.result || query.running ? (
+              <QueryReplies
+                result={query.result ?? { selector: keyExpr, replies: [], tookMs: 0, error: null }}
+                running={query.running}
+                selected={sample?.seq ?? null}
+                onSelect={(row) => setSample((open) => (open?.seq === row.seq ? null : row))}
+                onClose={query.clear}
+              />
+            ) : tap.samples.length === 0 ? (
               <EmptyState
                 icon={tap.streaming ? <Spinner /> : <Radio />}
                 title={tap.streaming ? "Subscribed, nothing yet" : "Not subscribed"}
@@ -245,37 +360,21 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
               <SampleTable
                 samples={tap.samples}
                 selected={sample?.seq ?? null}
-                onSelect={setSample}
+                // Clicking the open row closes it: the detail is a disclosure
+                // on the row, so the row is also how you put it away.
+                onSelect={(row) => setSample((open) => (open?.seq === row.seq ? null : row))}
               />
             )}
-
-            {sample ? (
-              <ResizablePanel
-                id="keyspace-sample"
-                side="right"
-                defaultWidth={360}
-                minWidth={280}
-                maxWidth={560}
-                label="Resize the sample detail"
-                className="border-line border-l"
-              >
-                <ScrollArea className="flex-1">
-                  <div className="space-y-4 p-4">
-                    <Panel title="Sample">
-                      <div className="space-y-2">
-                        <KeyExpr value={sample.keyExpr} highlightWildcards={false} />
-                        <pre className="scroll-thin selectable numeric rounded-inner bg-surface-1 text-tiny text-ink-muted max-h-64 overflow-auto p-3 break-all whitespace-pre-wrap">
-                          {sample.preview}
-                        </pre>
-                      </div>
-                    </Panel>
-                  </div>
-                </ScrollArea>
-              </ResizablePanel>
-            ) : null}
           </div>
         </div>
       </div>
+      <PublishDialog
+        open={publishing}
+        sessionId={sessionId}
+        sessionName={sessionName}
+        initialKey={selected ?? keyExpr}
+        onClose={() => setPublishing(false)}
+      />
     </div>
   );
 }

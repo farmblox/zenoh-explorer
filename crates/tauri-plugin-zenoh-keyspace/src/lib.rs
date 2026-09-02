@@ -17,9 +17,14 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![
             commands::expand_keys,
             commands::refresh_declarations,
+            commands::node_declarations,
             commands::clear_keys,
             commands::analyse_key_expr,
             commands::test_key_expr,
+            commands::acl_findings,
+            commands::storage_coverage,
+            commands::declarations_under,
+            commands::matching_keys,
         ])
         .build()
 }

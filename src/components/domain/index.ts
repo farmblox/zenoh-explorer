@@ -6,6 +6,8 @@
  * anything only one view needs stays in that feature's `components/` folder.
  */
 export { KeyExpr } from "./KeyExpr";
+export { KeyExprInput } from "./KeyExprInput";
+export type { KeyExprInputProps } from "./KeyExprInput";
 export type { KeyExprProps } from "./KeyExpr";
 
 export { NodeKindIcon } from "./NodeKindIcon";

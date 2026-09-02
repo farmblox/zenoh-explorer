@@ -33,7 +33,7 @@ export function RouteTracePanel({ from, snapshot, onClose }: RouteTracePanelProp
       minWidth={300}
       maxWidth={560}
       label="Resize the route trace"
-      className="border-line bg-surface-0 border-l"
+      className="border-line bg-surface-0 shadow-panel absolute inset-y-0 right-0 z-30 border-l"
     >
       <header className="border-line shrink-0 border-b px-4 py-3.5">
         <div className="flex items-center gap-2.5">

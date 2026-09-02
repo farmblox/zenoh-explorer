@@ -3,14 +3,22 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { focusRing, transitionFast } from "@/lib/states";
+import { iconButton, pressable } from "@/lib/states";
 import { useToastStore, type Toast, type ToastTone } from "@/stores";
 
-const TONES: Record<ToastTone, { icon: typeof Info; accent: string; iconClass: string }> = {
-  info: { icon: Info, accent: "border-l-accent", iconClass: "text-accent" },
-  success: { icon: CheckCircle2, accent: "border-l-ok", iconClass: "text-ok" },
-  warning: { icon: AlertTriangle, accent: "border-l-warn", iconClass: "text-warn" },
-  error: { icon: XCircle, accent: "border-l-danger", iconClass: "text-danger" },
+/**
+ * Severity, carried by the icon.
+ *
+ * Its shape and its colour both change, which is two channels already. The card
+ * used to take a coloured 2px left edge as a third — and a 2px border meeting
+ * the 1px on its other three sides tapers through a 12px corner, which reads as
+ * a defect rather than as emphasis.
+ */
+const TONES: Record<ToastTone, { icon: typeof Info; iconClass: string }> = {
+  info: { icon: Info, iconClass: "text-accent" },
+  success: { icon: CheckCircle2, iconClass: "text-ok" },
+  warning: { icon: AlertTriangle, iconClass: "text-warn" },
+  error: { icon: XCircle, iconClass: "text-danger" },
 };
 
 /**
@@ -49,9 +57,8 @@ function ToastCard({ toast }: { toast: Toast }) {
   return (
     <div
       className={cn(
-        "rounded-panel border-line bg-surface-2 pointer-events-auto border border-l-2",
+        "rounded-panel border-line bg-surface-2 pointer-events-auto border",
         "shadow-popover animate-[var(--animate-scale-in)] p-3",
-        tone.accent,
       )}
     >
       <div className="flex items-start gap-2.5">
@@ -78,9 +85,10 @@ function ToastCard({ toast }: { toast: Toast }) {
                 type="button"
                 onClick={() => setShowDetail((open) => !open)}
                 className={cn(
-                  "rounded-inner text-tiny text-ink-faint hover:text-ink",
-                  focusRing,
-                  transitionFast,
+                  // A negative margin so the fill has a box to sit in without
+                  // the label shifting off the text above it.
+                  "rounded-inner text-tiny text-ink-faint hover:text-ink -mx-1 px-1",
+                  pressable,
                 )}
               >
                 {showDetail ? "Hide details" : "Show details"}
@@ -113,7 +121,7 @@ function ToastCard({ toast }: { toast: Toast }) {
           type="button"
           onClick={() => dismiss(toast.id)}
           aria-label="Dismiss"
-          className={cn("text-ink-faint hover:text-ink shrink-0", transitionFast)}
+          className={cn(iconButton, "size-6")}
         >
           <X size={13} />
         </button>

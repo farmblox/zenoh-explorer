@@ -12,11 +12,13 @@ export type EdgeKind = "trunk" | "access" | "mesh" | "unconfirmed";
 
 export interface EdgeStyle {
   readonly kind: EdgeKind;
+  /** Token-derived stroke hue. */
   readonly stroke: string;
-  readonly width: number;
-  /** SVG dash array, or undefined for a solid line. */
-  readonly dash: string | undefined;
+  /** Alpha used by both the SVG legend and the WebGL colour bridge. */
   readonly opacity: number;
+  readonly width: number;
+  /** One word, for the legend strip. */
+  readonly label: string;
   /** One line for the tooltip. */
   readonly description: string;
 }
@@ -24,37 +26,43 @@ export interface EdgeStyle {
 const STYLES: Record<EdgeKind, Omit<EdgeStyle, "kind">> = {
   // Router to router: the backbone. Thickest and brightest.
   trunk: {
-    stroke: "var(--wire-strong)",
-    width: 2.6,
-    dash: undefined,
-    opacity: 1,
+    stroke: "var(--accent)",
+    opacity: 0.64,
+    width: 4,
+    label: "trunk",
     description: "Trunk between routers",
   },
   // A node attached to its router. The common case.
   access: {
-    stroke: "var(--wire)",
-    width: 1.5,
-    dash: undefined,
-    opacity: 0.9,
+    stroke: "var(--ink-muted)",
+    opacity: 0.46,
+    width: 2.6,
+    label: "access",
     description: "Attached to a router",
   },
-  // Peer to peer, bypassing the routers.
+  // Peer to peer, bypassing the routers. Soft blue and narrow, so it remains
+  // visible without competing with the router backbone.
   mesh: {
-    stroke: "var(--wire)",
-    width: 1.4,
-    dash: "2 5",
-    opacity: 0.55,
+    stroke: "var(--accent-strong)",
+    opacity: 0.36,
+    width: 1.8,
+    label: "mesh",
     description: "Direct peer-to-peer link",
   },
   // Only one end reported it, so we cannot confirm it is up in both directions.
   unconfirmed: {
     stroke: "var(--warn)",
-    width: 1.6,
-    dash: "4 7",
-    opacity: 0.8,
+    opacity: 0.78,
+    width: 2.2,
+    label: "unconfirmed",
     description: "Only one end reported this link",
   },
 };
+
+/** How one classification is drawn. The only place that decides. */
+export function edgeStyle(kind: EdgeKind): EdgeStyle {
+  return { kind, ...STYLES[kind] };
+}
 
 /** Classifies a link from the roles at each end. */
 export function classifyEdge(
@@ -63,17 +71,15 @@ export function classifyEdge(
 ): EdgeStyle {
   // A link nobody confirmed is worth flagging whatever it connects: it usually
   // means the far end's admin space is unreadable, or the link is half-open.
-  if (!link.bidirectional) return { kind: "unconfirmed", ...STYLES.unconfirmed };
+  if (!link.bidirectional) return edgeStyle("unconfirmed");
 
   const from = nodesByZid.get(link.from)?.kind;
   const to = nodesByZid.get(link.to)?.kind;
 
-  if (from === "router" && to === "router") return { kind: "trunk", ...STYLES.trunk };
-  if (from === "router" || to === "router") return { kind: "access", ...STYLES.access };
-  return { kind: "mesh", ...STYLES.mesh };
+  if (from === "router" && to === "router") return edgeStyle("trunk");
+  if (from === "router" || to === "router") return edgeStyle("access");
+  return edgeStyle("mesh");
 }
 
 /** Every kind, for the legend. */
-export const EDGE_KINDS: ReadonlyArray<EdgeStyle & { kind: EdgeKind }> = (
-  Object.keys(STYLES) as EdgeKind[]
-).map((kind) => ({ kind, ...STYLES[kind] }));
+export const EDGE_KINDS: readonly EdgeStyle[] = (Object.keys(STYLES) as EdgeKind[]).map(edgeStyle);

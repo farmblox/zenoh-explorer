@@ -23,6 +23,8 @@ export function ConnectDialog() {
   const connect = useSessionStore((state) => state.connect);
   const sessions = useSessionStore((state) => state.sessions);
   const draft = useSessionStore((state) => state.draft);
+  const draftReplaces = useSessionStore((state) => state.draftReplaces);
+  const disconnect = useSessionStore((state) => state.disconnect);
   const clearDraft = useSessionStore((state) => state.clearDraft);
 
   const [saved, setSaved] = useState<SavedProfile[]>([]);
@@ -72,11 +74,19 @@ export function ConnectDialog() {
   };
 
   const submit = () => {
+    // Captured before `dismiss`, which clears the draft it belongs to.
+    const replacing = draftReplaces;
+
     dismiss();
     void connect(profile).then((id) => {
       // Only a connection that actually opened counts as "used" — a broken
       // profile must not sort itself to the top of the list.
       if (id && selectedId) void profilesIpc.recordConnection(selectedId);
+
+      // Editing a session means replacing it, because Zenoh reads most of a
+      // configuration once at startup. Closed only once the replacement is up:
+      // an edit that cannot connect should cost you nothing.
+      if (id && replacing) void disconnect(replacing);
     });
   };
 
@@ -113,11 +123,6 @@ export function ConnectDialog() {
       className="w-[min(880px,94vw)]"
       footer={
         <>
-          <span className="text-tiny text-ink-faint">
-            {profile.mode === "client"
-              ? "Client mode observes without joining the mesh."
-              : "Peer mode joins the mesh and participates in routing."}
-          </span>
           <span className="flex-1" />
           <Button onClick={save}>{selectedId ? "Update" : "Save"}</Button>
           <Button variant="primary" onClick={submit}>
@@ -129,7 +134,11 @@ export function ConnectDialog() {
       {/* A fixed height, not a minimum. Expanding a disclosure must not resize
           the window — the columns scroll inside instead, so the saved list and
           the footer stay exactly where they were. */}
-      <div className="flex h-[min(600px,78vh)] overflow-hidden">
+      {/* A fixed height, so opening Advanced does not resize the window under
+          the cursor — but sized for the form as it usually stands rather than
+          for its longest possible state, which left most of the panel empty.
+          The columns scroll independently when the content outgrows it. */}
+      <div className="flex h-[min(468px,78vh)] overflow-hidden">
         <SavedConnections
           profiles={saved}
           selectedId={selectedId}

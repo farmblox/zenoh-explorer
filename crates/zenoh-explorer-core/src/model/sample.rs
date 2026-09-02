@@ -31,6 +31,13 @@ impl From<SampleKind> for SampleKindDto {
 }
 
 /// One observed sample, flattened for a virtualised table.
+///
+/// Four independent booleans, which `clippy::struct_excessive_bools` would
+/// normally flag. They stay flat because this is a wire type: `express`,
+/// `reliable`, `preview_is_hex` and `truncated` answer four unrelated questions
+/// and the table reads each on its own, so grouping them would only move the
+/// branching into TypeScript.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -59,6 +66,29 @@ pub struct SampleRecord {
     pub source_zid: Option<String>,
     /// Whether the publisher marked the sample express.
     pub express: bool,
+    /// Priority class the publisher asked for, e.g. `data`, `real_time`.
+    pub priority: String,
+    /// Whether the publisher asked for reliable delivery.
+    pub reliable: bool,
+    /// When the timestamping router stamped this, in milliseconds since the
+    /// Unix epoch. Decoded from the HLC half of the timestamp.
+    pub timestamp_ms: Option<u64>,
+    /// The node whose clock stamped it, from the other half of the timestamp.
+    ///
+    /// Not the same as `source_zid`: the first router to see a sample stamps it,
+    /// which need not be the node that published it.
+    pub timestamp_zid: Option<String>,
+    /// How far the stamp is from local time, positive when it is in the future.
+    ///
+    /// Zenoh REJECTS data whose timestamp is more than 100ms from local time —
+    /// "Error treating timestamp for received Data" — so a drift creeping toward
+    /// that is a warning that data is about to start disappearing, and this is
+    /// the only place it can be seen before it does.
+    pub drift_ms: Option<i64>,
+    /// Size of the sample's attachment, when it carries one.
+    pub attachment_len: Option<usize>,
+    /// The attachment rendered the same way as the payload.
+    pub attachment_preview: Option<String>,
 }
 
 impl SampleRecord {
@@ -86,6 +116,31 @@ impl SampleRecord {
                 .source_info()
                 .map(|info| info.source_id().zid().to_string()),
             express: sample.express(),
+            priority: format!("{:?}", sample.priority()).to_lowercase(),
+            reliable: matches!(sample.reliability(), zenoh::qos::Reliability::Reliable),
+            timestamp_ms: sample.timestamp().and_then(|stamp| {
+                stamp
+                    .get_time()
+                    .to_system_time()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()
+                    .and_then(|since| u64::try_from(since.as_millis()).ok())
+            }),
+            timestamp_zid: sample.timestamp().map(|stamp| stamp.get_id().to_string()),
+            drift_ms: sample.timestamp().and_then(|stamp| {
+                let stamped = stamp
+                    .get_time()
+                    .to_system_time()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()?;
+                let stamped = i64::try_from(stamped.as_millis()).ok()?;
+                let local = i64::try_from(received_at_ms).ok()?;
+                Some(stamped - local)
+            }),
+            attachment_len: sample.attachment().map(zenoh::bytes::ZBytes::len),
+            attachment_preview: sample
+                .attachment()
+                .map(|bytes| render_preview(&bytes.to_bytes()).0),
         }
     }
 }

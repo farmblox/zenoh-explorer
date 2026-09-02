@@ -1,70 +1,86 @@
-import { ChevronDown, ChevronUp, Search, Settings } from "lucide-react";
-import { useState } from "react";
+import { useMemo } from "react";
+import { Search, Settings } from "lucide-react";
 
 import { Kbd } from "@/components/ui";
+import { buildRegionView } from "@/features/topology";
 import { cn } from "@/lib/cn";
-import { focusRingOnChrome, transitionFast } from "@/lib/states";
-import { compactNumber } from "@/lib/format";
-import { VIEW_GROUPS } from "@/navigation/groups";
-import { PRIMARY_VIEWS, SECONDARY_VIEWS, VIEWS } from "@/navigation/views";
+import { focusRing, transitionFast } from "@/lib/states";
+import { VIEWS } from "@/navigation/views";
 import type { ViewDefinition } from "@/navigation/types";
-import { useActiveSession, useDiagnosticsStore, useUiStore } from "@/stores";
 import { useNavigation } from "@/navigation/useNavigation";
-import { SidebarItem } from "./SidebarItem";
+import { useActiveSession, useDiagnosticsStore, useTopology, useUiStore } from "@/stores";
+import { SidebarItem, type SidebarBadge } from "./SidebarItem";
 
 /**
- * The primary navigation rail.
+ * The navigation rail.
  *
- * Progressive disclosure runs the layout: the six views people use constantly
- * are always visible, and the rest sit behind "More". A flat list of ten would
- * be no faster to scan and considerably harder.
+ * Every view, always. There were section headings above the groups and a "More"
+ * toggle hiding two of them, which spent four rows of chrome organising nine
+ * destinations — and put Configuration somewhere you had to go looking. The
+ * seams between groups are still here as hairlines: a rule you can see does the
+ * grouping, and a heading you have to read to use was not pulling its weight.
+ *
+ * The numerals are tabular and right-aligned so they form a column, and a view
+ * only carries one when it has something real to report — which keeps the column
+ * sparse enough that a number means something.
  */
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const openOverlay = useUiStore((state) => state.openOverlay);
-  const [moreOpen, setMoreOpen] = useState(false);
 
   const { view: activeView, navigate } = useNavigation();
   const session = useActiveSession();
   const unread = useDiagnosticsStore((state) => state.unread);
+  const snapshot = useTopology(session?.id ?? null).snapshot;
 
-  /** Live counts shown against a view, when it has one worth showing. */
-  const badgeFor = (view: ViewDefinition): string | number | undefined => {
+  const regionCount = useMemo(
+    () => (snapshot ? buildRegionView(snapshot).regions.length : null),
+    [snapshot],
+  );
+
+  /**
+   * What each view has to report, if anything.
+   *
+   * One meaning for the column: **how much is in there**. A view earns a number
+   * when the explorer already knows the answer from what the backend pushes, and
+   * gets none when the view has to go and ask — Scouting, Admin space and
+   * Configuration all run a query when you open them, and a badge that appears
+   * only after your first visit is less consistent than no badge at all.
+   *
+   * Topology is the other exception, for the opposite reason: it draws the same
+   * collection Nodes counts, and two rows reading 11 would be one fact wearing
+   * two badges.
+   */
+  const badgeFor = (view: ViewDefinition): SidebarBadge | undefined => {
+    if (!session) return undefined;
+
     switch (view.id) {
       case "keyspace":
         // A running tap outranks the key count: it is the thing that is
         // happening, rather than the thing that is true.
-        if (session && session.tapCount > 0) return "live";
-        return session ? compactNumber(session.keyCount) : undefined;
-      case "peers":
-        return session ? session.transportCount : undefined;
+        return session.tapCount > 0 ? { kind: "live" } : { kind: "count", value: session.keyCount };
+      case "nodes":
+        // From the snapshot rather than the session summary, so the number the
+        // badge shows is the number the page shows.
+        return snapshot ? { kind: "count", value: snapshot.nodes.length } : undefined;
+      case "regions":
+        return regionCount === null ? undefined : { kind: "count", value: regionCount };
+      case "transport":
+        return { kind: "count", value: session.transportCount };
       case "events":
-        return unread > 0 ? unread : undefined;
+        // The one row that is an inbox rather than an inventory, and the only
+        // one drawn in the accent colour.
+        return unread > 0 ? { kind: "unread", value: unread } : undefined;
       default:
         return undefined;
     }
   };
 
-  const renderItem = (view: ViewDefinition) => (
-    <SidebarItem
-      key={view.id}
-      icon={view.icon}
-      label={view.label}
-      badge={badgeFor(view)}
-      badgeAccent={view.id === "events" || badgeFor(view) === "live"}
-      active={view.id === activeView}
-      collapsed={collapsed}
-      disabled={view.requiresSession !== false && !session}
-      title={view.description}
-      onClick={() => navigate(view.id)}
-    />
-  );
-
   return (
     <nav
       aria-label="Views"
       className={cn(
-        "bg-surface-0 flex shrink-0 flex-col gap-0.5 overflow-hidden px-3 pb-3",
+        "bg-surface-0 flex shrink-0 flex-col overflow-hidden px-3 pt-1 pb-3",
         collapsed ? "w-[72px] items-center" : "w-[232px]",
         "transition-[width] duration-(--duration-base) ease-(--ease-out)",
       )}
@@ -74,10 +90,10 @@ export function Sidebar() {
         onClick={() => openOverlay("palette")}
         title="Search nodes, keys and commands"
         className={cn(
-          "rounded-control bg-surface-2 border-line mb-3 flex h-8 shrink-0 items-center border",
+          "rounded-control bg-surface-2 border-line mb-5 flex h-8 shrink-0 items-center border",
           "hover:bg-surface-3",
           transitionFast,
-          focusRingOnChrome,
+          focusRing,
           collapsed ? "w-8 justify-center" : "w-full gap-2.5 px-2.5",
         )}
       >
@@ -90,38 +106,43 @@ export function Sidebar() {
         )}
       </button>
 
-      {VIEW_GROUPS.map((group) => {
-        const items = PRIMARY_VIEWS.filter((view) => view.group === group.id);
-        if (items.length === 0) return null;
-        return (
-          <div key={group.id} className="contents">
-            {collapsed ? (
-              <div className="bg-line my-2 h-px w-6 shrink-0" aria-hidden />
-            ) : (
-              <h2 className="text-tiny text-ink-muted mt-4 mb-1 px-2.5 font-semibold tracking-wider uppercase">
-                {group.label}
-              </h2>
-            )}
-            {items.map(renderItem)}
-          </div>
-        );
-      })}
+      <div className="flex w-full flex-col gap-px">
+        {VIEWS.map((view, index) => {
+          // A hairline wherever the group changes. The seam is the data's, not
+          // a decision made here.
+          const seam = index > 0 && VIEWS[index - 1]?.group !== view.group;
 
-      {SECONDARY_VIEWS.length > 0 ? (
-        <>
-          <SidebarItem
-            icon={moreOpen ? ChevronUp : ChevronDown}
-            label={moreOpen ? "Less" : "More"}
-            collapsed={collapsed}
-            onClick={() => setMoreOpen((open) => !open)}
-            title={`${SECONDARY_VIEWS.length} more views`}
-          />
-          {moreOpen ? SECONDARY_VIEWS.map(renderItem) : null}
-        </>
-      ) : null}
+          return (
+            <div key={view.id} className="contents">
+              {seam ? (
+                <div
+                  aria-hidden
+                  className={cn(
+                    "bg-line-soft my-3 h-px shrink-0",
+                    collapsed ? "w-6 self-center" : "mx-2.5",
+                  )}
+                />
+              ) : null}
+              <SidebarItem
+                icon={view.icon}
+                label={view.label}
+                badge={badgeFor(view)}
+                active={view.id === activeView}
+                collapsed={collapsed}
+                disabled={view.requiresSession !== false && !session}
+                onClick={() => navigate(view.id)}
+              />
+            </div>
+          );
+        })}
+      </div>
 
-      <div className="min-h-4 flex-1" />
+      <div className="min-h-6 flex-1" />
 
+      <div
+        aria-hidden
+        className={cn("bg-line-soft mb-2 h-px shrink-0", collapsed ? "w-6 self-center" : "mx-2.5")}
+      />
       <SidebarItem
         icon={Settings}
         label="Settings"
@@ -131,6 +152,3 @@ export function Sidebar() {
     </nav>
   );
 }
-
-/** Re-exported so the command palette can list the same views. */
-export { VIEWS };

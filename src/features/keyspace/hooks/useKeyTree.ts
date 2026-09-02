@@ -12,6 +12,8 @@ export interface KeyTreeState {
   readonly totalKeys: number;
   readonly loading: boolean;
   readonly toggle: (key: string) => void;
+  /** Opens every ancestor of `key` so that key is on screen. */
+  readonly expandTo: (key: string) => void;
 }
 
 /**
@@ -97,5 +99,29 @@ export function useKeyTree(sessionId: SessionId): KeyTreeState {
     [load],
   );
 
-  return { levels, open, totalKeys, loading, toggle };
+  /**
+   * Opens every ancestor of `key`, so a key named from outside the tree
+   * becomes visible.
+   *
+   * The palette can point at any depth, and a tree that only ever expands one
+   * level at a time cannot be pointed at.
+   */
+  const expandTo = useCallback(
+    (key: string) => {
+      const segments = key.split("/").filter(Boolean);
+      // Every prefix but the last: the target itself does not need opening for
+      // its own row to show, only its ancestors do.
+      const ancestors = segments.slice(0, -1).map((_, at) => segments.slice(0, at + 1).join("/"));
+
+      setOpen((current) => new Set([...current, ...ancestors]));
+
+      // Loaded unconditionally rather than only when absent: consulting the
+      // cache would make this depend on it, and the caller needs an identity
+      // stable enough to hand to an effect.
+      for (const prefix of ancestors) void load(prefix);
+    },
+    [load],
+  );
+
+  return { levels, open, totalKeys, loading, toggle, expandTo };
 }

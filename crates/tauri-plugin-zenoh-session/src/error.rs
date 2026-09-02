@@ -51,6 +51,7 @@ impl Error {
             Self::Core(Core::KeyExpr { .. }) => "keyExpr",
             Self::Core(Core::Zenoh(_)) => "zenoh",
             Self::Core(Core::Connect(_)) => "connect",
+            Self::Core(Core::Diagnosed(_)) => "diagnosed",
             Self::Core(Core::AdminReply { .. }) => "adminReply",
         }
     }
@@ -60,9 +61,9 @@ impl Serialize for Error {
     // Spelled out because this module's `Result<T>` alias would shadow it.
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
         let (remedies, detail) = match self {
-            Self::Core(zenoh_explorer_core::Error::Connect(d)) => {
-                (d.remedies.clone(), Some(d.detail.clone()))
-            }
+            Self::Core(
+                zenoh_explorer_core::Error::Connect(d) | zenoh_explorer_core::Error::Diagnosed(d),
+            ) => (d.remedies.clone(), Some(d.detail.clone())),
             _ => (Vec::new(), None),
         };
 
@@ -78,3 +79,25 @@ impl Serialize for Error {
 
 /// Command result alias.
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use zenoh_explorer_core::diagnose::Diagnosis;
+
+    #[test]
+    fn a_diagnosed_error_keeps_its_guidance_across_ipc() {
+        let error = Error::Core(zenoh_explorer_core::Error::Diagnosed(Box::new(Diagnosis {
+            summary: "The session is no longer open".to_owned(),
+            remedies: vec!["Reconnect and try again.".to_owned()],
+            detail: "Session is closed".to_owned(),
+        })));
+
+        let value = serde_json::to_value(error).expect("command errors serialize");
+
+        assert_eq!(value["code"], "diagnosed");
+        assert_eq!(value["message"], "The session is no longer open");
+        assert_eq!(value["remedies"][0], "Reconnect and try again.");
+        assert_eq!(value["detail"], "Session is closed");
+    }
+}
