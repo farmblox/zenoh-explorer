@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
-  # Handy for rehearsing the workflow without cutting a tag.
+  # Cut a tagged release directly from the selected branch.
   workflow_dispatch:
     inputs:
       tag:
@@ -65,10 +65,6 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Updates are signature-checked. Without these the build still
-          # succeeds but produces no `.sig` files, and the updater rejects it.
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ inputs.tag || github.ref_name }}
           releaseName: Zenoh Explorer ${{ inputs.tag || github.ref_name }}
@@ -78,10 +74,8 @@ jobs:
           # a deleted draft rather than something already on people's machines.
           releaseDraft: true
           prerelease: false
-          # `uploadUpdaterJson` (on by default) writes `latest.json` into the
-          # release, which is what the endpoint in tauri.updater.conf.json
-          # points at.
+          # Updater artifacts stay disabled until the repository has a real
+          # public key and the matching Actions signing secrets. The default
+          # Tauri config still builds every native installer for this platform.
           args: >-
             --target ${{ matrix.target }}
-            --features updater
-            --config src-tauri/tauri.updater.conf.json
