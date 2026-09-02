@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { StatusDot, type Status } from "@/components/ui";
@@ -26,6 +26,9 @@ export interface SessionTabProps {
   meta?: ReactNode;
   title?: string | undefined;
   onSelect?: (() => void) | undefined;
+  /** Offered only where there is something to edit — a session, not an attempt. */
+  onEdit?: (() => void) | undefined;
+  editLabel?: string | undefined;
   onClose: () => void;
   closeLabel: string;
 }
@@ -54,6 +57,8 @@ export function SessionTab({
   meta,
   title,
   onSelect,
+  onEdit,
+  editLabel,
   onClose,
   closeLabel,
 }: SessionTabProps) {
@@ -93,7 +98,10 @@ export function SessionTab({
         disabled={onSelect === undefined}
         aria-current={selected ? "page" : undefined}
         className={cn(
-          "text-small rounded-inner max-w-56 truncate text-left disabled:cursor-default",
+          // Grows into whatever the tab's minimum width leaves over. Without
+          // this the label is only as wide as its text and the slack lands
+          // after the trailing controls, floating them mid-tab.
+          "text-small rounded-inner max-w-56 min-w-0 flex-1 truncate text-left disabled:cursor-default",
           focusRing,
           transitionFast,
           failed ? "text-danger" : selected ? "text-ink" : "text-ink-muted group-hover:text-ink",
@@ -102,7 +110,15 @@ export function SessionTab({
         {label}
       </button>
 
-      <span className="relative flex h-5 min-w-5 shrink-0 items-center justify-end">
+      {/* Fixed to what the controls need, not to what the meta needs: sized
+          from the meta, revealing a second button would widen the slot and
+          shunt the label. The meta right-aligns into it at rest. */}
+      <span
+        className={cn(
+          "relative flex h-5 shrink-0 items-center justify-end",
+          onEdit ? "w-10" : "w-5",
+        )}
+      >
         {meta !== undefined && meta !== null ? (
           <span
             aria-hidden
@@ -116,20 +132,44 @@ export function SessionTab({
           </span>
         ) : null}
 
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={closeLabel}
+        <span
           className={cn(
-            "rounded-inner absolute inset-y-0 right-0 flex w-5 items-center justify-center",
-            "text-ink-faint hover:text-ink",
-            "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+            "absolute inset-y-0 right-0 flex items-center",
+            "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
             "transition-opacity duration-(--duration-fast)",
-            focusRing,
           )}
         >
-          <X size={12} />
-        </button>
+          {onEdit ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              aria-label={editLabel}
+              title={editLabel}
+              className={cn(
+                "rounded-inner flex size-5 items-center justify-center",
+                "text-ink-faint hover:text-ink",
+                focusRing,
+                transitionFast,
+              )}
+            >
+              <Pencil size={11} />
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={closeLabel}
+            className={cn(
+              "rounded-inner flex size-5 items-center justify-center",
+              "text-ink-faint hover:text-ink",
+              focusRing,
+              transitionFast,
+            )}
+          >
+            <X size={12} />
+          </button>
+        </span>
       </span>
     </div>
   );

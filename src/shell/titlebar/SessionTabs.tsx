@@ -16,6 +16,10 @@ import { SessionTab } from "./SessionTab";
  * An attempt looks the same as a session and closes the same way. It is the
  * same thing at a different point in its life, and a tab you cannot close
  * because it has not finished opening is the one you most want to be rid of.
+ *
+ * Only a session offers the pencil. An attempt that failed already opens its
+ * settings when you click it, and one still connecting has nothing settled
+ * enough to edit.
  */
 export function SessionTabs() {
   const sessions = useSessionStore((state) => state.sessions);
@@ -52,6 +56,11 @@ export function SessionTabs() {
               : `${session.profile.name} — connected to nothing`
           }
           onSelect={() => setActive(session.id)}
+          onEdit={() => {
+            editProfile(session.profile, session.id);
+            openOverlay("connect");
+          }}
+          editLabel={`Edit ${session.profile.name} and reconnect`}
           onClose={() => void disconnect(session.id)}
           closeLabel={`Close ${session.profile.name}`}
         />

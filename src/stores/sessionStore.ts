@@ -64,7 +64,17 @@ interface SessionState {
    * session. Cleared once the dialog has consumed it.
    */
   draft: ConnectionProfile | null;
-  editProfile(profile: ConnectionProfile): void;
+  /**
+   * The session the draft is editing, if it is editing one.
+   *
+   * Zenoh reads `mode` and most of the transport configuration once, at
+   * startup, so a live session cannot be reconfigured in place. Editing one
+   * means opening a replacement and closing the original — and only in that
+   * order, so a change that will not connect leaves you with the session you
+   * already had.
+   */
+  draftReplaces: SessionId | null;
+  editProfile(profile: ConnectionProfile, replaces?: SessionId): void;
   clearDraft(): void;
 
   /** The active session, or `null`. */
@@ -86,6 +96,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   activeTab: null,
   pending: [],
   draft: null,
+  draftReplaces: null,
 
   refresh: async () => {
     const sessions = await sessionIpc.listSessions();
@@ -183,8 +194,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     });
   },
 
-  editProfile: (profile) => set({ draft: profile }),
-  clearDraft: () => set({ draft: null }),
+  editProfile: (profile, replaces) => set({ draft: profile, draftReplaces: replaces ?? null }),
+  clearDraft: () => set({ draft: null, draftReplaces: null }),
 
   active: () => {
     const { sessions, activeTab } = get();

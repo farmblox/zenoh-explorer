@@ -23,6 +23,8 @@ export function ConnectDialog() {
   const connect = useSessionStore((state) => state.connect);
   const sessions = useSessionStore((state) => state.sessions);
   const draft = useSessionStore((state) => state.draft);
+  const draftReplaces = useSessionStore((state) => state.draftReplaces);
+  const disconnect = useSessionStore((state) => state.disconnect);
   const clearDraft = useSessionStore((state) => state.clearDraft);
 
   const [saved, setSaved] = useState<SavedProfile[]>([]);
@@ -72,11 +74,19 @@ export function ConnectDialog() {
   };
 
   const submit = () => {
+    // Captured before `dismiss`, which clears the draft it belongs to.
+    const replacing = draftReplaces;
+
     dismiss();
     void connect(profile).then((id) => {
       // Only a connection that actually opened counts as "used" — a broken
       // profile must not sort itself to the top of the list.
       if (id && selectedId) void profilesIpc.recordConnection(selectedId);
+
+      // Editing a session means replacing it, because Zenoh reads most of a
+      // configuration once at startup. Closed only once the replacement is up:
+      // an edit that cannot connect should cost you nothing.
+      if (id && replacing) void disconnect(replacing);
     });
   };
 
