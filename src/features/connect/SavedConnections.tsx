@@ -1,10 +1,10 @@
 import { Plus, Trash2 } from "lucide-react";
 
-import { StatusDot } from "@/components/ui";
+import { SectionLabel, StatusDot } from "@/components/ui";
 import type { SavedProfile, SessionSummary } from "@/ipc";
 import { cn } from "@/lib/cn";
 import { relativeTime } from "@/lib/format";
-import { focusRing, transitionFast } from "@/lib/states";
+import { focusRing, iconButton, pressable, transitionFast } from "@/lib/states";
 
 export interface SavedConnectionsProps {
   profiles: readonly SavedProfile[];
@@ -44,14 +44,14 @@ export function SavedConnections({
 
   return (
     <aside className="border-line bg-surface-1 flex h-full w-[232px] shrink-0 flex-col overflow-hidden border-r">
-      <h3 className="text-tiny text-ink-muted px-4 pt-4 pb-2 font-semibold tracking-wider uppercase">
-        Saved
-      </h3>
+      <div className="px-4 pt-4 pb-2">
+        <SectionLabel>Saved</SectionLabel>
+      </div>
 
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {profiles.length === 0 ? (
-          <p className="text-tiny text-ink-faint px-2 py-3">
-            Nothing saved yet. Fill in a connection and press Save.
+          <p className="text-tiny text-ink-faint px-2.5 py-3 leading-relaxed">
+            Nothing saved yet. Fill in a connection on the right and press Save to keep it.
           </p>
         ) : (
           profiles.map((saved) => {
@@ -59,23 +59,21 @@ export function SavedConnections({
             const isSelected = saved.id === selectedId;
 
             return (
-              <div
-                key={saved.id}
-                className={cn(
-                  // Full-bleed with a 2px left edge, matching every other list
-                  // in the app. A row is a row wherever it appears.
-                  "group relative border-l-2",
-                  isSelected
-                    ? "border-l-accent bg-accent-subtle"
-                    : "hover:bg-surface-2 border-l-transparent",
-                  transitionFast,
-                )}
-              >
+              <div key={saved.id} className="group relative">
                 <button
                   type="button"
                   onClick={() => onSelect(saved)}
                   aria-current={isSelected ? "true" : undefined}
-                  className={cn("w-full px-4 py-2 text-left", focusRing)}
+                  className={cn(
+                    // The shape a selectable row has everywhere else in this
+                    // app: inset, rounded, and selection carried by a fill.
+                    // Right-padded for the delete whether or not it is showing,
+                    // so revealing it never reflows the name beneath it.
+                    "rounded-control w-full py-2 pr-9 pl-2.5 text-left",
+                    focusRing,
+                    transitionFast,
+                    isSelected ? "bg-accent-subtle" : "hover:bg-surface-2",
+                  )}
                 >
                   <span className="flex items-center gap-2">
                     <StatusDot status={isOpen ? "live" : "idle"} />
@@ -86,7 +84,7 @@ export function SavedConnections({
                   <span className="text-tiny text-ink-faint mt-0.5 flex items-center gap-1.5 pl-3.5">
                     <span className="numeric">{saved.profile.transport}</span>
                     <span aria-hidden>·</span>
-                    <span>
+                    <span className="truncate">
                       {saved.lastUsedAtMs === null
                         ? "never used"
                         : relativeTime(saved.lastUsedAtMs)}
@@ -99,11 +97,14 @@ export function SavedConnections({
                   onClick={() => onDelete(saved.id)}
                   aria-label={`Delete ${saved.profile.name}`}
                   className={cn(
-                    "text-ink-faint hover:text-danger absolute top-2 right-3",
+                    iconButton,
+                    "hover:text-danger absolute top-1.5 right-1.5 size-6",
                     // Hidden until hover so the list stays quiet, but always
                     // reachable by keyboard.
                     "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-                    transitionFast,
+                    // The reveal owns the transition property, so the fill and
+                    // the colour join it rather than replacing it.
+                    "transition-[opacity,background-color,color] duration-(--duration-fast)",
                   )}
                 >
                   <Trash2 size={12} />
@@ -118,9 +119,9 @@ export function SavedConnections({
         type="button"
         onClick={onNew}
         className={cn(
-          "border-line text-small text-ink-muted hover:text-ink hover:bg-surface-2",
+          "border-line text-small text-ink-muted hover:text-ink",
           "flex items-center gap-2 border-t px-4 py-3 font-medium",
-          transitionFast,
+          pressable,
         )}
       >
         <Plus size={13} />
