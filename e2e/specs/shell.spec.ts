@@ -18,28 +18,26 @@ describe("application shell", () => {
   it("renders the navigation rail", async () => {
     const nav = $('nav[aria-label="Views"]');
     await expect(nav).toBeDisplayed();
-    await expect(nav).toHaveTextContaining("Topology");
+    await expect(nav).toHaveText("Topology", { containing: true });
   });
 
   it("reports no open session on a cold start", async () => {
-    await expect($("footer")).toHaveTextContaining("No session");
+    await expect($("footer")).toHaveText("No session", { containing: true });
   });
 
   it("reaches the Rust backend over IPC", async () => {
     // Exercises the real command path: `zenoh-session|list_sessions` runs in
     // Rust and returns an empty registry.
-    const sessions = await browser.tauri.execute(async () => {
-      const { invoke } = window.__TAURI__.core;
-      return invoke("plugin:zenoh-session|list_sessions");
-    });
+    const sessions = await browser.tauri.execute(({ core }) =>
+      core.invoke("plugin:zenoh-session|list_sessions"),
+    );
     expect(sessions).toEqual([]);
   });
 
   it("answers a pure command with Zenoh's own key-expression semantics", async () => {
-    const analysis = await browser.tauri.execute(async () => {
-      const { invoke } = window.__TAURI__.core;
-      return invoke("plugin:zenoh-keyspace|analyse_key_expr", { expr: "fleet/**/*" });
-    });
+    const analysis = await browser.tauri.execute(({ core }) =>
+      core.invoke("plugin:zenoh-keyspace|analyse_key_expr", { expr: "fleet/**/*" }),
+    );
 
     // `**/*` canonicalises to `*/**`. Getting this from the real zenoh-keyexpr
     // crate rather than a JS reimplementation is the whole point of the view.
@@ -47,7 +45,7 @@ describe("application shell", () => {
   });
 
   it("opens the connect dialog from the tab strip", async () => {
-    await $('button[aria-label="Connect to a network"]').click();
+    await $('button[aria-label="Add a Connection"]').click();
     await expect($('dialog[aria-label="Connect to a network"]')).toBeDisplayed();
   });
 });

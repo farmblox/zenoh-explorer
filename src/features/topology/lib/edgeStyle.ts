@@ -27,7 +27,7 @@ const STYLES: Record<EdgeKind, Omit<EdgeStyle, "kind">> = {
   // Router to router: the backbone. Thickest and brightest.
   trunk: {
     stroke: "var(--accent)",
-    opacity: 0.48,
+    opacity: 0.64,
     width: 4,
     label: "trunk",
     description: "Trunk between routers",
@@ -35,7 +35,7 @@ const STYLES: Record<EdgeKind, Omit<EdgeStyle, "kind">> = {
   // A node attached to its router. The common case.
   access: {
     stroke: "var(--ink-muted)",
-    opacity: 0.3,
+    opacity: 0.46,
     width: 2.6,
     label: "access",
     description: "Attached to a router",
@@ -44,7 +44,7 @@ const STYLES: Record<EdgeKind, Omit<EdgeStyle, "kind">> = {
   // visible without competing with the router backbone.
   mesh: {
     stroke: "var(--accent-strong)",
-    opacity: 0.22,
+    opacity: 0.36,
     width: 1.8,
     label: "mesh",
     description: "Direct peer-to-peer link",

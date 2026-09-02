@@ -1,6 +1,6 @@
 import Graph from "graphology";
 
-import { NODE_ROLES } from "@/components/domain";
+import { NODE_ROLES } from "@/components/domain/nodeRoles";
 import type { LinkSummary, NodeKind, NodeSummary, TopologySnapshot } from "@/ipc";
 import { classifyEdge, type EdgeKind } from "./edgeStyle";
 import { isFirsthand } from "./sources";
@@ -218,11 +218,11 @@ function nodeColours(
 function edgeColour(kind: EdgeKind, palette: SigmaPalette): string {
   switch (kind) {
     case "trunk":
-      return withAlpha(palette.accent, 0.48);
+      return withAlpha(palette.accent, 0.64);
     case "access":
-      return withAlpha(palette.inkMuted, 0.3);
+      return withAlpha(palette.inkMuted, 0.46);
     case "mesh":
-      return withAlpha(palette.accentStrong, 0.22);
+      return withAlpha(palette.accentStrong, 0.36);
     case "unconfirmed":
       return withAlpha(palette.warn, 0.78);
   }
