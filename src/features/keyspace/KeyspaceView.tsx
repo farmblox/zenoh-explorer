@@ -235,19 +235,7 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
               // pushed the data describing it off the bottom of the screen.
               className="border-line-soft scroll-thin max-h-[45%] shrink-0 overflow-y-auto border-b px-5 py-4"
             >
-              <div className="flex items-center gap-3">
-                <KeyExpr value={selected} className="text-base" />
-                <span className="flex-1" />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Radio size={12} />}
-                  onClick={subscribe}
-                  disabled={tap.streaming}
-                >
-                  Subscribe to this key
-                </Button>
-              </div>
+              <KeyExpr value={selected} className="text-base" />
 
               {testerOpen ? (
                 <div className="mt-4">
@@ -257,7 +245,7 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
 
               <KeyInsight insight={insight} />
 
-              <Panel title="At or below this key" flush className="mt-4">
+              <Panel flush className="mt-4">
                 <StatGrid columns={5}>
                   {DECLARED.map((tile) => {
                     const count = selectedNode?.[tile.field] ?? 0;
