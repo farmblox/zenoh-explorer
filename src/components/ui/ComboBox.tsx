@@ -210,6 +210,8 @@ function ComboBoxPanel<T extends string>({
             aria-label={`Filter ${label.toLowerCase()}`}
             spellCheck={false}
             autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
             className="text-small text-ink placeholder:text-ink-faint min-w-0 flex-1 bg-transparent outline-none"
           />
         </div>

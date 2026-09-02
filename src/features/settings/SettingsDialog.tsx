@@ -40,7 +40,20 @@ const THEMES = [
 export function SettingsDialog() {
   const open = useUiStore((state) => state.overlay === "settings");
   const closeOverlay = useUiStore((state) => state.closeOverlay);
+  const requested = useUiStore((state) => state.settingsPane);
   const [pane, setPane] = useState<Pane>("Appearance");
+
+  // Help ▸ Keyboard Shortcuts should land on Shortcuts, not on Appearance with
+  // one more click to go. The dialog stays mounted, so the pane is adjusted as
+  // it opens rather than initialised once.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (open) {
+      const target = PANES.find((entry) => entry === requested);
+      setPane(target ?? "Appearance");
+    }
+  }
 
   return (
     // A fixed frame. The panes hold very different amounts — four lines of

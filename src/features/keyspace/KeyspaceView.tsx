@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import type { SampleRecord, SessionId } from "@/ipc";
 import { compactNumber, groupedNumber } from "@/lib/format";
+import { useReveal } from "@/navigation/useReveal";
 import { useActiveSessionId, useTap, useTapStore } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
 import { KeyTree } from "./components/KeyTree";
@@ -73,6 +74,19 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
     setSelected(key);
     setKeyExpr(key);
   }, []);
+
+  // The palette can name a key at any depth, so the tree has to be opened down
+  // to it before there is a row to select. Destructured rather than reached
+  // through `tree`, whose identity changes every render.
+  const { expandTo } = tree;
+  const revealKey = useCallback(
+    (key: string) => {
+      expandTo(key);
+      selectKey(key);
+    },
+    [expandTo, selectKey],
+  );
+  useReveal("keyspace", revealKey);
 
   const subscribe = useCallback(() => {
     if (tap.streaming) void stop(sessionId);

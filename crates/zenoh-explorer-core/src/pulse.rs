@@ -21,13 +21,14 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use parking_lot::Mutex;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use zenoh::Session;
 
 use crate::discovery;
 use crate::event::{AppEvent, EventSink};
-use crate::model::SessionId;
+use crate::model::{NodeSummary, SessionId, TopologySnapshot};
 
 /// How long the network has to be quiet before a probe runs.
 ///
@@ -49,6 +50,13 @@ const MAX_DEFERRAL: Duration = Duration::from_secs(4);
 pub struct TopologyPulse {
     poke: mpsc::Sender<()>,
     task: JoinHandle<()>,
+    /// The snapshot most recently broadcast.
+    ///
+    /// Kept because the admin space is a queryable: without this, answering
+    /// "which nodes match what I typed" would mean putting another wildcard
+    /// query on the network and waiting out its full timeout. The palette runs
+    /// on every keystroke, so it reads what the last probe already learned.
+    last: Arc<Mutex<Option<TopologySnapshot>>>,
 }
 
 impl Drop for TopologyPulse {
@@ -67,8 +75,19 @@ impl TopologyPulse {
         // moved, never how many times. Extra pokes during a probe collapse into
         // the single queued slot, which is the coalescing this exists for.
         let (poke, inbox) = mpsc::channel(1);
-        let task = tokio::spawn(run(session, session_id, sink, inbox));
-        Self { poke, task }
+        let last = Arc::new(Mutex::new(None));
+        let task = tokio::spawn(run(session, session_id, sink, inbox, Arc::clone(&last)));
+        Self { poke, task, last }
+    }
+
+    /// The nodes the last probe found, or nothing if none has finished yet.
+    #[must_use]
+    pub fn nodes(&self) -> Vec<NodeSummary> {
+        self.last
+            .lock()
+            .as_ref()
+            .map(|snapshot| snapshot.nodes.clone())
+            .unwrap_or_default()
     }
 
     /// Signals that the network moved and a fresh snapshot is worth taking.
@@ -86,8 +105,9 @@ async fn run(
     session_id: SessionId,
     sink: Arc<dyn EventSink>,
     mut inbox: mpsc::Receiver<()>,
+    last: Arc<Mutex<Option<TopologySnapshot>>>,
 ) {
-    probe_and_emit(&session, &session_id, sink.as_ref()).await;
+    probe_and_emit(&session, &session_id, sink.as_ref(), &last).await;
 
     while inbox.recv().await.is_some() {
         // Wait for quiet, but never longer than the ceiling. Each fresh poke
@@ -108,12 +128,17 @@ async fn run(
             }
         }
 
-        probe_and_emit(&session, &session_id, sink.as_ref()).await;
+        probe_and_emit(&session, &session_id, sink.as_ref(), &last).await;
     }
 }
 
 /// Takes one snapshot and broadcasts it.
-async fn probe_and_emit(session: &Session, session_id: &SessionId, sink: &dyn EventSink) {
+async fn probe_and_emit(
+    session: &Session,
+    session_id: &SessionId,
+    sink: &dyn EventSink,
+    last: &Mutex<Option<TopologySnapshot>>,
+) {
     match discovery::snapshot(session).await {
         Ok((snapshot, diagnostics)) => {
             for message in diagnostics {
@@ -124,6 +149,9 @@ async fn probe_and_emit(session: &Session, session_id: &SessionId, sink: &dyn Ev
                     hint: Some(message),
                 });
             }
+            // Recorded before the broadcast so a search cannot observe a
+            // snapshot the frontend has already been told about.
+            *last.lock() = Some(snapshot.clone());
             sink.emit(AppEvent::TopologyUpdated {
                 session_id: session_id.clone(),
                 snapshot,

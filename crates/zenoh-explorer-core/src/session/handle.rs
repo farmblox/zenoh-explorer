@@ -15,10 +15,11 @@ use crate::discovery::{ConnectivityWatch, watch_connectivity};
 use crate::error::{Error, Result};
 use crate::event::{AppEvent, DiagnosticLevel, EventSink};
 use crate::keys::KeyIndex;
-use crate::pulse::TopologyPulse;
 use crate::model::{
     KeySpaceSnapshot, NodeDeclaration, SampleRecord, SessionId, TapId, TransportSummary,
 };
+use crate::pulse::TopologyPulse;
+use crate::search::{self, SearchResults};
 use crate::tap::{SampleSink, Tap, TapSpec, TapStats};
 use crate::time::now_ms;
 
@@ -242,6 +243,27 @@ impl ManagedSession {
         taps
     }
 
+    /// Ranks nodes and key expressions against one query.
+    ///
+    /// Answered entirely from what this session already holds — the last
+    /// topology snapshot and the key index — so it touches the network not at
+    /// all. That is what lets the palette run it on every keystroke against a
+    /// key space with tens of thousands of entries in it.
+    #[must_use]
+    pub fn search(&self, query: &str, limit: usize) -> SearchResults {
+        let nodes = self.pulse.nodes();
+        let (node_hits, node_total) = search::search_nodes(&nodes, query, limit);
+        let (key_hits, key_total) = self.key_index.lock().search(query, limit);
+
+        SearchResults {
+            nodes: node_hits,
+            node_total,
+            keys: key_hits,
+            key_total,
+            ..SearchResults::empty()
+        }
+    }
+
     /// Expands one level of the key tree.
     #[must_use]
     pub fn expand_keys(&self, prefix: &str) -> KeySpaceSnapshot {
@@ -430,7 +452,11 @@ async fn watch_declarations(
                     let mut index = key_index.lock();
                     match change {
                         declarations::Change::Declared => {
-                            index.declare(&declaration.zid, &declaration.key_expr, declaration.kind);
+                            index.declare(
+                                &declaration.zid,
+                                &declaration.key_expr,
+                                declaration.kind,
+                            );
                         }
                         declarations::Change::Undeclared => {
                             index.undeclare(

@@ -410,6 +410,9 @@ export function ConnectForm({ initial, onChange, onSubmit }: ConnectFormProps) {
                 report({ advancedJson5: event.target.value.trim() || null });
               }}
               rows={4}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
               spellCheck={false}
               placeholder="{ transport: { unicast: { max_sessions: 100 } } }"
               className={cn(

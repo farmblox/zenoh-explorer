@@ -22,7 +22,22 @@ export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 
 /** Overlays are mutually exclusive; only one can be open. */
-export type Overlay = "none" | "palette" | "connect" | "shortcuts" | "settings";
+export type Overlay = "none" | "palette" | "connect" | "settings";
+
+/**
+ * Something a view has been asked to select on arrival.
+ *
+ * The palette can switch views on its own, but what you picked in it lives in
+ * the destination's local state — which node row is open, which key is
+ * selected. This carries that across the switch. `seq` is what makes picking
+ * the same node twice in a row work: without it the value is unchanged and the
+ * effect that consumes it never fires again.
+ */
+export interface Reveal {
+  readonly view: ViewId;
+  readonly target: string;
+  readonly seq: number;
+}
 
 interface UiState {
   /** Which view each session is showing. Switching tabs restores the view. */
@@ -38,6 +53,15 @@ interface UiState {
   sidebarCollapsed: boolean;
   statusBarExpanded: boolean;
   overlay: Overlay;
+  /**
+   * Which pane Settings should open on, or `null` for its own default.
+   *
+   * A bare string rather than the dialog's own union: the store sits below
+   * `features/` and cannot import from it. The dialog checks the value against
+   * its pane list and ignores anything it does not recognise.
+   */
+  settingsPane: string | null;
+  reveal: Reveal | null;
   themePreference: ThemePreference;
 
   setView(sessionId: SessionId | null, view: ViewId): void;
@@ -48,7 +72,14 @@ interface UiState {
   toggleStatusBar(): void;
 
   openOverlay(overlay: Exclude<Overlay, "none">): void;
+  /** Opens Settings, optionally on a named pane. */
+  openSettingsAt(pane: string | null): void;
   closeOverlay(): void;
+
+  /** Switches to `view` and asks it to select `target` when it gets there. */
+  revealIn(sessionId: SessionId | null, view: ViewId, target: string): void;
+  /** Called by the view once it has selected the target. */
+  clearReveal(): void;
 
   setThemePreference(preference: ThemePreference): void;
 }
@@ -59,6 +90,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   sidebarCollapsed: false,
   statusBarExpanded: false,
   overlay: "none",
+  settingsPane: null,
+  reveal: null,
   themePreference: readStoredTheme(),
 
   setView: (sessionId, view) =>
@@ -84,7 +117,20 @@ export const useUiStore = create<UiState>()((set, get) => ({
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   toggleStatusBar: () => set((state) => ({ statusBarExpanded: !state.statusBarExpanded })),
 
+  revealIn: (sessionId, view, target) =>
+    set((state) => ({
+      ...(sessionId === null
+        ? { fallbackView: view }
+        : { viewBySession: { ...state.viewBySession, [sessionId]: view } }),
+      reveal: { view, target, seq: (state.reveal?.seq ?? 0) + 1 },
+      overlay: "none",
+    })),
+
+  clearReveal: () => set({ reveal: null }),
+
   openOverlay: (overlay) => set({ overlay }),
+
+  openSettingsAt: (pane) => set({ overlay: "settings", settingsPane: pane }),
   closeOverlay: () => set({ overlay: "none" }),
 
   setThemePreference: (preference) => {

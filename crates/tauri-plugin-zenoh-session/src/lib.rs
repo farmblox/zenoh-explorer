@@ -89,6 +89,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::list_sessions,
             commands::session_summary,
             commands::transports,
+            commands::search,
         ])
         .setup(|app, _api| {
             let sink = Arc::new(TauriSink::new(app.clone()));

@@ -41,55 +41,6 @@ The answers are all in the network already. Zenoh publishes an admin space, and
 `zenoh-keyexpr` can tell you exactly what an expression matches. This app just
 puts a window on it.
 
-## What you get
-
-**Topology.** Queries `@/*/*` across every reachable node and builds a graph out
-of the replies: roles, locators, links, regions. If a node has its admin space
-turned off, you still see the transports your own session holds, so the view is
-never blank for no reason.
-
-**Keyspace.** A tree of what the network _declares_ — every subscriber and
-queryable any node advertises — so it is populated the moment you connect rather
-than only once something happens to publish. Expanded one level at a time, so a
-deployment with 48k resources opens instantly. Click a key to subscribe to it;
-browsing and tapping are the same screen because they are the same activity.
-
-**Key-expression testing.** `*`, `**` and `$*` are not the same thing, and
-getting them wrong is a classic Zenoh bug. Type an expression, test it against
-real keys, and get back the actual set relation (disjoint, intersects, includes,
-equals) plus the canonical form. All of it comes from `zenoh-keyexpr` over IPC,
-not from a glob matcher someone reimplemented in JavaScript.
-
-**Live data.** Rust batches incoming samples and streams them over a dedicated
-IPC channel; the UI commits at most once per frame. If the backend has to drop
-samples it tells you how many, rather than quietly showing you less than the
-truth.
-
-**Nothing to refresh.** Transports, declarations and samples are pushed by
-Zenoh. The admin space cannot be — it is a queryable, and a remote router never
-volunteers that its link-state changed — so the backend re-probes it whenever a
-live signal says the network moved, coalescing bursts into one query. There are
-no refresh buttons anywhere.
-
-**Admin space browser.** `@` is just keys, so this is a query box with presets
-for link-state, subscribers, publishers, queryables and metrics.
-
-**Scouting.** Find nodes you have not connected to yet. It is the one view that
-works with no session open, which is the point.
-
-**Multiple networks at once.** Each session is a tab with its own view state,
-key index and taps.
-
-## Screenshots
-
-Still the design reference rather than the running app — swapping these for
-real captures is the next thing on the list:
-
-<div align="center">
-<img alt="Topology, light theme" src=".github/assets/design-topology-light.png" width="49%">
-<img alt="Region drill-down, dark theme" src=".github/assets/design-region-dark.png" width="49%">
-</div>
-
 ## Quick start
 
 You will need Rust 1.95+, Node 22.12+, pnpm 10+, and your platform's

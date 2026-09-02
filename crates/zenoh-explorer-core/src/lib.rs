@@ -22,6 +22,7 @@
 //! - [`transport`] — transports, endpoints and TLS material
 //! - [`keys`] — the observed key-space trie
 //! - [`keyexpr_tools`] — key-expression analysis and match testing
+//! - [`search`] — one matcher, ranking nodes and keys for the command palette
 //! - [`model`] — the serializable types shared with the frontend
 //! - [`event`] — push events and the sink they go into
 
@@ -38,6 +39,7 @@ pub mod keys;
 pub mod model;
 pub mod pulse;
 pub mod scout;
+pub mod search;
 pub mod session;
 pub mod tap;
 pub mod time;

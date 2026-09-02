@@ -17,6 +17,7 @@ export * as data from "@plugin/zenoh-data";
 export * as profiles from "@plugin/zenoh-profiles";
 
 export { pickCertificate } from "./files";
+export { onMenuEvent, openExternal } from "./shell";
 
 export { IpcError, toIpcError } from "./errors";
 export type { CommandError, CommandErrorCode } from "./errors";
@@ -41,6 +42,10 @@ export type { NodeKind } from "./generated/NodeKind";
 export type { NodeSummary } from "./generated/NodeSummary";
 export type { Relation } from "./generated/Relation";
 export type { SavedProfile } from "./generated/SavedProfile";
+export type { SearchCandidate } from "./generated/SearchCandidate";
+export type { SearchHit } from "./generated/SearchHit";
+export type { SearchHitKind } from "./generated/SearchHitKind";
+export type { SearchResults } from "./generated/SearchResults";
 export type { SampleBatch } from "./generated/SampleBatch";
 export type { SampleKindDto } from "./generated/SampleKindDto";
 export type { SampleRecord } from "./generated/SampleRecord";

@@ -8,6 +8,7 @@ const COMMANDS: &[&str] = &[
     "list_sessions",
     "session_summary",
     "transports",
+    "search",
 ];
 
 fn main() {

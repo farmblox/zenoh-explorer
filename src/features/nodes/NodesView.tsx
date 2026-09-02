@@ -16,6 +16,7 @@ import {
 import { nodeLabel, SOURCE_LABELS, UNGROUPED } from "@/features/topology";
 import type { NodeKind, NodeSummary } from "@/ipc";
 import { groupedNumber } from "@/lib/format";
+import { useReveal } from "@/navigation/useReveal";
 import { useActiveSessionId, useTopology } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
 import { NodePeek } from "./NodePeek";
@@ -127,6 +128,9 @@ export function NodesView() {
   const [filter, setFilter] = useState("");
   const [role, setRole] = useState<RoleFilter>("all");
   const [openZid, setOpenZid] = useState<string | null>(null);
+
+  // The palette can send you straight to a node; the peek is where it lands.
+  useReveal("nodes", setOpenZid);
 
   const rows = useMemo<readonly Row[]>(() => {
     if (!snapshot) return [];

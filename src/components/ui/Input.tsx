@@ -95,6 +95,15 @@ export function Input({
       ) : null}
       <input
         aria-invalid={invalid || undefined}
+        // Every field in this app holds an identifier, an endpoint, a key
+        // expression or a config fragment. macOS will happily autocorrect
+        // `agv` to `age` and curl the quotes in a JSON5 block, so the OS is
+        // told to keep out of all of them. Before the spread, so a caller that
+        // genuinely wants a spellchecked field can still ask for one.
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         className={cn(
           "text-small text-ink min-w-0 flex-1 bg-transparent outline-none",
           "placeholder:text-ink-faint",

@@ -7,6 +7,7 @@
 use ahash::{AHashMap, AHashSet};
 
 use crate::model::{DeclarationKind, KeyKind, KeyNode, KeySpaceSnapshot, NodeDeclaration};
+use crate::search::{SearchHit, SearchHitKind};
 
 /// One level of the trie.
 #[derive(Debug, Default)]
@@ -240,6 +241,28 @@ impl KeyIndex {
         }
     }
 
+    /// Ranks every key in the index against `query`, best first.
+    ///
+    /// Branches are offered alongside leaves. `fleet/agv` is a useful place to
+    /// jump to even when nothing published on it directly, because the key
+    /// space is navigated by prefix — offering only leaves would hide every
+    /// level a person actually types.
+    ///
+    /// Returns at most `limit` hits and the total number that matched.
+    #[must_use]
+    pub fn search(&self, query: &str, limit: usize) -> (Vec<SearchHit>, usize) {
+        let mut scored: Vec<(i32, SearchHit)> = Vec::new();
+        let mut path = String::new();
+        collect_matches(&self.root, &mut path, query, &mut scored);
+
+        let total = scored.len();
+        scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.label.cmp(&b.1.label)));
+        (
+            scored.into_iter().take(limit).map(|(_, hit)| hit).collect(),
+            total,
+        )
+    }
+
     /// Finds the entry for a concrete prefix.
     fn resolve(&self, prefix: &str) -> Option<&Entry> {
         let mut node = &self.root;
@@ -286,8 +309,133 @@ fn bump_declaration(entry: &mut Entry, kind: DeclarationKind, added: bool) {
     };
 }
 
+/// Walks the trie, scoring every key it holds against `query`.
+///
+/// One `String` carries the path down and is truncated on the way back up, so
+/// a deep tree costs one allocation rather than one per node.
+fn collect_matches(entry: &Entry, path: &mut String, query: &str, out: &mut Vec<(i32, SearchHit)>) {
+    for (segment, child) in &entry.children {
+        let mark = path.len();
+        if !path.is_empty() {
+            path.push('/');
+        }
+        path.push_str(segment);
+
+        if let Some(found) = crate::search::score(path, query) {
+            out.push((
+                found.score,
+                SearchHit {
+                    kind: SearchHitKind::Key,
+                    label: path.clone(),
+                    detail: key_detail(child),
+                    target: path.clone(),
+                    highlights: found.positions,
+                    score: found.score,
+                },
+            ));
+        }
+
+        collect_matches(child, path, query, out);
+        path.truncate(mark);
+    }
+}
+
+/// The secondary line for a key: what the index knows sits at or below it.
+fn key_detail(entry: &Entry) -> String {
+    let mut parts = Vec::new();
+    if entry.subtree_keys > 0 {
+        parts.push(counted(entry.subtree_keys, "key", "keys"));
+    }
+    if entry.subtree_subscribers > 0 {
+        parts.push(counted(
+            entry.subtree_subscribers,
+            "subscriber",
+            "subscribers",
+        ));
+    }
+    if entry.subtree_queryables > 0 {
+        parts.push(counted(entry.subtree_queryables, "queryable", "queryables"));
+    }
+
+    // A node with nothing under it is still worth describing: it is either a
+    // key nothing has published on yet or a level of somebody's declaration.
+    if parts.is_empty() {
+        parts.push(
+            match entry.kind() {
+                KeyKind::Leaf => "leaf",
+                KeyKind::Branch => "branch",
+                KeyKind::Both => "key and branch",
+            }
+            .to_owned(),
+        );
+    }
+
+    parts.join(" · ")
+}
+
+fn counted(count: usize, one: &str, many: &str) -> String {
+    if count == 1 {
+        format!("{count} {one}")
+    } else {
+        format!("{count} {many}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn search_finds_branches_as_well_as_leaves() {
+        let mut index = KeyIndex::new();
+        index.observe("fleet/agv/07/telemetry", 1);
+
+        let (hits, total) = index.search("fleetagv", 10);
+        assert!(total >= 2, "the branch and its leaf should both match");
+        let labels: Vec<&str> = hits.iter().map(|hit| hit.label.as_str()).collect();
+        assert!(labels.contains(&"fleet/agv"), "got {labels:?}");
+    }
+
+    #[test]
+    fn search_highlights_index_the_full_key() {
+        let mut index = KeyIndex::new();
+        index.observe("fleet/agv/07", 1);
+
+        let hit = index
+            .search("agv", 10)
+            .0
+            .into_iter()
+            .find(|hit| hit.label == "fleet/agv")
+            .expect("fleet/agv should match");
+
+        let characters: Vec<char> = hit.label.chars().collect();
+        let matched: String = hit
+            .highlights
+            .iter()
+            .map(|index| characters[*index as usize])
+            .collect();
+        assert_eq!(matched, "agv");
+    }
+
+    #[test]
+    fn search_describes_a_declared_expression() {
+        let mut index = KeyIndex::new();
+        index.declare("zid-a", "fleet/**", DeclarationKind::Subscriber);
+
+        let hit = index
+            .search("fleet", 10)
+            .0
+            .into_iter()
+            .find(|hit| hit.label == "fleet")
+            .expect("fleet should match");
+        assert_eq!(hit.detail, "1 subscriber");
+    }
+
+    #[test]
+    fn search_returns_nothing_for_an_empty_query() {
+        let mut index = KeyIndex::new();
+        index.observe("fleet/agv", 1);
+        assert_eq!(index.search("", 10).1, 0);
+    }
+
     #[test]
     fn a_declaration_is_attributed_to_the_node_that_made_it() {
         let mut index = KeyIndex::new();
