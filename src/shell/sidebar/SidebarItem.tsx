@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-import { StatusDot } from "@/components/ui";
+import { StatusDot, Tooltip } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { compactNumber } from "@/lib/format";
 import { focusRing, transitionFast } from "@/lib/states";
@@ -26,7 +26,6 @@ export interface SidebarItemProps {
   active?: boolean;
   collapsed?: boolean;
   disabled?: boolean;
-  title?: string | undefined;
   onClick: () => void;
 }
 
@@ -46,20 +45,17 @@ export function SidebarItem({
   active,
   collapsed,
   disabled,
-  title,
   onClick,
 }: SidebarItemProps) {
   /** Unread and live still have to reach you with the labels hidden. */
   const marker = badge?.kind === "unread" || badge?.kind === "live";
 
-  return (
+  const row = (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       aria-current={active ? "page" : undefined}
-      // Collapsed rows have no visible label, so the tooltip carries it.
-      title={collapsed ? label : title}
       className={cn(
         "rounded-control text-small flex h-[34px] w-full shrink-0 items-center whitespace-nowrap",
         focusRing,
@@ -95,6 +91,16 @@ export function SidebarItem({
         </>
       )}
     </button>
+  );
+
+  // Collapsed, the row shows an icon and no name, so the tip is the name.
+  // Expanded it would be repeating a label that is already on screen.
+  if (!collapsed) return row;
+
+  return (
+    <Tooltip content={label} side="right" delay={120} className="w-full">
+      {row}
+    </Tooltip>
   );
 }
 

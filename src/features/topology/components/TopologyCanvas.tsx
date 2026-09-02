@@ -12,7 +12,7 @@ import {
 
 import { Tooltip } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { controlBase, overlayStates } from "@/lib/states";
+import { controlBase, overlayStates, pressable } from "@/lib/states";
 import type { LinkSummary, TopologySnapshot } from "@/ipc";
 import { Legend } from "./Legend";
 import { LinkEdge } from "./LinkEdge";
@@ -265,6 +265,7 @@ function ZoomButton({
           // button that is smaller than a toolbar button reads as secondary, and
           // zoom is not secondary on a graph.
           "rounded-control text-ink-muted hover:text-ink flex size-8 items-center justify-center",
+          pressable,
           controlBase,
           overlayStates,
         )}

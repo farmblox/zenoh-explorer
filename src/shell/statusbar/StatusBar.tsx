@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { StatusDot } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { focusRing, transitionFast } from "@/lib/states";
+import { pressable } from "@/lib/states";
 import { groupedNumber } from "@/lib/format";
 import { useActiveSession, useTopology, useUiStore } from "@/stores";
 import { describeCoverage } from "@/features/topology";
@@ -86,8 +86,7 @@ export function StatusBar() {
             aria-expanded={expanded}
             className={cn(
               "rounded-inner hover:text-ink -mx-1 flex shrink-0 items-center gap-1 px-1",
-              focusRing,
-              transitionFast,
+              pressable,
             )}
           >
             {expanded ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}

@@ -8,7 +8,7 @@ import { useAsync } from "@/hooks";
 import { bytes } from "@/lib/format";
 import { useActiveSessionId } from "@/stores";
 import { cn } from "@/lib/cn";
-import { focusRing, transitionFast } from "@/lib/states";
+import { pressable } from "@/lib/states";
 import { ViewHeader } from "@/shell/ViewHeader";
 
 /** Everything every node publishes about itself. */
@@ -133,7 +133,7 @@ export function AdminView() {
                 setSelector(preset.selector);
                 setSubmitted(preset.selector);
               }}
-              className={cn("rounded-inner", focusRing, transitionFast)}
+              className={cn("rounded-inner", pressable)}
             >
               <Badge tone={submitted === preset.selector ? "accent" : "neutral"}>
                 {preset.label}

@@ -22,7 +22,7 @@ import {
 } from "@/ipc";
 import { cn } from "@/lib/cn";
 import { groupedNumber } from "@/lib/format";
-import { focusRing, transitionFast } from "@/lib/states";
+import { focusRing, pressable, transitionFast } from "@/lib/states";
 import { useSessionStore, useUiStore } from "@/stores";
 
 /** How long the exit animation runs. Mirrors `--duration-exit`. */
@@ -346,9 +346,8 @@ function NeighbourRow({ hop, onOpenNode }: { hop: Hop; onOpenNode: (zid: string)
           type="button"
           onClick={() => onOpenNode(hop.zid)}
           className={cn(
-            "rounded-inner text-ink hover:text-accent min-w-0 truncate text-left",
-            focusRing,
-            transitionFast,
+            "rounded-inner text-ink hover:text-accent -mx-1 min-w-0 truncate px-1 text-left",
+            pressable,
           )}
         >
           {label}

@@ -85,6 +85,30 @@ export const focusRing = cn(
 );
 
 /** Hover and press overlays, for a control with its own background. */
+/**
+ * The feedback any clickable thing owes the pointer.
+ *
+ * Translucent overlays rather than named surfaces, so this layers over a tab, a
+ * panel, a table row or the title bar without having to know which. Both
+ * states matter: hover says "this is a control", and the press says "your click
+ * landed". Something that only changes its text colour says the first and never
+ * the second, which is why a small icon button can feel dead even though it
+ * works.
+ */
+export const pressable = cn(
+  "hover:bg-overlay-hover active:bg-overlay-press",
+  pressMotion,
+  focusRing,
+  transitionFast,
+);
+
+/** A bare glyph you can click: centred, small radius, and [`pressable`]. */
+export const iconButton = cn(
+  "inline-flex shrink-0 items-center justify-center rounded-inner",
+  "text-ink-faint hover:text-ink",
+  pressable,
+);
+
 export const overlayStates = cn(
   "hover:bg-[image:linear-gradient(var(--overlay-hover),var(--overlay-hover))]",
   "active:bg-[image:linear-gradient(var(--overlay-press),var(--overlay-press))]",

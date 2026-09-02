@@ -130,7 +130,6 @@ export function Sidebar() {
                 active={view.id === activeView}
                 collapsed={collapsed}
                 disabled={view.requiresSession !== false && !session}
-                title={view.description}
                 onClick={() => navigate(view.id)}
               />
             </div>

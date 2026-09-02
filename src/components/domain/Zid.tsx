@@ -2,7 +2,7 @@ import { Check, Copy } from "lucide-react";
 
 import { useCopy } from "@/hooks";
 import { cn } from "@/lib/cn";
-import { focusRing, transitionFast } from "@/lib/states";
+import { focusRing } from "@/lib/states";
 import { shortZid } from "@/lib/format";
 
 export interface ZidProps {
@@ -44,13 +44,16 @@ export function Zid({ zid, full, copyable, className }: ZidProps) {
           onClick={() => void copy(zid)}
           aria-label={copied ? "Copied" : "Copy id"}
           className={cn(
-            "rounded-inner text-ink-faint hover:text-ink shrink-0",
+            "rounded-inner text-ink-faint hover:text-ink shrink-0 px-0.5",
+            "hover:bg-overlay-hover active:bg-overlay-press",
             // Revealed rather than permanent, and it keeps its box either way.
             "opacity-0 group-hover/zid:opacity-100 focus-visible:opacity-100",
             copied && "opacity-100",
-            "transition-opacity duration-(--duration-fast)",
+            // Not `transitionFast`, and not `iconButton`: the reveal owns the
+            // transition property here, so the fill has to join it rather than
+            // replace it — two `transition-*` utilities and the later one wins.
+            "transition-[opacity,background-color,color] duration-(--duration-fast)",
             focusRing,
-            transitionFast,
           )}
         >
           {copied ? <Check size={12} className="text-ok" /> : <Copy size={12} />}

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { StatusDot, type Status } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { focusRing, transitionFast } from "@/lib/states";
+import { focusRing, iconButton, transitionFast } from "@/lib/states";
 
 /** What the connection behind a tab is doing. */
 export type SessionTabState = "live" | "degraded" | "connecting" | "failed";
@@ -145,12 +145,7 @@ export function SessionTab({
               onClick={onEdit}
               aria-label={editLabel}
               title={editLabel}
-              className={cn(
-                "rounded-inner flex size-5 items-center justify-center",
-                "text-ink-faint hover:text-ink",
-                focusRing,
-                transitionFast,
-              )}
+              className={cn(iconButton, "size-5")}
             >
               <Pencil size={11} />
             </button>
@@ -160,12 +155,7 @@ export function SessionTab({
             type="button"
             onClick={onClose}
             aria-label={closeLabel}
-            className={cn(
-              "rounded-inner flex size-5 items-center justify-center",
-              "text-ink-faint hover:text-ink",
-              focusRing,
-              transitionFast,
-            )}
+            className={cn(iconButton, "size-5")}
           >
             <X size={12} />
           </button>
