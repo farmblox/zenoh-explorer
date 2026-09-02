@@ -18,6 +18,15 @@ const KEYBOARD_STEP = 16;
  */
 const ROW_HEIGHT = 36;
 
+/**
+ * Height of an expanded row's detail.
+ *
+ * Fixed, for the same reason the row height is: the virtualizer has to know it
+ * without measuring, and a live table cannot afford to re-measure while rows
+ * arrive. The detail scrolls inside this.
+ */
+const DETAIL_HEIGHT = 232;
+
 /** Rows kept mounted beyond the viewport, so a fast scroll finds them ready. */
 const OVERSCAN = 12;
 
@@ -69,6 +78,19 @@ export interface DataTableProps<Row> {
   /** Rendered in place of the body when there are no rows. */
   empty?: ReactNode;
   /**
+   * Detail for the selected row, rendered inline beneath it.
+   *
+   * An expanding row rather than a side panel: this table is often the widest
+   * thing on screen, and a panel beside it either squeezes the columns to
+   * nothing or pushes itself off the edge. Expanding keeps the row you clicked
+   * where you clicked it.
+   *
+   * The detail gets a fixed height and scrolls inside itself. Measuring it
+   * instead would mean re-measuring while rows stream in, which is how a live
+   * table starts fighting the scroll position.
+   */
+  renderDetail?: (row: Row) => ReactNode;
+  /**
    * Keeps the newest rows in view as they arrive.
    *
    * For a table fed by a live stream. Following stops the moment the reader
@@ -95,6 +117,7 @@ export function DataTable<Row>({
   onSelect,
   selectedKey,
   empty,
+  renderDetail,
   follow = false,
   className,
 }: DataTableProps<Row>) {
@@ -113,9 +136,28 @@ export function DataTable<Row>({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (index) => {
+      if (renderDetail === undefined || selectedKey == null) return ROW_HEIGHT;
+      const row = rows[index];
+      const expanded = row !== undefined && rowKey(row) === selectedKey;
+      return expanded ? ROW_HEIGHT + DETAIL_HEIGHT : ROW_HEIGHT;
+    },
     overscan: OVERSCAN,
   });
+
+  // Sizes are cached by index, so two things have to invalidate them. Expanding
+  // a row, obviously — the rows below it would otherwise keep the offsets they
+  // had while it was closed. And the row count, because a live table evicts
+  // from the front: every index then names a different row, and the cached tall
+  // one would be applied to whichever row inherited that index.
+  //
+  // Only when there is a detail to expand. Without one every row is the same
+  // height and there is nothing a stale measurement could get wrong.
+  useEffect(() => {
+    if (renderDetail !== undefined) virtualizer.measure();
+    // `virtualizer` is recreated each render, so it cannot be a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey, rows.length]);
 
   // Whether following is on is the reader's business, decided by where they
   // have scrolled to rather than by a mode they have to remember to set.
@@ -268,46 +310,61 @@ export function DataTable<Row>({
               const key = rowKey(row);
               const selected = selectedKey != null && key === selectedKey;
 
+              const expanded = renderDetail !== undefined && selected;
+
               return (
                 <div
                   key={key}
-                  role="row"
-                  tabIndex={onSelect ? 0 : undefined}
-                  aria-selected={onSelect ? selected : undefined}
-                  aria-rowindex={item.index + 1}
-                  onClick={onSelect ? () => onSelect(row) : undefined}
-                  onKeyDown={
-                    onSelect
-                      ? (event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            onSelect(row);
-                          }
-                        }
-                      : undefined
-                  }
                   style={{
-                    gridTemplateColumns: template,
-                    height: ROW_HEIGHT,
                     // Positioned rather than laid out, so adding a row never
                     // reflows the ones already on screen.
                     transform: `translateY(${item.start}px)`,
                   }}
-                  className={cn(
-                    "border-line-soft text-small absolute inset-x-0 top-0 grid items-center gap-4 border-b px-5",
-                    onSelect && cn("cursor-pointer", transitionFast),
-                    selected ? "bg-accent-subtle" : onSelect && "hover:bg-surface-2",
-                  )}
+                  className="absolute inset-x-0 top-0"
                 >
-                  {columns.map((column) => (
+                  <div
+                    role="row"
+                    tabIndex={onSelect ? 0 : undefined}
+                    aria-selected={onSelect ? selected : undefined}
+                    aria-expanded={renderDetail === undefined ? undefined : selected}
+                    aria-rowindex={item.index + 1}
+                    onClick={onSelect ? () => onSelect(row) : undefined}
+                    onKeyDown={
+                      onSelect
+                        ? (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              onSelect(row);
+                            }
+                          }
+                        : undefined
+                    }
+                    style={{ gridTemplateColumns: template, height: ROW_HEIGHT }}
+                    className={cn(
+                      "border-line-soft text-small grid items-center gap-4 border-b px-5",
+                      onSelect && cn("cursor-pointer", transitionFast),
+                      selected ? "bg-accent-subtle" : onSelect && "hover:bg-surface-2",
+                    )}
+                  >
+                    {columns.map((column) => (
+                      <div
+                        key={column.id}
+                        role="cell"
+                        className={cn("truncate", column.align === "right" && "text-right")}
+                      >
+                        {column.cell(row)}
+                      </div>
+                    ))}
+                  </div>
+
+                  {expanded ? (
                     <div
-                      key={column.id}
-                      role="cell"
-                      className={cn("truncate", column.align === "right" && "text-right")}
+                      style={{ height: DETAIL_HEIGHT }}
+                      className="border-line bg-surface-1 scroll-thin overflow-auto border-b"
                     >
-                      {column.cell(row)}
+                      {renderDetail(row)}
                     </div>
-                  ))}
+                  ) : null}
                 </div>
               );
             })}

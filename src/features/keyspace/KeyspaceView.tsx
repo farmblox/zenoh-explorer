@@ -301,34 +301,11 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
               <SampleTable
                 samples={tap.samples}
                 selected={sample?.seq ?? null}
-                onSelect={setSample}
+                // Clicking the open row closes it: the detail is a disclosure
+                // on the row, so the row is also how you put it away.
+                onSelect={(row) => setSample((open) => (open?.seq === row.seq ? null : row))}
               />
             )}
-
-            {sample ? (
-              <ResizablePanel
-                id="keyspace-sample"
-                side="right"
-                defaultWidth={360}
-                minWidth={280}
-                maxWidth={560}
-                label="Resize the sample detail"
-                className="border-line border-l"
-              >
-                <ScrollArea className="flex-1">
-                  <div className="space-y-4 p-4">
-                    <Panel title="Sample">
-                      <div className="space-y-2">
-                        <KeyExpr value={sample.keyExpr} highlightWildcards={false} />
-                        <pre className="scroll-thin selectable numeric rounded-inner bg-surface-1 text-tiny text-ink-muted max-h-64 overflow-auto p-3 break-all whitespace-pre-wrap">
-                          {sample.preview}
-                        </pre>
-                      </div>
-                    </Panel>
-                  </div>
-                </ScrollArea>
-              </ResizablePanel>
-            ) : null}
           </div>
         </div>
       </div>
