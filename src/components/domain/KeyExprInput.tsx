@@ -109,6 +109,13 @@ export interface KeyExprInputProps {
   placeholder?: string | undefined;
   /** Static label inside the field, e.g. `key expr`. */
   prefix?: string | undefined;
+  /**
+   * Field height. `lg` by default.
+   *
+   * Taller than an ordinary input on purpose: this one carries chunk marks
+   * under its text and a verdict at its trailing edge, and both want room.
+   */
+  size?: "md" | "lg" | undefined;
   /** Marks this as the field a dialog focuses on open. */
   autoFocusInDialog?: boolean | undefined;
   onSubmit?: (() => void) | undefined;
@@ -142,6 +149,7 @@ export function KeyExprInput({
   invalid,
   placeholder,
   prefix,
+  size = "lg",
   autoFocusInDialog,
   onSubmit,
   className,
@@ -411,6 +419,7 @@ export function KeyExprInput({
         }
         onKeyDown={onKeyDown}
         mono
+        size={size}
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"

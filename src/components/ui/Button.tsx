@@ -9,7 +9,7 @@ import { controlBase, disabledState, overlayStates, pressMotion } from "@/lib/st
  * There is exactly one `primary` button on screen at a time.
  */
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-export type ButtonSize = "sm" | "md";
+export type ButtonSize = "sm" | "md" | "lg";
 
 /**
  * Marks the action as running.
@@ -49,6 +49,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
 const SIZES: Record<ButtonSize, string> = {
   sm: "h-7 px-2.5 text-tiny gap-1.5",
   md: "h-8 px-3 text-small gap-2",
+  // Matches the `lg` field, so a toolbar built around one lines up instead of
+  // centring a taller input against shorter buttons.
+  lg: "h-10 px-3.5 text-small gap-2",
 };
 
 export function Button({

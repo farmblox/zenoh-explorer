@@ -58,7 +58,7 @@ export interface InputProps extends Omit<ComponentPropsWithRef<"input">, "size" 
 const SIZES: Record<InputSize, string> = {
   sm: "h-7 px-2.5 gap-2",
   md: "h-8 px-3 gap-2.5",
-  lg: "h-[38px] px-3.5 gap-2.5",
+  lg: "h-10 px-3.5 gap-2.5",
 };
 
 /**
