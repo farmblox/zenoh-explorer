@@ -32,7 +32,6 @@ export function EventsView() {
     <div className="flex min-h-0 flex-1 flex-col">
       <ViewHeader
         title="Events"
-        subtitle={`${entries.length} recorded`}
         actions={
           <Button variant="ghost" icon={<Trash2 size={13} />} onClick={clear}>
             Clear

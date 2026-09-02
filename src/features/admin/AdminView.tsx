@@ -97,10 +97,7 @@ export function AdminView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ViewHeader
-        title="Admin space"
-        subtitle={loading ? "Querying" : `${data?.length ?? 0} replies`}
-      />
+      <ViewHeader title="Admin space" />
 
       <div className="border-line shrink-0 space-y-2.5 border-b px-5 py-3">
         <form

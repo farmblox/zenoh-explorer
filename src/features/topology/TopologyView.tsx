@@ -120,16 +120,7 @@ export function TopologyView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ViewHeader
-        title="Topology"
-        subtitle={
-          region === null
-            ? "Every node the explorer can see, and the links between them"
-            : anchors.size === 0
-              ? `Narrowed to ${region}`
-              : `Narrowed to ${region}, with ${anchors.size} node${anchors.size === 1 ? "" : "s"} it attaches to`
-        }
-      />
+      <ViewHeader title="Topology" />
 
       {snapshot ? (
         <TopologyToolbar

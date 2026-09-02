@@ -45,14 +45,7 @@ export function RegionsView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ViewHeader
-        title="Regions"
-        subtitle={
-          view
-            ? `${groupedNumber(view.regions.length)} regions · ${groupedNumber(view.links.length)} links between them`
-            : "Reading the admin space"
-        }
-      />
+      <ViewHeader title="Regions" />
 
       {error ? (
         <p className="bg-danger-subtle text-tiny text-danger shrink-0 px-5 py-2">{error}</p>

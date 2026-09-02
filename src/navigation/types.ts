@@ -32,7 +32,7 @@ export interface ViewDefinition {
   readonly group: ViewGroup;
   /** Icon component, from lucide-react. */
   readonly icon: ComponentType<{ className?: string; size?: number }>;
-  /** One line explaining the view; used as the header subtitle and tooltip. */
+  /** One line explaining the view, read by the command palette. */
   readonly description: string;
   /** The view itself. */
   readonly component: ComponentType;

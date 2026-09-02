@@ -48,7 +48,6 @@ export function ScoutingView() {
     <div className="flex min-h-0 flex-1 flex-col">
       <ViewHeader
         title="Scouting"
-        subtitle="Nodes answering multicast and gossip scouts on this network"
         actions={
           <Button
             icon={loading ? <Spinner /> : <Radar size={13} />}

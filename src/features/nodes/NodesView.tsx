@@ -198,14 +198,7 @@ export function NodesView() {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <ViewHeader
-        title="Nodes"
-        subtitle={
-          snapshot
-            ? `${groupedNumber(counts.router)} routers · ${groupedNumber(counts.peer)} peers · ${groupedNumber(counts.client)} clients`
-            : "Reading the network"
-        }
-      />
+      <ViewHeader title="Nodes" />
 
       <Toolbar>
         <Input

@@ -16,7 +16,7 @@ import {
 import { useAsync } from "@/hooks";
 import { data as dataIpc, type SampleRecord } from "@/ipc";
 import { cn } from "@/lib/cn";
-import { bytes, groupedNumber } from "@/lib/format";
+import { groupedNumber } from "@/lib/format";
 import { useActiveSessionId, useLiveEpoch, useTopology } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
 import { tokenizeJsonLine, type TokenKind } from "./lib/highlight";
@@ -142,16 +142,7 @@ export function ConfigView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ViewHeader
-        title="Configuration"
-        subtitle={
-          active
-            ? [nameOf(active.zid), active.whatami, bytes(active.sample.payloadLen)]
-                .filter(Boolean)
-                .join(" · ")
-            : "What each node resolved at startup"
-        }
-      />
+      <ViewHeader title="Configuration" />
 
       <Toolbar>
         <Input

@@ -148,11 +148,6 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <ViewHeader
         title="Keyspace"
-        subtitle={
-          tap.streaming
-            ? `${groupedNumber(tap.total)} samples · ${compactNumber(tap.samples.length)} in view`
-            : `${groupedNumber(tree.totalKeys)} keys declared or observed`
-        }
         actions={
           <>
             {tap.dropped > 0 ? (
