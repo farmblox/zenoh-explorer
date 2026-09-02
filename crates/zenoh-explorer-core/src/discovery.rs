@@ -330,6 +330,9 @@ pub async fn snapshot(session: &Session) -> Result<(TopologySnapshot, Vec<String
 
     Ok((
         TopologySnapshot {
+            // Scouting sees nodes, never configuration, so it can say nothing
+            // about storages.
+            storages: Vec::new(),
             nodes: nodes.into_values().collect(),
             links: links.into_values().collect(),
             local_zid,

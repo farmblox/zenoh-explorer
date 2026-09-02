@@ -21,10 +21,13 @@ struct Entry {
     subtree_keys: usize,
     /// Whether data has landed on exactly this key.
     is_key: bool,
-    /// Subscribers declared at or below this node.
-    subtree_subscribers: usize,
-    /// Queryables declared at or below this node.
-    subtree_queryables: usize,
+    /// Declarations at or below this node, indexed by
+    /// [`DeclarationKind::index`].
+    ///
+    /// An array rather than a field per kind: Zenoh publishes five kinds and
+    /// may publish a sixth, and five parallel counters would need the same
+    /// edit in five places every time one was added.
+    subtree_declarations: [usize; DeclarationKind::ALL.len()],
     last_seen_ms: Option<u64>,
 }
 
@@ -139,8 +142,8 @@ impl KeyIndex {
 
         // Sorted so the list is stable between calls: an `AHashSet` is not.
         out.sort_by(|a, b| {
-            declaration_rank(a.kind)
-                .cmp(&declaration_rank(b.kind))
+            DeclarationKind::index(a.kind)
+                .cmp(&DeclarationKind::index(b.kind))
                 .then_with(|| a.key_expr.cmp(&b.key_expr))
         });
         out
@@ -223,8 +226,11 @@ impl KeyIndex {
                             child_count: child.children.len(),
                             descendant_keys: child.subtree_keys,
                             sample_count: child.subtree_samples,
-                            subscribers: child.subtree_subscribers,
-                            queryables: child.subtree_queryables,
+                            subscribers: child.count(DeclarationKind::Subscriber),
+                            publishers: child.count(DeclarationKind::Publisher),
+                            queryables: child.count(DeclarationKind::Queryable),
+                            queriers: child.count(DeclarationKind::Querier),
+                            tokens: child.count(DeclarationKind::LivelinessToken),
                             last_seen_ms: child.last_seen_ms,
                         }
                     })
@@ -274,6 +280,11 @@ impl KeyIndex {
 }
 
 impl Entry {
+    /// Declarations of one kind at or below this node.
+    fn count(&self, kind: DeclarationKind) -> usize {
+        self.subtree_declarations[kind.index()]
+    }
+
     fn kind(&self) -> KeyKind {
         match (self.is_key, self.children.is_empty()) {
             (true, true) => KeyKind::Leaf,
@@ -283,25 +294,13 @@ impl Entry {
     }
 }
 
-/// Credits one declaration to a trie entry.
-/// Subscribers before queryables, so a node's list reads consumers then providers.
-const fn declaration_rank(kind: DeclarationKind) -> u8 {
-    match kind {
-        DeclarationKind::Subscriber => 0,
-        DeclarationKind::Queryable => 1,
-    }
-}
-
 /// Moves a subtree counter one step, up when a declaration arrives and down when
 /// it is withdrawn.
 ///
 /// Saturating on the way down: a counter can never be driven below zero by a
 /// withdrawal whose matching addition we somehow never saw.
 fn bump_declaration(entry: &mut Entry, kind: DeclarationKind, added: bool) {
-    let counter = match kind {
-        DeclarationKind::Subscriber => &mut entry.subtree_subscribers,
-        DeclarationKind::Queryable => &mut entry.subtree_queryables,
-    };
+    let counter = &mut entry.subtree_declarations[kind.index()];
     *counter = if added {
         *counter + 1
     } else {
@@ -346,15 +345,17 @@ fn key_detail(entry: &Entry) -> String {
     if entry.subtree_keys > 0 {
         parts.push(counted(entry.subtree_keys, "key", "keys"));
     }
-    if entry.subtree_subscribers > 0 {
-        parts.push(counted(
-            entry.subtree_subscribers,
-            "subscriber",
-            "subscribers",
-        ));
-    }
-    if entry.subtree_queryables > 0 {
-        parts.push(counted(entry.subtree_queryables, "queryable", "queryables"));
+    for (kind, one, many) in [
+        (DeclarationKind::Subscriber, "subscriber", "subscribers"),
+        (DeclarationKind::Publisher, "publisher", "publishers"),
+        (DeclarationKind::Queryable, "queryable", "queryables"),
+        (DeclarationKind::Querier, "querier", "queriers"),
+        (DeclarationKind::LivelinessToken, "token", "tokens"),
+    ] {
+        let count = entry.count(kind);
+        if count > 0 {
+            parts.push(counted(count, one, many));
+        }
     }
 
     // A node with nothing under it is still worth describing: it is either a
@@ -383,6 +384,46 @@ fn counted(count: usize, one: &str, many: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn each_declaration_kind_is_counted_separately() {
+        let mut index = KeyIndex::new();
+        index.declare("a", "fleet/**", DeclarationKind::Subscriber);
+        index.declare("b", "fleet/**", DeclarationKind::Publisher);
+        index.declare("c", "fleet/**", DeclarationKind::Queryable);
+        index.declare("d", "fleet/**", DeclarationKind::Querier);
+        index.declare("e", "fleet/**", DeclarationKind::LivelinessToken);
+
+        let root = index.expand("");
+        let fleet = root
+            .children
+            .iter()
+            .find(|node| node.segment == "fleet")
+            .expect("fleet should exist");
+
+        assert_eq!(fleet.subscribers, 1);
+        assert_eq!(fleet.publishers, 1);
+        assert_eq!(fleet.queryables, 1);
+        assert_eq!(fleet.queriers, 1);
+        assert_eq!(fleet.tokens, 1);
+    }
+
+    #[test]
+    fn withdrawing_one_kind_leaves_the_others() {
+        let mut index = KeyIndex::new();
+        index.declare("a", "fleet/**", DeclarationKind::Publisher);
+        index.declare("a", "fleet/**", DeclarationKind::LivelinessToken);
+        index.undeclare("a", "fleet/**", DeclarationKind::LivelinessToken);
+
+        let root = index.expand("");
+        let fleet = root
+            .children
+            .iter()
+            .find(|n| n.segment == "fleet")
+            .expect("fleet");
+        assert_eq!(fleet.publishers, 1);
+        assert_eq!(fleet.tokens, 0);
+    }
+
     #[test]
     fn search_finds_branches_as_well_as_leaves() {
         let mut index = KeyIndex::new();

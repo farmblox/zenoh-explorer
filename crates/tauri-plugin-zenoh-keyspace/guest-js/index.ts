@@ -1,11 +1,13 @@
 /** TypeScript client for the `zenoh-keyspace` plugin. */
 import { invoke } from "@tauri-apps/api/core";
 
+import type { AclFinding } from "@/ipc/generated/AclFinding";
 import type { KeyExprAnalysis } from "@/ipc/generated/KeyExprAnalysis";
 import type { KeySpaceSnapshot } from "@/ipc/generated/KeySpaceSnapshot";
 import type { MatchResult } from "@/ipc/generated/MatchResult";
 import type { NodeDeclaration } from "@/ipc/generated/NodeDeclaration";
 import type { SessionId } from "@/ipc/generated/SessionId";
+import type { StorageCoverage } from "@/ipc/generated/StorageCoverage";
 
 /**
  * Returns the immediate children of `prefix` — pass `""` for the root.
@@ -57,4 +59,39 @@ export function analyseKeyExpr(expr: string): Promise<KeyExprAnalysis> {
 /** Tests `expr` against candidate keys, reporting the precise set relation. */
 export function testKeyExpr(expr: string, candidates: string[]): Promise<MatchResult[]> {
   return invoke("plugin:zenoh-keyspace|test_key_expr", { expr, candidates });
+}
+
+/**
+ * What the network's access-control policies would do to `keyExpr`.
+ *
+ * ACL is the quietest failure Zenoh has: a node denying `declare_subscriber` on
+ * an expression that covers yours does not refuse anything or log at you — the
+ * samples just never arrive, and every other diagnostic says the network is
+ * healthy, because it is.
+ *
+ * `message` is a Zenoh message kind spelled as the configuration spells it:
+ * `declare_subscriber`, `put`, `delete`, `declare_queryable`, `query`, `reply`,
+ * `liveliness_token`, `declare_liveliness_subscriber`, `liveliness_query`.
+ */
+export function aclFindings(
+  sessionId: SessionId,
+  keyExpr: string,
+  message: string,
+): Promise<AclFinding[]> {
+  return invoke("plugin:zenoh-keyspace|acl_findings", { sessionId, keyExpr, message });
+}
+
+/**
+ * Which storages would keep data published on `keyExpr`.
+ *
+ * Answers "can I read this back later, and from where" — a question nothing
+ * else on a Zenoh network will answer. A key covered only by the built-in
+ * `memory` volume is durable exactly until the node holding it restarts, and
+ * `inMemory` on the reply says so.
+ *
+ * The relation is measured from the storage to the key expression: `includes`
+ * means everything asked about is kept, `intersects` means only part of it is.
+ */
+export function storageCoverage(sessionId: SessionId, keyExpr: string): Promise<StorageCoverage[]> {
+  return invoke("plugin:zenoh-keyspace|storage_coverage", { sessionId, keyExpr });
 }

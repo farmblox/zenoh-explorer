@@ -537,6 +537,10 @@ mod tests {
             is_local: false,
             region: region.map(ToOwned::to_owned),
             metadata: None,
+            region_source: None,
+            south_regions: 0,
+            plugins: Vec::new(),
+            acl: None,
             source: crate::discovery::DiscoverySource::AdminSpace,
         }
     }

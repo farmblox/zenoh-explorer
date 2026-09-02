@@ -29,6 +29,7 @@ use zenoh::Session;
 use crate::discovery;
 use crate::event::{AppEvent, EventSink};
 use crate::model::{NodeSummary, SessionId, TopologySnapshot};
+use crate::storage::StorageSummary;
 
 /// How long the network has to be quiet before a probe runs.
 ///
@@ -87,6 +88,16 @@ impl TopologyPulse {
             .lock()
             .as_ref()
             .map(|snapshot| snapshot.nodes.clone())
+            .unwrap_or_default()
+    }
+
+    /// The storages the last probe found.
+    #[must_use]
+    pub fn storages(&self) -> Vec<StorageSummary> {
+        self.last
+            .lock()
+            .as_ref()
+            .map(|snapshot| snapshot.storages.clone())
             .unwrap_or_default()
     }
 

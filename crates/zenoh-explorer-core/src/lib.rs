@@ -15,17 +15,20 @@
 //! - [`connection`] — timeouts, retry and what `open` waits for
 //! - [`session`] — open sessions and the registry that owns them
 //! - [`admin`] — reading topology out of `@/**`
+//! - [`acl`] — what a node's access-control policy would do to a key
 //! - [`diagnose`] — turning transport failures into something actionable
 //! - [`discovery`] — every way to learn what is on the network, and which one told us
 //! - [`scout`] — discovering nodes we are not connected to
 //! - [`tap`] — subscriptions, coalesced for the UI
 //! - [`transport`] — transports, endpoints and TLS material
+//! - [`storage`] — where the network keeps data, and what a key lands in
 //! - [`keys`] — the observed key-space trie
 //! - [`keyexpr_tools`] — key-expression analysis and match testing
 //! - [`search`] — one matcher, ranking nodes and keys for the command palette
 //! - [`model`] — the serializable types shared with the frontend
 //! - [`event`] — push events and the sink they go into
 
+pub mod acl;
 pub mod admin;
 pub mod config;
 pub mod connection;
@@ -41,6 +44,7 @@ pub mod pulse;
 pub mod scout;
 pub mod search;
 pub mod session;
+pub mod storage;
 pub mod tap;
 pub mod time;
 pub mod transport;

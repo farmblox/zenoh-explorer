@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::node::NodeSummary;
+use crate::storage::StorageSummary;
 
 /// A directed edge between two nodes, as reported by one of them.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -52,6 +53,11 @@ pub struct TopologySnapshot {
     pub links: Vec<LinkSummary>,
     /// Zid of the session the explorer opened, so the UI can anchor the view.
     pub local_zid: String,
+    /// Every storage the network's nodes have configured.
+    ///
+    /// Read from each node's configuration during the same probe, so it arrives
+    /// pushed like everything else rather than being fetched when a view opens.
+    pub storages: Vec<StorageSummary>,
     /// Wall-clock capture time in milliseconds since the Unix epoch.
     pub captured_at_ms: u64,
     /// How many nodes are in the graph on another node's word.

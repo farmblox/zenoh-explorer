@@ -9,6 +9,7 @@ use ts_rs::TS;
 use zenoh::Session;
 use zenoh::query::{ConsolidationMode, QueryTarget};
 
+use crate::acl::{self, AclFinding, PolicyHolder};
 use crate::config::ConnectionProfile;
 use crate::declarations::{self, DeclarationWatch};
 use crate::discovery::{ConnectivityWatch, watch_connectivity};
@@ -20,6 +21,7 @@ use crate::model::{
 };
 use crate::pulse::TopologyPulse;
 use crate::search::{self, SearchResults};
+use crate::storage::{self, StorageCoverage};
 use crate::tap::{SampleSink, Tap, TapSpec, TapStats};
 use crate::time::now_ms;
 
@@ -241,6 +243,38 @@ impl ManagedSession {
             .collect();
         taps.sort_by(|a, b| a.spec.key_expr.cmp(&b.spec.key_expr));
         taps
+    }
+
+    /// Which storages would keep data published on `key_expr`.
+    ///
+    /// The difference between a key whose value can be read back later and one
+    /// that existed only while somebody happened to be listening. Answered from
+    /// the last probe, so it asks the network nothing.
+    #[must_use]
+    pub fn storage_coverage(&self, key_expr: &str) -> Vec<StorageCoverage> {
+        storage::coverage(&self.pulse.storages(), key_expr)
+    }
+
+    /// What the network's access-control policies would do to `key_expr`.
+    ///
+    /// Read from the last topology snapshot, so it asks the network nothing —
+    /// and it need not, because ACL is fixed at startup and cannot change while
+    /// a node is running.
+    #[must_use]
+    pub fn acl_findings(&self, key_expr: &str, message: &str) -> Vec<AclFinding> {
+        let nodes = self.pulse.nodes();
+        let holders: Vec<PolicyHolder<'_>> = nodes
+            .iter()
+            .filter_map(|node| {
+                node.acl.as_ref().map(|acl| PolicyHolder {
+                    zid: &node.zid,
+                    name: node.name.as_deref(),
+                    acl,
+                })
+            })
+            .collect();
+
+        acl::findings(&holders, key_expr, message)
     }
 
     /// Ranks nodes and key expressions against one query.

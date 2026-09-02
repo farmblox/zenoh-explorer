@@ -10,7 +10,7 @@ import type { KeyTreeState } from "../hooks/useKeyTree";
 export interface KeyTreeProps {
   tree: KeyTreeState;
   selected: string | null;
-  onSelect: (key: string) => void;
+  onSelect: (node: KeyNode) => void;
 }
 
 /**
@@ -65,9 +65,9 @@ export function KeyTree({ tree, selected, onSelect }: KeyTreeProps) {
           aria-expanded={expandable ? isOpen : undefined}
           aria-selected={selected === node.key}
           tabIndex={0}
-          onClick={() => onSelect(node.key)}
+          onClick={() => onSelect(node)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") onSelect(node.key);
+            if (event.key === "Enter") onSelect(node);
             if (event.key === "ArrowRight" && expandable && !isOpen) tree.toggle(node.key);
             if (event.key === "ArrowLeft" && isOpen) tree.toggle(node.key);
           }}

@@ -38,17 +38,28 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+use ahash::AHashMap;
 use serde::Deserialize;
 use zenoh::Session;
 use zenoh::query::{ConsolidationMode, QueryTarget};
 
+use crate::acl::AclSummary;
 use crate::discovery::DiscoverySource;
 use crate::error::{Error, Result};
-use crate::model::{LinkSummary, NodeKind, NodeSummary, TopologySnapshot};
+use crate::model::{LinkSummary, NodeKind, NodeSummary, RegionSource, TopologySnapshot};
+use crate::storage::StorageSummary;
 use crate::time::now_ms;
 
 /// Selector matching every node's top-level admin entry: `@/<zid>/<whatami>`.
 const NODES_SELECTOR: &str = "@/*/*";
+
+/// Selector for every node's effective configuration.
+///
+/// One query rather than three targeted ones. `region_name`, `gateway.south`
+/// and `access_control` all live here, and a wildcard admin query costs its
+/// full timeout however narrow the key is — so asking once for the whole
+/// document is strictly cheaper than asking three times for parts of it.
+const CONFIG_SELECTOR: &str = "@/*/*/config";
 
 /// Selector matching every link-state region graph.
 const LINKSTATE_SELECTOR: &str = "@/*/*/linkstate/*";
@@ -69,6 +80,123 @@ struct NodeReply {
     locators: Vec<String>,
     #[serde(default)]
     sessions: Vec<SessionReply>,
+    /// Plugins the node has loaded, as `{ id: { name, path } }`.
+    ///
+    /// Null on a node built without the `plugins` feature, which is why this is
+    /// a `Value` rather than a map: the field is present either way.
+    #[serde(default)]
+    plugins: Option<serde_json::Value>,
+}
+
+/// The ids of the plugins a node reports, sorted.
+fn plugin_ids(plugins: Option<&serde_json::Value>) -> Vec<String> {
+    let mut ids: Vec<String> = plugins
+        .and_then(serde_json::Value::as_object)
+        .map(|map| map.keys().cloned().collect())
+        .unwrap_or_default();
+    ids.sort();
+    ids
+}
+
+/// The parts of a `@/<zid>/<whatami>/config` reply the topology cares about.
+#[derive(Debug, Default, Deserialize)]
+struct ConfigReply {
+    /// The node's own region, added in Zenoh 1.9. `None` is the default.
+    #[serde(default)]
+    region_name: Option<String>,
+    #[serde(default)]
+    gateway: Option<GatewayReply>,
+    #[serde(default)]
+    access_control: Option<AclSummary>,
+    #[serde(default)]
+    plugins: Option<PluginsReply>,
+}
+
+/// The `plugins` block of a configuration.
+#[derive(Debug, Default, Deserialize)]
+struct PluginsReply {
+    #[serde(default)]
+    storage_manager: Option<StorageManagerReply>,
+}
+
+/// The storage manager's configuration.
+#[derive(Debug, Default, Deserialize)]
+struct StorageManagerReply {
+    #[serde(default)]
+    storages: BTreeMap<String, StorageEntry>,
+}
+
+/// One entry of the storage manager's `storages` map.
+#[derive(Debug, Deserialize)]
+struct StorageEntry {
+    key_expr: String,
+    #[serde(default)]
+    strip_prefix: Option<String>,
+    /// `"memory"` or `{ id: "memory", … }` — the schema allows either.
+    #[serde(default)]
+    volume: serde_json::Value,
+}
+
+impl StorageEntry {
+    /// The volume's name, whichever of the two shapes was used.
+    fn volume_name(&self) -> String {
+        self.volume
+            .as_str()
+            .or_else(|| self.volume.get("id").and_then(serde_json::Value::as_str))
+            .unwrap_or("unknown")
+            .to_owned()
+    }
+}
+
+/// Every storage described by one node's configuration.
+fn storages_of(zid: &str, config: &ConfigReply) -> Vec<StorageSummary> {
+    let Some(manager) = config
+        .plugins
+        .as_ref()
+        .and_then(|plugins| plugins.storage_manager.as_ref())
+    else {
+        return Vec::new();
+    };
+
+    // A `BTreeMap`, so the storages come out named in order without a sort.
+    let out: Vec<StorageSummary> = manager
+        .storages
+        .iter()
+        .map(|(name, entry)| {
+            let volume = entry.volume_name();
+            StorageSummary {
+                zid: zid.to_owned(),
+                name: name.clone(),
+                key_expr: entry.key_expr.clone(),
+                strip_prefix: entry.strip_prefix.clone(),
+                in_memory: volume == "memory",
+                volume,
+            }
+        })
+        .collect();
+
+    out
+}
+
+/// The `gateway` block. `south` is either a preset string or a list of regions.
+#[derive(Debug, Default, Deserialize)]
+struct GatewayReply {
+    #[serde(default)]
+    south: Option<serde_json::Value>,
+}
+
+impl GatewayReply {
+    /// How many south regions are explicitly configured.
+    ///
+    /// `"auto"` is a preset, not a region: it tells Zenoh to sort remotes by
+    /// mode the way it always did. Only an array names regions the operator
+    /// chose, and only those hide anything on purpose.
+    fn south_regions(&self) -> usize {
+        self.south
+            .as_ref()
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len)
+    }
 }
 
 /// One entry of the `sessions` array: a transport to another node.
@@ -111,9 +239,24 @@ pub async fn probe(session: &Session) -> Result<Probe> {
 
     let mut nodes: BTreeMap<String, NodeSummary> = BTreeMap::new();
     let mut links: BTreeMap<(String, String), LinkSummary> = BTreeMap::new();
+    let mut storages: Vec<StorageSummary> = Vec::new();
     let mut diagnostics = Vec::new();
 
-    let replies = collect_node_replies(session).await?;
+    // The three queries are independent and each costs its full timeout, so
+    // running them together makes a probe as slow as the slowest rather than as
+    // slow as all three.
+    let (replies, linkstate, configs) = tokio::join!(
+        collect_node_replies(session),
+        collect_linkstate(session),
+        collect_node_configs(session),
+    );
+
+    let replies = replies?;
+    let configs = configs.unwrap_or_else(|err| {
+        diagnostics.push(format!("node configuration unavailable: {err}"));
+        AHashMap::new()
+    });
+
     if replies.is_empty() {
         diagnostics.push(
             "No node answered on the admin space. Nodes must be started with \
@@ -124,19 +267,11 @@ pub async fn probe(session: &Session) -> Result<Probe> {
     }
 
     for (kind, reply) in &replies {
-        let mut summary = NodeSummary::new(reply.zid.clone(), *kind);
-        summary.locators.clone_from(&reply.locators);
-        summary.is_local = reply.zid == local_zid;
-        summary.name = name_from_metadata(reply.metadata.as_ref());
-        summary.region = location_from_metadata(reply.metadata.as_ref());
-        summary.source = DiscoverySource::AdminSpace;
-        summary.metadata = reply.metadata.clone().map(|mut meta| {
-            // Fold the version in so the inspector has it without a second query.
-            if let (Some(map), Some(version)) = (meta.as_object_mut(), reply.version.as_ref()) {
-                map.insert("version".to_owned(), serde_json::json!(version));
-            }
-            meta
-        });
+        let config = configs.get(&reply.zid);
+        if let Some(config) = config {
+            storages.extend(storages_of(&reply.zid, config));
+        }
+        let summary = summarise_node(*kind, reply, config, &local_zid);
         // Overwrites rather than inserts: another node's session list may have
         // put a placeholder here already, and a node's own reply outranks
         // anything said about it.
@@ -145,8 +280,7 @@ pub async fn probe(session: &Session) -> Result<Probe> {
         for entry in &reply.sessions {
             // Make sure the far end exists as a node even if it never answered.
             nodes.entry(entry.peer.clone()).or_insert_with(|| {
-                let mut node =
-                    NodeSummary::new(entry.peer.clone(), parse_whatami(&entry.whatami));
+                let mut node = NodeSummary::new(entry.peer.clone(), parse_whatami(&entry.whatami));
                 // Named by a node that did answer. Weaker than describing
                 // itself, and the difference is what `unverified_nodes` counts.
                 node.source = DiscoverySource::LinkState;
@@ -157,7 +291,7 @@ pub async fn probe(session: &Session) -> Result<Probe> {
     }
 
     // Link-state fills in routers that exist in the graph but did not reply.
-    match collect_linkstate(session).await {
+    match linkstate {
         Ok(graphs) => merge_linkstate(graphs, &mut nodes, &mut links, &mut diagnostics),
         Err(err) => diagnostics.push(format!("link-state unavailable: {err}")),
     }
@@ -177,17 +311,83 @@ pub async fn probe(session: &Session) -> Result<Probe> {
         .filter(|n| !n.is_local && n.source != DiscoverySource::AdminSpace)
         .count();
 
+    // A gateway hides its south region on purpose. Zenoh's deployment model is
+    // explicit that it "will hide non needed details of the sub region(s) to the
+    // upper region (number of nodes, topology, individual subscribers and
+    // queryables)" — so a graph can be both complete and small, and calling that
+    // partial without saying why sends someone hunting a fault that is not there.
+    let gateways = nodes.values().filter(|node| node.south_regions > 0).count();
+    let hidden_regions: usize = nodes.values().map(|node| node.south_regions).sum();
+    if gateways > 0 {
+        diagnostics.push(format!(
+            "{gateways} node{} configured as a Zenoh gateway, serving \
+             {hidden_regions} south region{}. What is inside a south region — its \
+             nodes, its topology, its subscribers and queryables — is hidden from \
+             this side by design. Connect inside the region to see it.",
+            if gateways == 1 { " is" } else { "s are" },
+            if hidden_regions == 1 { "" } else { "s" },
+        ));
+    }
+
     Ok(Probe {
         snapshot: TopologySnapshot {
             nodes: nodes.into_values().collect(),
             links: links.into_values().collect(),
             local_zid,
             captured_at_ms: now_ms(),
+            storages,
             unverified_nodes,
             admin_responses: replies.len(),
         },
         notes: diagnostics,
     })
+}
+
+/// Builds one node's summary from its own reply and its configuration.
+///
+/// Split out of `probe` because it is the one part that reads from two
+/// different queries at once, and because everything it decides is about a
+/// single node rather than about the graph.
+fn summarise_node(
+    kind: NodeKind,
+    reply: &NodeReply,
+    config: Option<&ConfigReply>,
+    local_zid: &str,
+) -> NodeSummary {
+    let mut summary = NodeSummary::new(reply.zid.clone(), kind);
+    summary.locators.clone_from(&reply.locators);
+    summary.is_local = reply.zid == local_zid;
+    summary.name = name_from_metadata(reply.metadata.as_ref());
+    summary.plugins = plugin_ids(reply.plugins.as_ref());
+    summary.source = DiscoverySource::AdminSpace;
+
+    // Zenoh's own `region_name` first. It is the name gateway filters match on,
+    // so it is the only one that means anything to the network itself;
+    // `metadata.location` is an operator convention that fills the gap when
+    // nobody has set a region, which is the default.
+    let configured = config.and_then(|config| config.region_name.clone());
+    let (region, region_source) = match configured {
+        Some(name) => (Some(name), Some(RegionSource::Configured)),
+        None => match location_from_metadata(reply.metadata.as_ref()) {
+            Some(name) => (Some(name), Some(RegionSource::Metadata)),
+            None => (None, None),
+        },
+    };
+    summary.region = region;
+    summary.region_source = region_source;
+    summary.south_regions = config
+        .and_then(|config| config.gateway.as_ref())
+        .map_or(0, GatewayReply::south_regions);
+    summary.acl = config.and_then(|config| config.access_control.clone());
+    summary.metadata = reply.metadata.clone().map(|mut meta| {
+        // Fold the version in so the inspector has it without a second query.
+        if let (Some(map), Some(version)) = (meta.as_object_mut(), reply.version.as_ref()) {
+            map.insert("version".to_owned(), serde_json::json!(version));
+        }
+        meta
+    });
+
+    summary
 }
 
 /// Folds the link-state graphs into the node and link maps.
@@ -290,6 +490,52 @@ async fn collect_node_replies(session: &Session) -> Result<Vec<(NodeKind, NodeRe
     Ok(out)
 }
 
+/// Reads every node's configuration, keyed by zid.
+///
+/// Separate from the node query because the two answer different keys, and
+/// because a node with `adminspace.permissions.read` off will serve one and not
+/// the other — a missing config is a gap in what we can say about a node, not a
+/// reason to fail the whole probe.
+async fn collect_node_configs(session: &Session) -> Result<AHashMap<String, ConfigReply>> {
+    let replies = session
+        .get(CONFIG_SELECTOR)
+        .target(QueryTarget::All)
+        .consolidation(ConsolidationMode::None)
+        .timeout(QUERY_TIMEOUT)
+        .await
+        .map_err(Error::zenoh)?;
+
+    let mut out = AHashMap::new();
+    while let Ok(reply) = replies.recv_async().await {
+        let Ok(sample) = reply.result() else { continue };
+        let key = sample.key_expr().as_str();
+        let Some(zid) = zid_from_admin_key(key) else {
+            continue;
+        };
+
+        let bytes = sample.payload().to_bytes();
+        match serde_json::from_slice::<ConfigReply>(&bytes) {
+            Ok(config) => {
+                out.insert(zid, config);
+            }
+            Err(err) => tracing::debug!(
+                key = %key,
+                error = %err,
+                "skipping a config reply that did not decode"
+            ),
+        }
+    }
+    Ok(out)
+}
+
+/// The zid in `@/<zid>/…`.
+fn zid_from_admin_key(key: &str) -> Option<String> {
+    key.strip_prefix("@/")?
+        .split('/')
+        .next()
+        .map(std::borrow::ToOwned::to_owned)
+}
+
 /// The role in `@/<zid>/<router|peer|client>`.
 ///
 /// Zenoh puts a node's role in the key and nothing about it in the body, so this
@@ -353,10 +599,7 @@ fn add_link(links: &mut BTreeMap<(String, String), LinkSummary>, from: &str, ent
     // Every session entry carries the links beneath it, so an admin-derived
     // edge knows the protocol actually in use. Reading it off the far node's
     // listening locators instead would name a protocol it merely offers.
-    let protocol = entry
-        .links
-        .first()
-        .and_then(|link| protocol_of(&link.dst));
+    let protocol = entry.links.first().and_then(|link| protocol_of(&link.dst));
 
     // Zenoh reports `unknown` for a link it has not placed in a routing tree,
     // which is an absence rather than a tree named "unknown".
@@ -522,6 +765,117 @@ fn extract_label(line: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn storages_are_read_out_of_a_node_configuration() {
+        // Both volume shapes the schema allows, in one config.
+        let config = config_of(
+            r#"{"plugins":{"storage_manager":{"storages":{
+                 "demo":{"key_expr":"demo/example/**","volume":"memory"},
+                 "influx":{"key_expr":"fleet/**","strip_prefix":"fleet",
+                           "volume":{"id":"my-volume","db":"Fleet"}}
+               }}}}"#,
+        );
+
+        let found = storages_of("aaaa", &config);
+        assert_eq!(found.len(), 2);
+
+        assert_eq!(found[0].name, "demo");
+        assert_eq!(found[0].key_expr, "demo/example/**");
+        assert_eq!(found[0].volume, "memory");
+        assert!(found[0].in_memory, "the built-in volume is not persistent");
+
+        assert_eq!(found[1].name, "influx");
+        assert_eq!(found[1].volume, "my-volume");
+        assert_eq!(found[1].strip_prefix.as_deref(), Some("fleet"));
+        assert!(!found[1].in_memory);
+    }
+
+    #[test]
+    fn a_node_with_no_storage_manager_has_no_storages() {
+        assert!(storages_of("aaaa", &config_of(r#"{"plugins":{}}"#)).is_empty());
+        assert!(storages_of("aaaa", &config_of("{}")).is_empty());
+    }
+
+    fn config_of(json: &str) -> ConfigReply {
+        serde_json::from_str(json).expect("config should decode")
+    }
+
+    #[test]
+    fn a_configured_region_name_is_read() {
+        let config = config_of(r#"{"region_name":"region_1"}"#);
+        assert_eq!(config.region_name.as_deref(), Some("region_1"));
+    }
+
+    #[test]
+    fn an_unset_region_name_is_none() {
+        // Zenoh's default. Most deployments never set one, which is why
+        // `metadata.location` still has to be a fallback.
+        let config = config_of(r#"{"region_name":null}"#);
+        assert!(config.region_name.is_none());
+    }
+
+    #[test]
+    fn the_auto_gateway_preset_names_no_south_region() {
+        let config = config_of(r#"{"gateway":{"south":"auto"}}"#);
+        let gateway = config.gateway.expect("gateway present");
+        assert_eq!(gateway.south_regions(), 0);
+    }
+
+    #[test]
+    fn configured_south_regions_are_counted() {
+        let config = config_of(
+            r#"{"gateway":{"south":[
+                 {"filters":[{"region_names":["region_1"]}]},
+                 {"filters":[{"region_names":["region_2"]}]}
+               ]}}"#,
+        );
+        let gateway = config.gateway.expect("gateway present");
+        assert_eq!(gateway.south_regions(), 2);
+    }
+
+    #[test]
+    fn a_config_without_a_gateway_block_is_fine() {
+        let config = config_of(r#"{"region_name":"main"}"#);
+        assert!(config.gateway.is_none());
+    }
+
+    #[test]
+    fn the_access_control_block_decodes() {
+        let config = config_of(
+            r#"{"access_control":{"enabled":true,"default_permission":"allow",
+                 "rules":[{"id":"r","permission":"deny","flows":["ingress"],
+                           "messages":["put"],"key_exprs":["demo/**"]}],
+                 "policies":[{"rules":["r"],"subjects":["s"]}]}}"#,
+        );
+        let acl = config.access_control.expect("acl present");
+        assert!(acl.enabled);
+        assert_eq!(acl.active_rules().len(), 1);
+    }
+
+    #[test]
+    fn plugin_ids_come_out_sorted() {
+        let plugins = serde_json::json!({
+            "storage_manager": {"name":"storage_manager","path":"/x"},
+            "rest": {"name":"rest","path":"/y"}
+        });
+        assert_eq!(plugin_ids(Some(&plugins)), vec!["rest", "storage_manager"]);
+    }
+
+    #[test]
+    fn a_node_without_the_plugins_feature_reports_none() {
+        assert!(plugin_ids(Some(&serde_json::Value::Null)).is_empty());
+        assert!(plugin_ids(None).is_empty());
+    }
+
+    #[test]
+    fn a_zid_is_read_out_of_an_admin_key() {
+        assert_eq!(
+            zid_from_admin_key("@/abc/router/config").as_deref(),
+            Some("abc")
+        );
+        assert!(zid_from_admin_key("nonsense").is_none());
+    }
+
     use super::*;
 
     const SAMPLE_DOT: &str = r#"

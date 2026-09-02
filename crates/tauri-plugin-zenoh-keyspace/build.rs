@@ -8,6 +8,8 @@ const COMMANDS: &[&str] = &[
     "clear_keys",
     "analyse_key_expr",
     "test_key_expr",
+    "acl_findings",
+    "storage_coverage",
 ];
 
 fn main() {

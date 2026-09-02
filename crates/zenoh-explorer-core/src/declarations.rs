@@ -5,7 +5,10 @@
 //! | Key                                          | Meaning                    |
 //! |----------------------------------------------|----------------------------|
 //! | `@/<zid>/<whatami>/subscriber/<keyexpr>`     | that node subscribes here  |
+//! | `@/<zid>/<whatami>/publisher/<keyexpr>`      | that node publishes here   |
 //! | `@/<zid>/<whatami>/queryable/<keyexpr>`      | that node answers here     |
+//! | `@/<zid>/<whatami>/querier/<keyexpr>`        | that node queries here     |
+//! | `@/<zid>/<whatami>/token/<keyexpr>`          | an app is alive here       |
 //!
 //! The key expression is carried in the reply's KEY, not its payload, which is
 //! why this can be read without decoding anything.
@@ -17,19 +20,21 @@
 
 use std::sync::Arc;
 
+use zenoh::Session;
 use zenoh::pubsub::Subscriber;
 use zenoh::query::{ConsolidationMode, QueryTarget};
 use zenoh::sample::SampleKind;
-use zenoh::Session;
 
 use crate::error::{Error, Result};
 use crate::model::DeclarationKind;
 
-/// Selector matching every subscriber declared anywhere on the network.
-const SUBSCRIBERS: &str = "@/*/*/subscriber/**";
-
-/// Selector matching every queryable declared anywhere on the network.
-const QUERYABLES: &str = "@/*/*/queryable/**";
+/// The selector matching every declaration of one kind, anywhere.
+///
+/// Built from the kind rather than written out, so adding a kind to
+/// [`DeclarationKind`] cannot leave it unread here.
+fn selector_for(kind: DeclarationKind) -> String {
+    format!("@/*/*/{}/**", kind.admin_segment())
+}
 
 /// How long to wait for declarations.
 ///
@@ -64,11 +69,9 @@ pub async fn probe(session: &Session) -> (Vec<Declaration>, Vec<String>) {
     let mut declarations = Vec::new();
     let mut diagnostics = Vec::new();
 
-    for (selector, kind) in [
-        (SUBSCRIBERS, DeclarationKind::Subscriber),
-        (QUERYABLES, DeclarationKind::Queryable),
-    ] {
-        match collect(session, selector, kind).await {
+    for kind in DeclarationKind::ALL {
+        let selector = selector_for(kind);
+        match collect(session, &selector, kind).await {
             Ok(found) => declarations.extend(found),
             Err(err) => diagnostics.push(format!("{selector}: {err}")),
         }
@@ -136,7 +139,6 @@ fn parse_key(admin_key: &str, kind: DeclarationKind) -> Option<Declaration> {
     })
 }
 
-
 /// A live subscription to the network's declarations.
 ///
 /// Held for its lifetime; dropping it undeclares the subscribers.
@@ -182,13 +184,11 @@ where
 pub async fn watch(session: &Session, sink: Arc<dyn DeclarationSink>) -> Result<DeclarationWatch> {
     let mut subscribers = Vec::new();
 
-    for (selector, kind) in [
-        (SUBSCRIBERS, DeclarationKind::Subscriber),
-        (QUERYABLES, DeclarationKind::Queryable),
-    ] {
+    for kind in DeclarationKind::ALL {
         let sink = Arc::clone(&sink);
+        let selector = selector_for(kind);
         let subscriber = session
-            .declare_subscriber(selector)
+            .declare_subscriber(selector.clone())
             .callback(move |sample| {
                 let Some(declaration) = parse_key(sample.key_expr().as_str(), kind) else {
                     return;
@@ -201,7 +201,7 @@ pub async fn watch(session: &Session, sink: Arc<dyn DeclarationSink>) -> Result<
             })
             .await
             .map_err(|err| Error::KeyExpr {
-                expr: selector.to_owned(),
+                expr: selector.clone(),
                 reason: err.to_string(),
             })?;
 
@@ -215,6 +215,48 @@ pub async fn watch(session: &Session, sink: Arc<dyn DeclarationSink>) -> Result<
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn every_kind_has_a_selector_zenoh_publishes() {
+        // The five segments Zenoh's adminspace registers handlers for.
+        let selectors: Vec<String> = DeclarationKind::ALL
+            .iter()
+            .copied()
+            .map(selector_for)
+            .collect();
+        assert_eq!(
+            selectors,
+            vec![
+                "@/*/*/subscriber/**",
+                "@/*/*/publisher/**",
+                "@/*/*/queryable/**",
+                "@/*/*/querier/**",
+                "@/*/*/token/**",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_publisher_key_parses() {
+        let parsed = parse_key(
+            "@/abc/peer/publisher/fleet/agv/**",
+            DeclarationKind::Publisher,
+        )
+        .expect("should parse");
+        assert_eq!(parsed.key_expr, "fleet/agv/**");
+        assert_eq!(parsed.kind, DeclarationKind::Publisher);
+    }
+
+    #[test]
+    fn a_liveliness_token_key_parses() {
+        let parsed = parse_key(
+            "@/abc/peer/token/fleet/agv/07",
+            DeclarationKind::LivelinessToken,
+        )
+        .expect("should parse");
+        assert_eq!(parsed.key_expr, "fleet/agv/07");
+        assert_eq!(parsed.kind, DeclarationKind::LivelinessToken);
+    }
+
     use super::*;
 
     #[test]

@@ -480,7 +480,10 @@ mod retry_tests {
         .into_iter()
         .collect();
 
-        assert_eq!(entries.get("adminspace/enabled").map(String::as_str), Some("false"));
+        assert_eq!(
+            entries.get("adminspace/enabled").map(String::as_str),
+            Some("false")
+        );
         assert!(!entries.contains_key("metadata"));
     }
 
@@ -492,9 +495,14 @@ mod retry_tests {
             .into_iter()
             .collect();
 
-        assert_eq!(entries.get("adminspace/enabled").map(String::as_str), Some("true"));
         assert_eq!(
-            entries.get("adminspace/permissions/write").map(String::as_str),
+            entries.get("adminspace/enabled").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            entries
+                .get("adminspace/permissions/write")
+                .map(String::as_str),
             Some("false"),
             "the network must never be able to write our config"
         );

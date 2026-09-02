@@ -21,6 +21,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::clear_keys,
             commands::analyse_key_expr,
             commands::test_key_expr,
+            commands::acl_findings,
+            commands::storage_coverage,
         ])
         .build()
 }

@@ -15,7 +15,7 @@ import {
   StatGrid,
   Toolbar,
 } from "@/components/ui";
-import type { SampleRecord, SessionId } from "@/ipc";
+import type { KeyNode, SampleRecord, SessionId } from "@/ipc";
 import { compactNumber, groupedNumber } from "@/lib/format";
 import { useReveal } from "@/navigation/useReveal";
 import { useActiveSessionId, useTap, useTapStore } from "@/stores";
@@ -70,9 +70,14 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
   // Picking a key in the tree aims the subscription at it. It does not start
   // one: subscribing is a deliberate act, and clicking through a tree should
   // not silently open sockets behind you.
-  const selectKey = useCallback((key: string) => {
-    setSelected(key);
-    setKeyExpr(key);
+  const selectKey = useCallback((node: KeyNode) => {
+    setSelected(node.key);
+    // A branch aimed at literally would subscribe to nothing: `fleet/agv`
+    // matches the key `fleet/agv` and not one thing published beneath it, so
+    // clicking a subtree with 148 keys under it and pressing Subscribe would
+    // sit there receiving silence. `**` matches zero or more chunks, so the
+    // wildcard form covers the branch key itself as well.
+    setKeyExpr(node.childCount > 0 ? `${node.key}/**` : node.key);
   }, []);
 
   // The palette can name a key at any depth, so the tree has to be opened down
@@ -82,9 +87,13 @@ function Keyspace({ sessionId }: { sessionId: SessionId }) {
   const revealKey = useCallback(
     (key: string) => {
       expandTo(key);
-      selectKey(key);
+      setSelected(key);
+      // The palette carries a key, not a tree node, so whether this one has
+      // children is not known here. `**` is the safe aim: it matches the key
+      // itself too, so a leaf is not made unreachable by it.
+      setKeyExpr(`${key}/**`);
     },
-    [expandTo, selectKey],
+    [expandTo],
   );
   useReveal("keyspace", revealKey);
 

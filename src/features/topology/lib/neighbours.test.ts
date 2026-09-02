@@ -10,6 +10,10 @@ function node(zid: string, kind: NodeSummary["kind"]): NodeSummary {
     kind,
     locators: [],
     isLocal: false,
+    regionSource: null,
+    southRegions: 0,
+    plugins: [],
+    acl: null,
     region: null,
     metadata: null,
     source: "adminSpace",
@@ -31,6 +35,7 @@ const SNAPSHOT: TopologySnapshot = {
   links: [link("rtr-a", "rtr-b"), link("rtr-a", "cli-1"), link("rtr-b", "cli-2", false)],
   localZid: "rtr-a",
   capturedAtMs: 0,
+  storages: [],
   unverifiedNodes: 0,
   adminResponses: 4,
 };

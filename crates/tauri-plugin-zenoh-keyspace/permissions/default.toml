@@ -12,4 +12,6 @@ permissions = [
   "allow-clear-keys",
   "allow-analyse-key-expr",
   "allow-test-key-expr",
+  "allow-acl-findings",
+  "allow-storage-coverage",
 ]
