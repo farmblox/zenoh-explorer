@@ -74,15 +74,23 @@ const THEME = EditorView.theme({
 
   // Faint, not disabled. A line number is content you read off and count with,
   // and at the disabled weight it measured 2.4:1 — present but not legible.
+  // A tint rather than a surface: this editor sits on `surface-0` in the node
+  // peek, `surface-1` in the config screen and `surface-2` in a dialog, and a
+  // fixed colour would be wrong on two of the three. `--line-soft` is
+  // translucent and directional, so it darkens the light theme and lightens the
+  // dark one whatever is behind it.
   ".cm-gutters": {
-    backgroundColor: "transparent",
+    backgroundColor: "var(--line-soft)",
     color: "var(--ink-faint)",
     border: "none",
+    borderRight: "1px solid var(--line-soft)",
     paddingRight: "4px",
   },
   ".cm-lineNumbers .cm-gutterElement": { padding: "0 8px 0 16px", minWidth: "2.5rem" },
-  ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--ink-muted)" },
-  ".cm-activeLine": { backgroundColor: "var(--line-soft)" },
+  // The active row highlights across the gutter and the line together, so it
+  // reads as one row rather than as two things that happen to line up.
+  ".cm-activeLineGutter": { backgroundColor: "var(--overlay-hover)", color: "var(--ink-muted)" },
+  ".cm-activeLine": { backgroundColor: "var(--overlay-hover)" },
 
   // Drawn selection rather than the native one, so it can use the app's token
   // on both themes instead of the platform's blue.

@@ -195,7 +195,11 @@ export function PublishDialog({
         </>
       }
     >
-      <div className="space-y-5 p-5">
+      {/* A fixed frame, for the reason Settings gives for its own: a put
+          carries a value editor and a delete carries a sentence, and sizing to
+          content made the dialog jump every time the kind changed — which
+          reads as the window flinching. */}
+      <div className="scroll-thin h-[380px] space-y-5 overflow-y-auto p-5">
         <SegmentedControl segments={KINDS} value={kind} onChange={setKind} label="What to send" />
 
         <Field
