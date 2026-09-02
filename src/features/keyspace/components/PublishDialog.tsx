@@ -1,21 +1,38 @@
-import { AlertTriangle, Send, Trash2 } from "lucide-react";
+import { Send, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { KeyExpr } from "@/components/domain";
-import { Button, CodeEditor, ComboBox, Dialog, Field, Input, Switch } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  CodeEditor,
+  ComboBox,
+  Dialog,
+  Field,
+  Input,
+  SegmentedControl,
+  Switch,
+} from "@/components/ui";
 import { data, keyspace, toIpcError, type KeyExprAnalysis, type SessionId } from "@/ipc";
-import { cn } from "@/lib/cn";
 import { bytes } from "@/lib/format";
 import { toast, useUiStore } from "@/stores";
 
 /**
- * The encodings Zenoh names, plus the one it assumes.
+ * What the sample will be.
  *
- * Zenoh transports any bytes; an encoding is a note to whoever reads them
- * about how to decode. The list is short on purpose — these are the ones the
- * documentation names, and a free-text field would invite typos into a value
- * other applications parse.
+ * Zenoh has no separate delete operation: a delete is a sample like any other,
+ * carrying `SampleKind::Delete` instead of a value. So this is one composer with
+ * the kind chosen first, rather than two dialogs — and the words are the ones
+ * the sample table already uses, because what is sent here is what arrives
+ * there.
  */
+const KINDS = [
+  { value: "put", label: "Publish a value" },
+  { value: "delete", label: "Delete the key" },
+] as const;
+
+type Kind = (typeof KINDS)[number]["value"];
+
+/** The encodings Zenoh's documentation names. */
 const ENCODINGS = [
   { value: "text/plain", label: "text/plain" },
   { value: "application/json", label: "application/json" },
@@ -38,17 +55,17 @@ export interface PublishDialogProps {
 }
 
 /**
- * Publishing to a key, or deleting one.
+ * Composing one sample for one key.
  *
- * A dialog rather than a panel, and the only modal act in the key space. Every
- * other thing this app does is a question; this is the one that changes the
- * network being inspected, and on the deployments this tool is pointed at that
- * can mean a robot. So it interrupts, it names the network it is about to
- * change, and it puts the key and the payload in front of you together.
+ * The only modal act in the key space. Everything else this app does is a
+ * question; this is the one that changes the network being inspected, and on
+ * the deployments this tool gets pointed at that can mean a robot. So it
+ * interrupts, and it names the network it is about to change.
  *
- * Writes are armed per session and default to off. The Tauri capability permits
- * them — it has to, or the command would fail at the boundary — so the guard
- * has to be here, where it can say which network it is guarding.
+ * The arming switch sits in the footer beside the button it gates rather than
+ * in a banner across the top. It is a precondition of one action, not a warning
+ * about the screen — and a banner that stays loud after it has been read is a
+ * banner that stops being read.
  */
 export function PublishDialog({
   open,
@@ -60,6 +77,7 @@ export function PublishDialog({
   const armed = useUiStore((state) => state.writesArmed(sessionId));
   const armWrites = useUiStore((state) => state.armWrites);
 
+  const [kind, setKind] = useState<Kind>("put");
   const [key, setKey] = useState(initialKey);
   const [payload, setPayload] = useState("");
   const [encoding, setEncoding] = useState<Encoding>("text/plain");
@@ -72,6 +90,7 @@ export function PublishDialog({
   if (wasOpen !== open) {
     setWasOpen(open);
     if (open) {
+      setKind("put");
       setKey(initialKey);
       setPayload("");
       setSending(false);
@@ -112,35 +131,28 @@ export function PublishDialog({
   const target = analysis?.canonical ?? trimmed;
 
   // Unverified blocks too. A wildcard is refused rather than warned about —
-  // `fleet/**` names every key beneath it, and a put that fans out across a
-  // fleet is not something to confirm your way into — so the moment before the
-  // verdict arrives has to be a moment where the button does not work.
-  const blocked = trimmed === "" || analysis === null || invalid || wildcard;
-
-  const finish = (verb: string) => {
-    toast.success(verb, `${target} on ${sessionName}`);
-    onClose();
-  };
-
-  const fail = (thrown: unknown) => {
-    setSending(false);
-    toast.error({ title: "The write failed", body: toIpcError(thrown).message });
-  };
+  // `fleet/**` names every key beneath it — so the moment before the verdict
+  // arrives has to be a moment where the button does not work.
+  const ready = trimmed !== "" && analysis !== null && !invalid && !wildcard;
+  const blocked = !armed || !ready || sending;
 
   const send = () => {
     setSending(true);
-    void data
-      .put(sessionId, target, new TextEncoder().encode(payload), encoding)
-      .then(() => finish("Published"))
-      .catch(fail);
-  };
 
-  const remove = () => {
-    setSending(true);
-    void data
-      .del(sessionId, target)
-      .then(() => finish("Deleted"))
-      .catch(fail);
+    const write =
+      kind === "put"
+        ? data.put(sessionId, target, new TextEncoder().encode(payload), encoding)
+        : data.del(sessionId, target);
+
+    void write
+      .then(() => {
+        toast.success(kind === "put" ? "Published" : "Deleted", `${target} on ${sessionName}`);
+        onClose();
+      })
+      .catch((thrown: unknown) => {
+        setSending(false);
+        toast.error({ title: "The write failed", body: toIpcError(thrown).message });
+      });
   };
 
   return (
@@ -151,69 +163,50 @@ export function PublishDialog({
       className="!w-[560px] max-w-[92vw]"
       footer={
         <>
-          <Button
-            variant="danger"
-            icon={<Trash2 size={13} />}
-            disabled={!armed || blocked || sending}
-            onClick={remove}
-          >
-            Delete this key
-          </Button>
-          <span className="flex-1" />
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            icon={<Send size={13} />}
-            disabled={!armed || blocked || sending}
-            onClick={send}
-          >
-            Publish
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4 p-5">
-        {/* Which network, before what to send. The same key means different
-            things on a test rig and on a fleet, and only one of those is
-            recoverable by shrugging. */}
-        <div
-          className={cn(
-            "rounded-panel border-line flex items-start gap-3 border p-3",
-            armed ? "bg-warn-subtle" : "bg-surface-1",
-          )}
-        >
-          <AlertTriangle
-            size={15}
-            className={cn("mt-px shrink-0", armed ? "text-warn" : "text-ink-faint")}
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-small text-ink font-medium">
-              {armed ? `Writing to ${sessionName}` : `${sessionName} is read-only`}
-            </p>
-            <p className="text-tiny text-ink-muted mt-0.5">
-              {armed
-                ? "Anything subscribed to this key will receive what you send, immediately."
-                : "Turn this on to publish or delete. It goes back off when the app restarts."}
-            </p>
-          </div>
+          {/* The guard, beside the button it guards. */}
           <Switch
             checked={armed}
             onChange={(next) => armWrites(sessionId, next)}
             label={`Allow writes to ${sessionName}`}
           />
-        </div>
+          <span className="text-tiny text-ink-muted min-w-0 truncate">
+            {armed ? (
+              <>
+                Writing to <span className="text-ink font-medium">{sessionName}</span>
+              </>
+            ) : (
+              <>
+                <span className="text-ink font-medium">{sessionName}</span> is read-only
+              </>
+            )}
+          </span>
+          <span className="flex-1" />
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant={kind === "put" ? "primary" : "danger"}
+            icon={kind === "put" ? <Send size={13} /> : <Trash2 size={13} />}
+            disabled={blocked}
+            onClick={send}
+          >
+            {kind === "put" ? "Publish" : "Delete"}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5 p-5">
+        <SegmentedControl segments={KINDS} value={kind} onChange={setKind} label="What to send" />
 
         <Field
           label="Key"
           {...(invalid && analysis?.error
             ? { error: analysis.error }
             : wildcard
-              ? { error: "A wildcard names more than one key. Publishing needs exactly one." }
+              ? { error: "A wildcard names more than one key. This needs exactly one." }
               : analysis?.isCanonical === false && analysis.canonical
                 ? { hint: `sent as ${analysis.canonical}` }
-                : { hint: "one key, no wildcards" })}
+                : {})}
         >
           <Input
             data-autofocus
@@ -225,42 +218,41 @@ export function PublishDialog({
           />
         </Field>
 
-        <div className="space-y-1.5">
-          <div className="flex items-end gap-3">
-            <span className="text-tiny text-ink-muted font-medium">Value</span>
-            <span className="flex-1" />
-            <span className="numeric text-tiny text-ink-faint">{bytes(size)}</span>
-            <ComboBox
-              label="Encoding"
-              value={encoding}
-              options={ENCODINGS}
-              onChange={setEncoding}
-              mono
-            />
+        {kind === "put" ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <span className="text-small text-ink font-medium">Value</span>
+              {/* Only once there is something to measure. A byte count of an
+                  empty field is a number that says nothing. */}
+              {size > 0 ? (
+                <span className="numeric text-tiny text-ink-faint">{bytes(size)}</span>
+              ) : null}
+              <span className="flex-1" />
+              <ComboBox
+                label="Encoding"
+                value={encoding}
+                options={ENCODINGS}
+                onChange={setEncoding}
+                mono
+              />
+            </div>
+            <div className="rounded-control border-line bg-surface-2 focus-within:border-accent h-44 overflow-hidden border">
+              <CodeEditor
+                label="Value to publish"
+                value={payload}
+                onChange={setPayload}
+                placeholder={'{"mode":"idle"}'}
+              />
+            </div>
           </div>
-          <div className="rounded-control border-line bg-surface-2 focus-within:border-accent h-40 overflow-hidden border">
-            <CodeEditor
-              label="Value to publish"
-              value={payload}
-              onChange={setPayload}
-              placeholder={'{"mode":"idle"}'}
-            />
-          </div>
-          <p className="text-tiny text-ink-faint">
-            Sent as bytes. The encoding is a note to whoever reads them, not a conversion.
+        ) : (
+          // Said once, because it is not obvious: a delete is not a local
+          // erasure, it is a sample every subscriber receives.
+          <p className="text-small text-ink-muted rounded-control bg-surface-1 border-line border p-4 leading-relaxed">
+            Sends a <Badge tone="danger">delete</Badge> sample on this key. Subscribers receive it
+            the way they receive a value, and any storage covering the key drops what it held.
           </p>
-        </div>
-
-        {/* Shown rather than described: the one line that says exactly what
-            leaves this window. */}
-        {!blocked ? (
-          <p className="text-tiny text-ink-muted flex items-center gap-2">
-            <span>Sending</span>
-            <KeyExpr value={target} className="text-tiny" />
-            <span className="numeric">{bytes(size)}</span>
-            <span className="numeric">{encoding}</span>
-          </p>
-        ) : null}
+        )}
       </div>
     </Dialog>
   );
