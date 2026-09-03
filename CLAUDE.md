@@ -173,6 +173,11 @@ you switch tabs. Do not write a reset effect for that.
   `docs/releasing.md`.
 - **WebDriver plugins are behind the `e2e` feature** and a config overlay. Never
   enable them for a release: they embed a server that runs arbitrary JS.
+- **The release workflow seeds `~/.cache/tauri` with upstream's linuxdeploy**
+  before the Linux build. Tauri's own copy is from July 2024 and bundles
+  `libwayland-client`, which stops the AppImage opening a window on any host
+  with Mesa 25 or newer. The workflow also fails if the finished AppImage
+  contains that library. See `docs/releasing.md`.
 
 ## Checks
 

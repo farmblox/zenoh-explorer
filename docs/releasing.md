@@ -98,3 +98,50 @@ pnpm build
 
 That produces ordinary installers with no updater plugin compiled in and no
 `latest.json`. The app simply never checks for updates.
+
+## The Linux AppImage
+
+An AppImage carries most of its libraries with it, and that is where the one
+Linux-specific problem lives. Tauri's bundler hands the packaging to
+linuxdeploy, which walks the binary's dependency tree and copies in everything
+that is not on its exclude list. The linuxdeploy it downloads is a July 2024
+build from Tauri's mirror, and that build's exclude list predates the entry for
+`libwayland-client.so.0`. So the AppImage ships Ubuntu's libwayland-client, the
+loader uses it for the whole process because it is already loaded by the time
+Mesa asks, and Mesa 25 or newer cannot load its EGL driver against a
+libwayland-client that old. The web process prints
+
+```
+Could not create default EGL display: EGL_BAD_PARAMETER. Aborting...
+```
+
+and exits, while the main process keeps running without ever showing a window.
+Upstream tracks this as tauri-apps/tauri#15665.
+
+The bundler downloads linuxdeploy once, into `~/.cache/tauri`, and uses
+whatever is there on every later run. The release workflow puts upstream's
+current build there before `tauri build` runs, then extracts the finished
+AppImage and fails if the library is inside. Upstream's `continuous` release is
+a moving target, but so are the AppImage plugin and the GTK plugin the bundler
+already fetches from upstream on every build, and the check after the build is
+what actually guards the property we care about.
+
+To build a working AppImage locally, do the same thing first:
+
+```bash
+mkdir -p ~/.cache/tauri
+curl -fsSL -o ~/.cache/tauri/linuxdeploy-x86_64.AppImage \
+  https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
+pnpm tauri build --bundles appimage
+```
+
+An AppImage that already has the problem can be run by preloading the host's
+library over the bundled one:
+
+```bash
+LD_PRELOAD=/usr/lib/libwayland-client.so.0 ./Zenoh.Explorer_0.1.1_amd64.AppImage
+```
+
+`ldconfig -p | grep libwayland-client` prints the path on distributions that
+keep it under `/usr/lib/x86_64-linux-gnu` instead.
