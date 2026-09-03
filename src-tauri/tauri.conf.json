@@ -56,8 +56,38 @@
       "icons/icon.ico"
     ],
     "category": "DeveloperTool",
+    "copyright": "Copyright © 2026 Farmblox Inc.",
+    "license": "Apache-2.0",
+    "licenseFile": "../LICENSE",
+    "resources": {
+      "../LICENSE": "licenses/LICENSE",
+      "../NOTICE": "licenses/NOTICE",
+      "../DISTRIBUTION_LICENSES.txt": "licenses/DISTRIBUTION_LICENSES.txt"
+    },
     "shortDescription": "Explore Zenoh networks",
     "longDescription": "A modern explorer for Zenoh networks: live topology, key-space browsing, key-expression testing and live data taps.",
+    "linux": {
+      "appimage": {
+        "files": {
+          "/usr/share/licenses/zenoh-explorer/LICENSE": "../LICENSE",
+          "/usr/share/licenses/zenoh-explorer/NOTICE": "../NOTICE",
+          "/usr/share/licenses/zenoh-explorer/DISTRIBUTION_LICENSES.txt": "../DISTRIBUTION_LICENSES.txt"
+        }
+      },
+      "deb": {
+        "files": {
+          "/usr/share/doc/zenoh-explorer/copyright": "../DISTRIBUTION_LICENSES.txt",
+          "/usr/share/doc/zenoh-explorer/NOTICE": "../NOTICE"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/share/licenses/zenoh-explorer/LICENSE": "../LICENSE",
+          "/usr/share/licenses/zenoh-explorer/NOTICE": "../NOTICE",
+          "/usr/share/licenses/zenoh-explorer/DISTRIBUTION_LICENSES.txt": "../DISTRIBUTION_LICENSES.txt"
+        }
+      }
+    },
     "macOS": {
       "minimumSystemVersion": "10.15"
     },

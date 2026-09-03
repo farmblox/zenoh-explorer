@@ -17,7 +17,7 @@ export * as data from "@plugin/zenoh-data";
 export * as profiles from "@plugin/zenoh-profiles";
 
 export { pickCertificate } from "./files";
-export { onMenuEvent, openExternal } from "./shell";
+export { onMenuEvent, openDistributionLicenses, openExternal } from "./shell";
 
 export { IpcError, toIpcError } from "./errors";
 export type { CommandError, CommandErrorCode } from "./errors";

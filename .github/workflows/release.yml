@@ -46,9 +46,26 @@ jobs:
           done
           exit "$missing"
 
+  licenses:
+    name: Distribution licenses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.2,cargo-deny@0.20.2
+      - run: pnpm licenses:check
+
   release:
     name: ${{ matrix.label }}
-    needs: preflight
+    needs: [preflight, licenses]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -171,7 +188,27 @@ jobs:
         run: |
           APP_PATH="target/${{ matrix.target }}/release/bundle/macos/Zenoh Explorer.app"
           test -d "$APP_PATH"
+          test -f "$APP_PATH/Contents/Resources/licenses/LICENSE"
+          test -f "$APP_PATH/Contents/Resources/licenses/NOTICE"
+          test -f "$APP_PATH/Contents/Resources/licenses/DISTRIBUTION_LICENSES.txt"
           codesign --display --verbose=4 "$APP_PATH"
           codesign --verify --deep --strict --verbose=4 "$APP_PATH"
           spctl --assess --type execute --verbose=4 "$APP_PATH"
           xcrun stapler validate "$APP_PATH"
+
+      - name: Verify Linux license payloads
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          for package in target/${{ matrix.target }}/release/bundle/deb/*.deb; do
+            dpkg-deb --fsys-tarfile "$package" |
+              tar -tf - |
+              grep -Eq '^(\./)?usr/share/doc/zenoh-explorer/copyright$'
+          done
+
+          for appimage in target/${{ matrix.target }}/release/bundle/appimage/*.AppImage; do
+            chmod +x "$appimage"
+            "$appimage" --appimage-extract \
+              usr/share/licenses/zenoh-explorer/DISTRIBUTION_LICENSES.txt
+            test -f squashfs-root/usr/share/licenses/zenoh-explorer/DISTRIBUTION_LICENSES.txt
+            rm -rf squashfs-root
+          done

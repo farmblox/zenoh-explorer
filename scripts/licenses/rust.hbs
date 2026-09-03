@@ -1,0 +1,14 @@
+{{#each licenses}}
+================================================================================
+{{name}} ({{id}})
+================================================================================
+
+Used by:
+{{#each used_by}}
+- {{crate.name}} {{crate.version}}
+  Source: https://crates.io/crates/{{crate.name}}/{{crate.version}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}

@@ -15,6 +15,28 @@ env:
   CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
+  licenses:
+    name: Licenses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.2,cargo-deny@0.20.2
+
+      # Reject an incompatible production license, regenerate the complete
+      # notice document, and fail when the committed copy is stale.
+      - run: pnpm licenses:check
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest

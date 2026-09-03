@@ -79,6 +79,12 @@ The release workflow then builds macOS (both architectures), Linux and Windows,
 signs everything, and publishes a draft release with the installers and
 `latest.json` attached. Review the draft, add notes, publish.
 
+Before any platform build starts, the workflow rejects unapproved dependency
+licenses and verifies that `DISTRIBUTION_LICENSES.txt` matches the locked Rust
+and npm production graphs. The file is bundled with every installer. Linux
+builds additionally place it at the standard package paths, and the release job
+opens the generated Debian and AppImage payloads to prove it is present.
+
 Nothing ships until you publish the draft, so a bad build is a delete rather
 than a recall.
 

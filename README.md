@@ -181,6 +181,7 @@ pnpm testnet:down
 ```bash
 pnpm check      # TypeScript, ESLint, formatting, Vitest, Clippy, and Rust tests
 pnpm bindings   # regenerate TypeScript IPC types from Rust definitions
+pnpm licenses:check # verify approved licenses and the bundled notice document
 pnpm build      # create a production bundle for the current platform
 pnpm e2e        # build and drive the real Tauri app through WebDriver
 ```
@@ -189,6 +190,10 @@ The Rust integration suite opens real loopback Zenoh networks to verify live
 sample delivery, cross-router discovery, link-state costs, and successor-based
 route tracing. Command tests cross the actual Tauri permission and
 serialization boundary; frontend tests stub only the IPC edge.
+
+The license check requires `cargo-deny` 0.20.2 and `cargo-about` 0.9.2. CI
+installs the pinned versions automatically; contributors only need them when
+running the compliance check locally or changing production dependencies.
 
 ## Architecture
 
