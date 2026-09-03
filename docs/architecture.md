@@ -97,16 +97,30 @@ counter, both well inside 2^53.
 
 Three sources, ordered by how much cooperation they need from the other end.
 
-| Source                                     | Needs                              | Gives you                                         |
-| ------------------------------------------ | ---------------------------------- | ------------------------------------------------- |
-| `session.info().transports()` / `.links()` | nothing                            | Directly connected nodes. Always works.           |
-| `@/*/*` admin space                        | `adminspace.enabled` on the remote | Locators, sessions, regions, metadata. The graph. |
-| `@/*/*/linkstate/*`                        | a router running link-state        | Routers you can't reach directly                  |
+| Source                                     | Needs                           | Gives you                                           |
+| ------------------------------------------ | ------------------------------- | --------------------------------------------------- |
+| `session.info().transports()` / `.links()` | nothing                         | Directly connected nodes. Always works.             |
+| `@/*/router` status records                | `adminspace.enabled` on routers | Router sessions: attached peers, clients and links. |
+| `@/*/router/linkstate/*`                   | readable router admin space     | Actual routing edges, regions and link costs        |
 
 The admin-space JSON is the primary source because it's stable and structured.
 Link-state comes back as Graphviz DOT (it's `petgraph`'s `Dot` formatter under
 the hood), so the parser for it is written to be tolerant: if the format
 changes, the overlay degrades instead of the whole refresh failing.
+
+The canvas keeps transport adjacency and routing evidence separate. A
+router-to-client or router-to-peer session is an access edge; a link-state edge
+is part of Zenoh's routed graph. A router transport that appears in session
+tables but not link-state is shown as “observed only” instead of being called an
+unconfirmed access link.
+
+Selecting Route in a node's inspector asks
+`@/*/router/route/successor/src/<source-router>/dst/<local-router>` once with an
+unconsolidated all-target query. Every readable router supplies its next-hop
+decision, the core chains those decisions, and the frontend highlights that
+ordered path. Client and peer endpoints are wrapped around the router path only
+when they have one unambiguous router attachment; the UI refuses to guess for a
+multi-homed endpoint.
 
 Worth repeating: **`adminspace.enabled` is `false` by default in Zenoh 1.x.** A
 network where nobody turned it on answers none of these queries. That's the most
@@ -167,12 +181,12 @@ left behind. Hiding things in the DOM wouldn't help at this scale.
 
 ## Tests
 
-| Layer                               | Where it runs      | What it covers                                                                         |
-| ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------- |
-| `cargo test -p zenoh-explorer-core` | anywhere           | key-expression semantics, DOT parsing, the trie, payload rendering, config translation |
-| `cargo test -p zenoh-explorer`      | anywhere, headless | commands through the real ACL and serde boundary                                       |
-| `pnpm test`                         | anywhere           | helpers and components, `src/ipc` stubbed                                              |
-| `pnpm e2e`                          | needs a build      | the window opens, the frontend reaches Rust                                            |
+| Layer                               | Where it runs      | What it covers                                                                   |
+| ----------------------------------- | ------------------ | -------------------------------------------------------------------------------- |
+| `cargo test -p zenoh-explorer-core` | loopback available | semantics plus live tap, router fan-out, link-state and route-successor coverage |
+| `cargo test -p zenoh-explorer`      | anywhere, headless | commands through the real ACL and serde boundary                                 |
+| `pnpm test`                         | anywhere           | helpers and components, `src/ipc` stubbed                                        |
+| `pnpm e2e`                          | needs a build      | the window opens, the frontend reaches Rust                                      |
 
 The second one is the most useful and the least obvious. `tauri::test::mock_builder`
 gives you a real `App` on a mock runtime, and because the tests live in

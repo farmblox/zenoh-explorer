@@ -21,9 +21,10 @@ import {
 
 import { NodeKindIcon } from "@/components/domain";
 import { Tooltip } from "@/components/ui";
-import type { LinkSummary, NodeSummary, TopologySnapshot } from "@/ipc";
+import type { NodeSummary, TopologySnapshot } from "@/ipc";
 import { cn } from "@/lib/cn";
 import { controlBase, focusRing, overlayStates, pressable, transitionFast } from "@/lib/states";
+import { isObservedOnlyLink } from "../lib/edgeStyle";
 import { label as nodeLabel } from "../lib/grouping";
 import {
   buildSigmaGraph,
@@ -200,6 +201,8 @@ export interface GraphActions {
 export interface TopologyCanvasProps {
   snapshot: TopologySnapshot;
   selectedZid: string | null;
+  /** Ordered node ids in the route Zenoh selected. */
+  routeZids: readonly string[];
   /** Zids drawn only as context for a narrowed region. */
   anchors: ReadonlySet<string>;
   actions: GraphActions;
@@ -226,6 +229,7 @@ function layoutDuration(nodes: number): number {
 export function TopologyCanvas({
   snapshot,
   selectedZid,
+  routeZids,
   anchors,
   actions,
   framingKey,
@@ -241,6 +245,7 @@ export function TopologyCanvas({
   const positions = useRef(new Map<string, GraphPosition>());
   const structureKey = useRef<string | null>(null);
   const selected = useRef(selectedZid);
+  const activeRoute = useRef(routeZids);
   const selectRef = useRef(onSelectNode);
   const dragging = useRef<string | null>(null);
   const palette = useSigmaPalette();
@@ -248,6 +253,9 @@ export function TopologyCanvas({
   useEffect(() => {
     selected.current = selectedZid;
   }, [selectedZid]);
+  useEffect(() => {
+    activeRoute.current = routeZids;
+  }, [routeZids]);
   useEffect(() => {
     selectRef.current = onSelectNode;
   }, [onSelectNode]);
@@ -257,8 +265,8 @@ export function TopologyCanvas({
     [snapshot.nodes, selectedZid],
   );
   const selectedDetails = useMemo(
-    () => (selectedNode ? describeSelection(selectedNode, snapshot.links) : null),
-    [selectedNode, snapshot.links],
+    () => (selectedNode ? describeSelection(selectedNode, snapshot) : null),
+    [selectedNode, snapshot],
   );
 
   const stopLayout = useCallback(() => {
@@ -298,6 +306,14 @@ export function TopologyCanvas({
       if (!sigma || !currentGraph) return;
 
       sigma.resize();
+      const route = activeRoute.current.filter((candidate) => currentGraph.hasNode(candidate));
+      if (route.length > 1) {
+        sigma.setCustomBBox(null);
+        void fitViewportToNodes(sigma as unknown as Sigma, route, { animate: true }).then(
+          positionSelectedCard,
+        );
+        return;
+      }
       const zid = selected.current;
       if (zid && currentGraph.hasNode(zid)) {
         sigma.setCustomBBox(null);
@@ -428,7 +444,7 @@ export function TopologyCanvas({
     sigma.setGraph(built.graph);
     sigma.setSetting("hideEdgesOnMove", snapshot.links.length > 15_000);
     sigma.setSetting("hideLabelsOnMove", snapshot.nodes.length > 2_000);
-    applySelection(sigma, built.graph, selected.current, palette);
+    applySelection(sigma, built.graph, selected.current, activeRoute.current, palette);
     requestAnimationFrame(() => {
       if (renderer.current !== sigma) return;
       sigma.resize(true);
@@ -480,11 +496,11 @@ export function TopologyCanvas({
     const sigma = renderer.current;
     const currentGraph = graph.current;
     if (!sigma || !currentGraph) return;
-    applySelection(sigma, currentGraph, selectedZid, palette);
+    applySelection(sigma, currentGraph, selectedZid, routeZids, palette);
     if (selectedZid !== null) stopLayout();
     positionSelectedCard();
     reframe();
-  }, [selectedZid, palette, positionSelectedCard, reframe, stopLayout]);
+  }, [selectedZid, routeZids, palette, positionSelectedCard, reframe, stopLayout]);
 
   // Side panels and source/region changes alter available canvas width without
   // necessarily producing a browser resize event.
@@ -537,9 +553,15 @@ function applySelection(
   sigma: SigmaRenderer,
   graph: SigmaGraph,
   selectedZid: string | null,
+  routeZids: readonly string[],
   palette: SigmaPalette,
 ): void {
   const near = selectedZid ? graphNeighbourhood(graph, selectedZid) : new Set<string>();
+  const routeNodes = new Set(routeZids);
+  const routeEdges = new Set(
+    routeZids.slice(1).map((zid, index) => edgePairKey(routeZids[index] ?? "", zid)),
+  );
+  const tracingRoute = routeZids.length > 0;
 
   sigma.setSettings({
     nodeReducer: (node, data) => {
@@ -553,6 +575,27 @@ function applySelection(
           forceLabel: true,
           size: data.size + 2.5,
           zIndex: 20,
+        };
+      }
+      if (tracingRoute && routeNodes.has(node)) {
+        return {
+          ...data,
+          color: data.baseColor,
+          borderColor: palette.accentStrong,
+          haloColor: palette.accent,
+          forceLabel: true,
+          size: data.size + 1.5,
+          zIndex: 16,
+        };
+      }
+      if (tracingRoute) {
+        return {
+          ...data,
+          color: palette.surface0,
+          borderColor: palette.inkDisabled,
+          haloColor: "#00000000",
+          forceLabel: false,
+          zIndex: 0,
         };
       }
       if (selectedZid && !near.has(node)) {
@@ -574,6 +617,27 @@ function applySelection(
       };
     },
     edgeReducer: (_edge, data) => {
+      const onRoute = routeEdges.has(edgePairKey(data.sourceZid, data.targetZid));
+      if (onRoute) {
+        return {
+          ...data,
+          color: palette.accentStrong,
+          size: Math.max(5.6, data.size + 1.8),
+          label: data.detailLabel,
+          forceLabel: true,
+          zIndex: 30,
+        };
+      }
+      if (tracingRoute) {
+        return {
+          ...data,
+          color: palette.line,
+          size: Math.min(0.9, data.size),
+          label: "",
+          forceLabel: false,
+          zIndex: 0,
+        };
+      }
       const highlighted =
         selectedZid !== null && (data.sourceZid === selectedZid || data.targetZid === selectedZid);
       if (highlighted) {
@@ -581,7 +645,7 @@ function applySelection(
           ...data,
           color: palette.accent,
           size: Math.max(4.2, data.size + 0.8),
-          label: data.protocol,
+          label: data.detailLabel,
           forceLabel: true,
           zIndex: 10,
         };
@@ -597,6 +661,10 @@ function applySelection(
       return { ...data, label: "", forceLabel: false };
     },
   });
+}
+
+function edgePairKey(left: string, right: string): string {
+  return left <= right ? `${left}:${right}` : `${right}:${left}`;
 }
 
 interface SelectedNodeCardProps {
@@ -728,22 +796,23 @@ function rememberPositions(source: SigmaGraph | null, target: Map<string, GraphP
 
 function describeSelection(
   node: NodeSummary,
-  links: readonly LinkSummary[],
+  snapshot: TopologySnapshot,
 ): { linkCount: number; alert: string | null; firsthand: boolean } {
   let linkCount = 0;
-  let unconfirmed = 0;
-  for (const link of links) {
+  let observedOnly = 0;
+  const byZid = new Map(snapshot.nodes.map((entry) => [entry.zid, entry]));
+  for (const link of snapshot.links) {
     if (link.from !== node.zid && link.to !== node.zid) continue;
     linkCount += 1;
-    if (!link.bidirectional) unconfirmed += 1;
+    if (isObservedOnlyLink(link, byZid)) observedOnly += 1;
   }
   return {
     linkCount,
     alert:
       linkCount === 0 && !node.isLocal
         ? "no links"
-        : unconfirmed > 0
-          ? `${unconfirmed} link${unconfirmed === 1 ? "" : "s"} unconfirmed`
+        : observedOnly > 0
+          ? `${observedOnly} router transport${observedOnly === 1 ? "" : "s"} outside routing map`
           : null,
     firsthand: isFirsthand(node.source),
   };

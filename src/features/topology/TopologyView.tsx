@@ -6,8 +6,7 @@ import { useActiveSessionId, useTopology, useTopologyStore } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
 import { CoverageBanner } from "./components/CoverageBanner";
 import { MeshList } from "./components/MeshList";
-import { NodeInspector } from "./components/NodeInspector";
-import { RouteTracePanel } from "./components/RouteTracePanel";
+import { NodeInspector, type InspectorTab } from "./components/NodeInspector";
 import { TopologyToolbar } from "./components/TopologyToolbar";
 import { buildRegionView, narrowToRegion } from "./lib/grouping";
 import { applySourceFilter, sourceOptions, type SourceFilter } from "./lib/sources";
@@ -43,7 +42,8 @@ export function TopologyView() {
   const [source, setSource] = useState<SourceFilter>("all");
   const [region, setRegion] = useState<string | null>(null);
   const [selectedZid, setSelectedZid] = useState<string | null>(null);
-  const [traceFrom, setTraceFrom] = useState<string | null>(null);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("details");
+  const [routeZids, setRouteZids] = useState<readonly string[]>([]);
 
   // Ask once if this session has no snapshot yet.
   //
@@ -89,17 +89,47 @@ export function TopologyView() {
   const narrow = useCallback((next: string | null) => {
     setRegion(next);
     setSelectedZid(null);
-    setTraceFrom(null);
+    setInspectorTab("details");
+    setRouteZids([]);
   }, []);
 
-  const closeTrace = useCallback(() => setTraceFrom(null), []);
+  const selectNode = useCallback((zid: string | null) => {
+    setSelectedZid(zid);
+    setInspectorTab("details");
+    setRouteZids([]);
+  }, []);
+
+  const startTrace = useCallback((zid: string) => {
+    // A route can leave the currently narrowed region. Reveal the whole graph
+    // before drawing it so the highlighted path is never clipped by a filter.
+    setSource("all");
+    setRegion(null);
+    setSelectedZid(zid);
+    setInspectorTab("route");
+    setRouteZids([]);
+  }, []);
+
+  const changeInspectorTab = useCallback((tab: InspectorTab) => {
+    if (tab === "route") {
+      setSource("all");
+      setRegion(null);
+    }
+    setInspectorTab(tab);
+    if (tab === "details") setRouteZids([]);
+  }, []);
+
+  const closeInspector = useCallback(() => {
+    setSelectedZid(null);
+    setInspectorTab("details");
+    setRouteZids([]);
+  }, []);
 
   const actions = useMemo(
     () => ({
-      onInspect: (zid: string) => setSelectedZid(zid),
-      onTrace: (zid: string) => setTraceFrom(zid),
+      onInspect: selectNode,
+      onTrace: startTrace,
     }),
-    [],
+    [selectNode, startTrace],
   );
 
   const selectedNode = useMemo(
@@ -154,7 +184,7 @@ export function TopologyView() {
             rates={rates}
             anchors={anchors}
             selectedZid={selectedZid}
-            onSelect={(zid) => setSelectedZid(zid === selectedZid ? null : zid)}
+            onSelect={(zid) => selectNode(zid === selectedZid ? null : zid)}
           />
         ) : null}
 
@@ -170,10 +200,11 @@ export function TopologyView() {
               <TopologyCanvas
                 snapshot={snapshot}
                 selectedZid={selectedZid}
+                routeZids={routeZids}
                 anchors={anchors}
                 actions={actions}
                 framingKey={`${region ?? "all"}:${source}`}
-                onSelectNode={setSelectedZid}
+                onSelectNode={selectNode}
               />
             </Suspense>
           ) : (
@@ -183,24 +214,25 @@ export function TopologyView() {
                 title={awaiting ? "Probing the network" : "Nothing answered"}
                 description={
                   awaiting
-                    ? "Querying every reachable node's admin space."
+                    ? "Querying every reachable router's status record."
                     : source !== "all"
                       ? "No node was discovered through that source. Try drawing from every source."
-                      : "No node replied on the admin space. Zenoh ships with adminspace.enabled set to false, so nodes have to opt in before the explorer can read their topology. The graph fills in the moment one does."
+                      : "No router replied at @/<zid>/router. Zenoh ships with adminspace.enabled set to false, so routers have to opt in before the explorer can read their session tables."
                 }
               />
             </div>
           )}
 
-          {traceFrom && snapshot ? (
-            <RouteTracePanel from={traceFrom} snapshot={snapshot} onClose={closeTrace} />
-          ) : selectedNode && snapshot ? (
+          {selectedNode && snapshot ? (
             <NodeInspector
               node={selectedNode}
               snapshot={snapshot}
-              onClose={() => setSelectedZid(null)}
-              onSelectNode={setSelectedZid}
-              onTrace={setTraceFrom}
+              sessionId={sessionId}
+              tab={inspectorTab}
+              onTabChange={changeInspectorTab}
+              onRoutePathChange={setRouteZids}
+              onClose={closeInspector}
+              onSelectNode={selectNode}
             />
           ) : null}
         </div>

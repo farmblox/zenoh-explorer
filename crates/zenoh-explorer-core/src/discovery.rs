@@ -9,7 +9,7 @@
 //! | [`Session::info`] transports and links | nothing | direct neighbours | yes, via event listeners |
 //! | Liveliness tokens | applications to declare them | whole network | yes |
 //! | Scouting | UDP multicast, or gossip | link-local | polled |
-//! | Admin space | `adminspace.enabled` on the remote | whole network | polled |
+//! | Router status | `adminspace.enabled` on routers | whole network | polled |
 //!
 //! The explorer uses all four and records which one produced each node, because
 //! "I can see it but only as a neighbour" and "it told me about itself" are
@@ -19,8 +19,8 @@
 //! # Why this exists
 //!
 //! Zenoh 1.x defaults `adminspace.enabled` to **false**. A great many real
-//! deployments therefore expose no admin space at all, and a topology view
-//! built only on `@/**` shows such a network as empty. The transport and link
+//! deployments therefore expose no router status at all, and a topology view
+//! built only on `@/*/router` shows such a network as empty. The transport and link
 //! event listeners below need nothing from anyone: they report the local
 //! session's own connections, with history, and then stream changes.
 
@@ -55,7 +55,7 @@ pub enum DiscoverySource {
     Liveliness,
     /// Answered a scout on multicast or gossip.
     Scouting,
-    /// Described itself in its admin space.
+    /// A router described itself in its status record.
     AdminSpace,
     /// Named by another node's link-state graph.
     LinkState,
@@ -234,6 +234,20 @@ fn protocol_of(locator: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+/// Counts routers whose own `@/<zid>/router` status record did not answer.
+pub(crate) fn count_unreadable_routers<'a>(
+    nodes: impl IntoIterator<Item = &'a NodeSummary>,
+) -> usize {
+    nodes
+        .into_iter()
+        .filter(|node| {
+            !node.is_local
+                && node.kind == NodeKind::Router
+                && node.source != DiscoverySource::AdminSpace
+        })
+        .count()
+}
+
 /// Assembles a topology snapshot from every source available.
 ///
 /// Local transports come first and always work: they describe the session's own
@@ -243,7 +257,7 @@ fn protocol_of(locator: &str) -> Option<String> {
 ///
 /// This ordering is what makes the view useful against a network with
 /// `adminspace.enabled` left at its default of false. Such a network answers no
-/// admin query at all, and a snapshot built only from `@/**` would be a single
+/// router-status query at all, and a snapshot built only from `@/*/router` would be a single
 /// node with no edges.
 pub async fn snapshot(session: &Session) -> Result<(TopologySnapshot, Vec<String>)> {
     let local_zid = session.info().zid().await.to_string();
@@ -281,6 +295,8 @@ pub async fn snapshot(session: &Session) -> Result<(TopologySnapshot, Vec<String
                 // independently confirmed it.
                 bidirectional: false,
                 multicast: transports.iter().any(|t| t.zid == node.zid && t.multicast),
+                in_routing_map: false,
+                routing_cost: None,
             },
         );
         nodes.insert(node.zid.clone(), node);
@@ -313,20 +329,31 @@ pub async fn snapshot(session: &Session) -> Result<(TopologySnapshot, Vec<String
                 let key = undirected(&link.from, &link.to);
                 links
                     .entry(key)
-                    .and_modify(|existing| existing.bidirectional = true)
+                    .and_modify(|existing| {
+                        if existing.from != link.from {
+                            existing.bidirectional = true;
+                        }
+                        if existing.protocol.is_none() {
+                            existing.protocol.clone_from(&link.protocol);
+                        }
+                        if existing.region.is_none() {
+                            existing.region.clone_from(&link.region);
+                        }
+                        if link.in_routing_map {
+                            existing.in_routing_map = true;
+                            existing.routing_cost = link.routing_cost;
+                        }
+                    })
                     .or_insert(link);
             }
         }
         Err(err) => diagnostics.push(format!("admin space unavailable: {err}")),
     }
 
-    // The explorer's own session is excluded: in client mode it has no admin
-    // entry of its own to find, so counting it would mark every snapshot
-    // partial regardless of how well the rest of the network answered.
-    let unverified_nodes = nodes
-        .values()
-        .filter(|node| !node.is_local && node.source != DiscoverySource::AdminSpace)
-        .count();
+    // Peers and clients are expected to be reported by router session tables.
+    // A coverage gap is specifically a router we know exists whose own status
+    // record did not answer.
+    let unverified_nodes = count_unreadable_routers(nodes.values());
 
     Ok((
         TopologySnapshot {
@@ -391,5 +418,28 @@ mod tests {
         assert_eq!(nodes[0].kind, NodeKind::Router);
         assert_eq!(nodes[0].locators, vec!["quic/10.0.0.1:7447"]);
         assert_eq!(nodes[0].source, DiscoverySource::Transport);
+    }
+
+    #[test]
+    fn only_routers_without_a_status_reply_are_coverage_gaps() {
+        let mut unreadable_router = NodeSummary::new("router-a", NodeKind::Router);
+        unreadable_router.source = DiscoverySource::LinkState;
+
+        let mut readable_router = NodeSummary::new("router-b", NodeKind::Router);
+        readable_router.source = DiscoverySource::AdminSpace;
+
+        let mut reported_peer = NodeSummary::new("peer-a", NodeKind::Peer);
+        reported_peer.source = DiscoverySource::LinkState;
+
+        let mut reported_client = NodeSummary::new("client-a", NodeKind::Client);
+        reported_client.source = DiscoverySource::LinkState;
+
+        let nodes = [
+            unreadable_router,
+            readable_router,
+            reported_peer,
+            reported_client,
+        ];
+        assert_eq!(count_unreadable_routers(&nodes), 1);
     }
 }

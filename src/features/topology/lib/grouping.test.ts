@@ -21,8 +21,17 @@ function node(zid: string, kind: NodeSummary["kind"], region: string | null): No
   };
 }
 
-function link(from: string, to: string): LinkSummary {
-  return { from, to, protocol: "tcp", region: "north", bidirectional: true, multicast: false };
+function link(from: string, to: string, inRoutingMap = false): LinkSummary {
+  return {
+    from,
+    to,
+    protocol: "tcp",
+    region: "north",
+    bidirectional: true,
+    multicast: false,
+    inRoutingMap,
+    routingCost: inRoutingMap ? 1 : null,
+  };
 }
 
 /**
@@ -38,7 +47,7 @@ const SNAPSHOT: TopologySnapshot = {
     node("agv-7", "peer", "edge-fleet"),
   ],
   links: [
-    link("rtr-a", "rtr-b"),
+    link("rtr-a", "rtr-b", true),
     link("rtr-a", "cli-1"),
     link("rtr-b", "cli-2"),
     link("rtr-a", "agv-7"),

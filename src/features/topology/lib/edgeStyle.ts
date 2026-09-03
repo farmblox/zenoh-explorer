@@ -4,11 +4,12 @@ import type { LinkSummary, NodeSummary } from "@/ipc";
  * What a link is, so it can be drawn as what it is.
  *
  * Zenoh's graph has genuinely different kinds of edge, and flattening them into
- * one grey line throws away most of what a topology view is for. A trunk
- * between two routers carries everyone's traffic; a mesh link between peers is
- * incidental; a half-open link is a fault.
+ * one grey line throws away most of what a topology view is for. A routing edge
+ * came from Zenoh's link-state graph; an access edge came from a router session
+ * table; a peer edge bypasses the router backbone; an observed-only router
+ * transport is deliberately called out because it is absent from link-state.
  */
-export type EdgeKind = "trunk" | "access" | "mesh" | "unconfirmed";
+export type EdgeKind = "routing" | "access" | "peer" | "observed";
 
 export interface EdgeStyle {
   readonly kind: EdgeKind;
@@ -24,13 +25,13 @@ export interface EdgeStyle {
 }
 
 const STYLES: Record<EdgeKind, Omit<EdgeStyle, "kind">> = {
-  // Router to router: the backbone. Thickest and brightest.
-  trunk: {
+  // Zenoh's actual link-state graph. Thickest and brightest.
+  routing: {
     stroke: "var(--accent)",
     opacity: 0.64,
     width: 4,
-    label: "trunk",
-    description: "Trunk between routers",
+    label: "routing",
+    description: "Present in Zenoh's link-state routing graph",
   },
   // A node attached to its router. The common case.
   access: {
@@ -40,22 +41,22 @@ const STYLES: Record<EdgeKind, Omit<EdgeStyle, "kind">> = {
     label: "access",
     description: "Attached to a router",
   },
-  // Peer to peer, bypassing the routers. Soft blue and narrow, so it remains
+  // Peer to peer, bypassing the router backbone. Soft blue and narrow, so it remains
   // visible without competing with the router backbone.
-  mesh: {
+  peer: {
     stroke: "var(--accent-strong)",
     opacity: 0.36,
     width: 1.8,
-    label: "mesh",
+    label: "peer mesh",
     description: "Direct peer-to-peer link",
   },
-  // Only one end reported it, so we cannot confirm it is up in both directions.
-  unconfirmed: {
+  // A router transport that the current link-state map did not include.
+  observed: {
     stroke: "var(--warn)",
-    opacity: 0.78,
+    opacity: 0.62,
     width: 2.2,
-    label: "unconfirmed",
-    description: "Only one end reported this link",
+    label: "observed only",
+    description: "Router transport absent from the current link-state map",
   },
 };
 
@@ -69,16 +70,22 @@ export function classifyEdge(
   link: LinkSummary,
   nodesByZid: ReadonlyMap<string, NodeSummary>,
 ): EdgeStyle {
-  // A link nobody confirmed is worth flagging whatever it connects: it usually
-  // means the far end's admin space is unreadable, or the link is half-open.
-  if (!link.bidirectional) return edgeStyle("unconfirmed");
-
   const from = nodesByZid.get(link.from)?.kind;
   const to = nodesByZid.get(link.to)?.kind;
 
-  if (from === "router" && to === "router") return edgeStyle("trunk");
+  if (link.inRoutingMap) return edgeStyle("routing");
+  if (from === "router" && to === "router") return edgeStyle("observed");
   if (from === "router" || to === "router") return edgeStyle("access");
-  return edgeStyle("mesh");
+  if (from && to) return edgeStyle("peer");
+  return edgeStyle("observed");
+}
+
+/** Whether a router transport is missing from the link-state routing graph. */
+export function isObservedOnlyLink(
+  link: LinkSummary,
+  nodesByZid: ReadonlyMap<string, NodeSummary>,
+): boolean {
+  return classifyEdge(link, nodesByZid).kind === "observed";
 }
 
 /** Every kind, for the legend. */

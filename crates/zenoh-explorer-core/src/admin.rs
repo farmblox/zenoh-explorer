@@ -1,39 +1,42 @@
 //! Reading the network out of Zenoh's admin space.
 //!
-//! Zenoh 1.10 exposes each node's own view of the world under
-//! `@/<zid>/<whatami>/…`. The subtrees this module reads are:
+//! Zenoh 1.10 exposes each router's view of the world under
+//! `@/<router-zid>/router/…`. The subtrees this module reads are:
 //!
 //! | key                                            | payload                        |
 //! |------------------------------------------------|--------------------------------|
-//! | `@/<zid>/<router\|peer\|client>`               | JSON: locators, sessions, ...   |
-//! | `@/<zid>/<whatami>/linkstate/<region>`         | Graphviz DOT of the link graph  |
-//! | `@/<zid>/<whatami>/route/successor/src/<a>/dst/<b>` | JSON: next hop             |
+//! | `@/<zid>/router`                               | JSON: locators, sessions, ...   |
+//! | `@/<zid>/router/linkstate/<region>`            | Graphviz DOT of the link graph  |
+//! | `@/<zid>/router/route/successor/src/<a>/dst/<b>` | JSON: next hop               |
 //!
-//! The JSON `sessions` array is the primary topology source: it is stable,
-//! machine-readable, and every node publishes it. Link-state DOT is a secondary
-//! source that reveals routers we cannot reach directly.
+//! The router JSON `sessions` array is the primary topology source: it is
+//! stable, machine-readable, and describes the peers and clients attached to
+//! that router. Link-state DOT is a secondary source that reveals routers we
+//! cannot reach directly.
 //!
 //! # How much one connection can see
 //!
-//! All of it. `@/*/*` is a wildcard query with [`QueryTarget::All`], so it
-//! routes across the whole mesh and every node with `adminspace.enabled` answers
-//! for itself — not just the router we are attached to. One TCP connection to
-//! one router yields a reply per node, each carrying that node's own transports,
-//! and the union of those is the real link graph.
+//! All of it. `@/*/router` is a wildcard query with [`QueryTarget::All`], so it
+//! routes across the whole mesh and every router with `adminspace.enabled`
+//! answers with its live transport table. One TCP connection to one router can
+//! therefore reveal the other routers plus the peers and clients attached to
+//! them; the union of those session tables is the real link graph.
 //!
-//! The limit is participation, not reach: a node with `adminspace.enabled` left
-//! at its Zenoh 1.x default of **false** answers nothing. We still see it if a
-//! node that DID answer reports a session to it, so it appears in the graph as a
-//! node we only heard about. [`probe`] reports that as a diagnostic and marks
-//! the snapshot partial rather than presenting hearsay as fact.
+//! The limit is participation, not reach: a router with `adminspace.enabled`
+//! left at its Zenoh 1.x default of **false** answers nothing. Direct transport
+//! information still provides the explorer's first hop, so [`probe`] reports
+//! missing router coverage as a diagnostic rather than presenting a sparse graph
+//! as complete.
 //!
 //! # Two things the admin space does not mean
 //!
-//! A node's role is in its admin KEY (`@/<zid>/router`), never in the body.
-//! And `sessions[].region` is a property of the LINK — which of Zenoh's routing
-//! trees it belongs to (`north` for the router backbone, `south:<n>:<mode>` for
-//! a tree below a router) — not a place the node is in. Both are easy to get
-//! wrong in ways that produce a plausible, incorrect graph.
+//! The answering node is a router because the status key is
+//! `@/<zid>/router`; the role of each attached node comes from
+//! `sessions[].whatami`. And `sessions[].region` is a property of the LINK —
+//! which of Zenoh's routing trees it belongs to (`north` for the router
+//! backbone, `south:<n>:<mode>` for a tree below a router) — not a place the
+//! node is in. Both are easy to get wrong in ways that produce a plausible,
+//! incorrect graph.
 
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -44,38 +47,38 @@ use zenoh::Session;
 use zenoh::query::{ConsolidationMode, QueryTarget};
 
 use crate::acl::AclSummary;
-use crate::discovery::DiscoverySource;
+use crate::discovery::{DiscoverySource, count_unreadable_routers};
 use crate::error::{Error, Result};
 use crate::model::{LinkSummary, NodeKind, NodeSummary, RegionSource, TopologySnapshot};
 use crate::storage::StorageSummary;
 use crate::time::now_ms;
 
-/// Selector matching every node's top-level admin entry: `@/<zid>/<whatami>`.
+/// Selector matching every router's status entry: `@/<router-zid>/router`.
 ///
-/// `_stats=true` asks nodes built with the `stats` feature to fold throughput
-/// counters into the reply. Nodes without it ignore the parameter, so this is
+/// `_stats=true` asks routers built with the `stats` feature to fold throughput
+/// counters into the reply. Routers without it ignore the parameter, so this is
 /// free everywhere and answers "is this link actually carrying anything" on the
 /// nodes that can.
-const NODES_SELECTOR: &str = "@/*/*?_stats=true";
+const NODES_SELECTOR: &str = "@/*/router?_stats=true";
 
-/// Selector for every node's effective configuration.
+/// Selector for every router's effective configuration.
 ///
 /// One query rather than three targeted ones. `region_name`, `gateway.south`
 /// and `access_control` all live here, and a wildcard admin query costs its
 /// full timeout however narrow the key is — so asking once for the whole
 /// document is strictly cheaper than asking three times for parts of it.
-const CONFIG_SELECTOR: &str = "@/*/*/config";
+const CONFIG_SELECTOR: &str = "@/*/router/config";
 
 /// Selector matching every link-state region graph.
-const LINKSTATE_SELECTOR: &str = "@/*/*/linkstate/*";
+const LINKSTATE_SELECTOR: &str = "@/*/router/linkstate/*";
 
 /// How long to wait for admin replies. Generous enough for a WAN hop, short
 /// enough that a wedged node cannot stall a refresh.
 const QUERY_TIMEOUT: Duration = Duration::from_millis(2_500);
 
-/// The shape of a `@/<zid>/<whatami>` reply.
+/// The shape of a `@/<router-zid>/router` reply.
 #[derive(Debug, Deserialize)]
-struct NodeReply {
+struct RouterReply {
     zid: String,
     #[serde(default)]
     version: Option<String>,
@@ -107,7 +110,7 @@ fn plugin_ids(plugins: Option<&serde_json::Value>) -> Vec<String> {
     ids
 }
 
-/// The parts of a `@/<zid>/<whatami>/config` reply the topology cares about.
+/// The parts of a `@/<zid>/router/config` reply the topology cares about.
 #[derive(Debug, Default, Deserialize)]
 struct ConfigReply {
     /// The node's own region, added in Zenoh 1.9. `None` is the default.
@@ -254,35 +257,35 @@ pub async fn probe(session: &Session) -> Result<Probe> {
     // The three queries are independent and each costs its full timeout, so
     // running them together makes a probe as slow as the slowest rather than as
     // slow as all three.
-    let (replies, linkstate, configs) = tokio::join!(
-        collect_node_replies(session),
+    let (router_replies, linkstate, configs) = tokio::join!(
+        collect_router_statuses(session),
         collect_linkstate(session),
         collect_node_configs(session),
     );
 
-    let replies = replies?;
+    let router_replies = router_replies?;
     let configs = configs.unwrap_or_else(|err| {
-        diagnostics.push(format!("node configuration unavailable: {err}"));
+        diagnostics.push(format!("router configuration unavailable: {err}"));
         AHashMap::new()
     });
 
-    if replies.is_empty() {
+    if router_replies.is_empty() {
         diagnostics.push(
-            "No node answered on the admin space. Nodes must be started with \
+            "No router answered at `@/*/router`. Routers must be started with \
              `adminspace.enabled: true` (the default is false) for the explorer \
-             to read their topology."
+             to read their session tables."
                 .to_owned(),
         );
     }
 
-    for (kind, reply) in &replies {
+    for reply in &router_replies {
         let config = configs.get(&reply.zid);
         if let Some(config) = config {
             storages.extend(storages_of(&reply.zid, config));
         }
-        let summary = summarise_node(*kind, reply, config, &local_zid);
-        // Overwrites rather than inserts: another node's session list may have
-        // put a placeholder here already, and a node's own reply outranks
+        let summary = summarise_router(reply, config, &local_zid);
+        // Overwrites rather than inserts: another router's session list may
+        // have put a placeholder here already, and the router's own reply outranks
         // anything said about it.
         nodes.insert(reply.zid.clone(), summary);
 
@@ -290,8 +293,8 @@ pub async fn probe(session: &Session) -> Result<Probe> {
             // Make sure the far end exists as a node even if it never answered.
             nodes.entry(entry.peer.clone()).or_insert_with(|| {
                 let mut node = NodeSummary::new(entry.peer.clone(), parse_whatami(&entry.whatami));
-                // Named by a node that did answer. Weaker than describing
-                // itself, and the difference is what `unverified_nodes` counts.
+                // Named by a router that did answer. Its role is authoritative,
+                // but the rest of its own state is not available here.
                 node.source = DiscoverySource::LinkState;
                 node
             });
@@ -312,13 +315,10 @@ pub async fn probe(session: &Session) -> Result<Probe> {
         .or_insert_with(|| NodeSummary::new(local_zid.clone(), NodeKind::Client))
         .is_local = true;
 
-    // A node that answered described itself; anything else we merely heard
-    // about. Locators are the wrong test: a client never listens, so it never
-    // has any, and every network with a client would read as partial forever.
-    let unverified_nodes = nodes
-        .values()
-        .filter(|n| !n.is_local && n.source != DiscoverySource::AdminSpace)
-        .count();
+    // Peers and clients are expected to come from router session tables. Only
+    // a router that appears in the graph without answering its own status
+    // record represents a coverage gap.
+    let unverified_nodes = count_unreadable_routers(nodes.values());
 
     // A gateway hides its south region on purpose. Zenoh's deployment model is
     // explicit that it "will hide non needed details of the sub region(s) to the
@@ -346,24 +346,23 @@ pub async fn probe(session: &Session) -> Result<Probe> {
             captured_at_ms: now_ms(),
             storages,
             unverified_nodes,
-            admin_responses: replies.len(),
+            admin_responses: router_replies.len(),
         },
         notes: diagnostics,
     })
 }
 
-/// Builds one node's summary from its own reply and its configuration.
+/// Builds one router's summary from its status reply and configuration.
 ///
 /// Split out of `probe` because it is the one part that reads from two
 /// different queries at once, and because everything it decides is about a
-/// single node rather than about the graph.
-fn summarise_node(
-    kind: NodeKind,
-    reply: &NodeReply,
+/// single router rather than about the graph.
+fn summarise_router(
+    reply: &RouterReply,
     config: Option<&ConfigReply>,
     local_zid: &str,
 ) -> NodeSummary {
-    let mut summary = NodeSummary::new(reply.zid.clone(), kind);
+    let mut summary = NodeSummary::new(reply.zid.clone(), NodeKind::Router);
     summary.locators.clone_from(&reply.locators);
     summary.is_local = reply.zid == local_zid;
     summary.name = name_from_metadata(reply.metadata.as_ref());
@@ -406,43 +405,51 @@ fn summarise_node(
 /// different jobs with two different pitfalls, and because only one of them has
 /// to reason about which graphs mean anything.
 fn merge_linkstate(
-    graphs: Vec<(NodeKind, String, String)>,
+    graphs: Vec<(String, String)>,
     nodes: &mut BTreeMap<String, NodeSummary>,
     links: &mut BTreeMap<(String, String), LinkSummary>,
     diagnostics: &mut Vec<String>,
 ) {
-    for (author, region, dot) in graphs {
+    for (region, dot) in graphs {
         let graph = parse_dot(&dot);
 
-        // A graph with no edges is a membership list, not a topology: every node
-        // in a routing tree publishes one naming the other members. Reading
-        // those names as links draws a mesh that does not exist, and creating
-        // nodes from them invents routers — Zenoh's peer trees list every peer,
-        // so the whole peer mesh would arrive labelled as routing infrastructure.
+        // A graph with no edges is a membership list, not a topology. Reading
+        // those names as links draws a mesh that does not exist.
         if graph.edges.is_empty() {
             continue;
         }
 
-        // Only a router publishes an edge-bearing graph, and the edges in it are
-        // the router backbone, so anything it introduces is a router.
-        let introduced = if author == NodeKind::Router {
-            NodeKind::Router
-        } else {
-            NodeKind::Peer
-        };
+        // A router publishes several HAT graphs. `north` and `south:*:router`
+        // are router backbones; `south:*:peer` is a peer-routing mesh. Keeping
+        // that distinction is essential: the edge still participates in
+        // Zenoh routing, but a peer must not acquire router status in the UI.
+        let kind = linkstate_region_kind(&region);
         for zid in &graph.nodes {
-            nodes.entry(zid.clone()).or_insert_with(|| {
-                let mut node = NodeSummary::new(zid.clone(), introduced);
+            if let Some(node) = nodes.get_mut(zid) {
+                // A zid can occur in more than one regional graph. Never let
+                // reply order downgrade a router to a peer (or a peer to a
+                // client) when the stronger role appears later.
+                if node_kind_rank(kind) > node_kind_rank(node.kind) {
+                    node.kind = kind;
+                }
+            } else {
+                let mut node = NodeSummary::new(zid.clone(), kind);
                 node.source = DiscoverySource::LinkState;
-                node
-            });
+                nodes.insert(zid.clone(), node);
+            }
         }
 
-        for (from, to) in &graph.edges {
+        for (from, to, routing_cost) in &graph.edges {
             let key = undirected(from, to);
             links
                 .entry(key)
-                .and_modify(|link| link.bidirectional = true)
+                .and_modify(|link| {
+                    link.in_routing_map = true;
+                    link.routing_cost = *routing_cost;
+                    if link.region.is_none() {
+                        link.region = Some(region.clone());
+                    }
+                })
                 .or_insert_with(|| LinkSummary {
                     from: from.clone(),
                     to: to.clone(),
@@ -450,6 +457,8 @@ fn merge_linkstate(
                     region: Some(region.clone()),
                     bidirectional: false,
                     multicast: false,
+                    in_routing_map: true,
+                    routing_cost: *routing_cost,
                 });
         }
 
@@ -461,8 +470,25 @@ fn merge_linkstate(
     }
 }
 
-/// Runs the `@/*/*` query and decodes every JSON reply.
-async fn collect_node_replies(session: &Session) -> Result<Vec<(NodeKind, NodeReply)>> {
+/// Role of nodes represented by one router link-state region.
+fn linkstate_region_kind(region: &str) -> NodeKind {
+    match region.rsplit(':').next() {
+        Some("peer") => NodeKind::Peer,
+        Some("client") => NodeKind::Client,
+        _ => NodeKind::Router,
+    }
+}
+
+const fn node_kind_rank(kind: NodeKind) -> u8 {
+    match kind {
+        NodeKind::Router => 2,
+        NodeKind::Peer => 1,
+        NodeKind::Client => 0,
+    }
+}
+
+/// Runs the `@/*/router` query and decodes every router status reply.
+async fn collect_router_statuses(session: &Session) -> Result<Vec<RouterReply>> {
     let replies = session
         .get(NODES_SELECTOR)
         .target(QueryTarget::All)
@@ -476,18 +502,17 @@ async fn collect_node_replies(session: &Session) -> Result<Vec<(NodeKind, NodeRe
         let Ok(sample) = reply.result() else { continue };
         let key = sample.key_expr().as_str();
 
-        // The role lives in the key. A reply whose key does not name one is not
-        // a node entry, whatever its body decodes as.
-        let Some(kind) = kind_from_admin_key(key) else {
-            tracing::debug!(key = %key, "skipping admin reply with no role in its key");
+        // Be defensive even though the selector is narrow: plugin queryables
+        // can reply with intersecting keys, and only this exact root is a
+        // router's transport table.
+        if !is_router_status_key(key) {
+            tracing::debug!(key = %key, "skipping reply that is not a router status record");
             continue;
-        };
+        }
 
-        // `@/<zid>/session…` is a client session's own admin space and has a
-        // different shape; skip anything that does not decode as a node.
         let bytes = sample.payload().to_bytes();
-        match serde_json::from_slice::<NodeReply>(&bytes) {
-            Ok(node) => out.push((kind, node)),
+        match serde_json::from_slice::<RouterReply>(&bytes) {
+            Ok(node) => out.push(node),
             Err(err) => tracing::debug!(
                 key = %key,
                 error = %err,
@@ -498,12 +523,12 @@ async fn collect_node_replies(session: &Session) -> Result<Vec<(NodeKind, NodeRe
     Ok(out)
 }
 
-/// Reads every node's configuration, keyed by zid.
+/// Reads every router's configuration, keyed by zid.
 ///
 /// Separate from the node query because the two answer different keys, and
-/// because a node with `adminspace.permissions.read` off will serve one and not
-/// the other — a missing config is a gap in what we can say about a node, not a
-/// reason to fail the whole probe.
+/// because a router with `adminspace.permissions.read` off will serve one and
+/// not the other — a missing config is a gap in what we can say about a router,
+/// not a reason to fail the whole probe.
 async fn collect_node_configs(session: &Session) -> Result<AHashMap<String, ConfigReply>> {
     let replies = session
         .get(CONFIG_SELECTOR)
@@ -547,7 +572,7 @@ pub async fn route_successors(
     from: &str,
     to: &str,
 ) -> Result<AHashMap<String, String>> {
-    let selector = format!("@/*/*/route/successor/src/{from}/dst/{to}");
+    let selector = format!("@/*/router/route/successor/src/{from}/dst/{to}");
     let replies = session
         .get(&selector)
         .target(QueryTarget::All)
@@ -586,33 +611,20 @@ fn zid_from_admin_key(key: &str) -> Option<String> {
         .map(std::borrow::ToOwned::to_owned)
 }
 
-/// The role in `@/<zid>/<router|peer|client>`.
-///
-/// Zenoh puts a node's role in the key and nothing about it in the body, so this
-/// is the only place it can be read. Inferring it instead — "a node reporting
-/// client sessions is a router" — labels every client a peer, and demotes any
-/// router that happens to serve no clients to a peer as well.
-fn kind_from_admin_key(key: &str) -> Option<NodeKind> {
-    let mut chunks = key.strip_prefix("@/")?.split('/');
-    let _zid = chunks.next()?;
-    let whatami = chunks.next()?;
-    // The node's own entry, not a subtree beneath it.
-    if chunks.next().is_some() {
-        return None;
-    }
-    match whatami {
-        "router" => Some(NodeKind::Router),
-        "peer" => Some(NodeKind::Peer),
-        "client" => Some(NodeKind::Client),
-        _ => None,
-    }
+/// Whether this is exactly a router's `@/<router-zid>/router` status record.
+fn is_router_status_key(key: &str) -> bool {
+    let Some(rest) = key.strip_prefix("@/") else {
+        return false;
+    };
+    let mut chunks = rest.split('/');
+    matches!(
+        (chunks.next(), chunks.next(), chunks.next()),
+        (Some(zid), Some("router"), None) if !zid.is_empty()
+    )
 }
 
-/// Runs the link-state query, returning `(author role, region, dot)` triples.
-///
-/// The author's role decides how to read the graph: only a router publishes the
-/// backbone, and only backbone graphs carry edges.
-async fn collect_linkstate(session: &Session) -> Result<Vec<(NodeKind, String, String)>> {
+/// Runs the router link-state query, returning `(region, dot)` pairs.
+async fn collect_linkstate(session: &Session) -> Result<Vec<(String, String)>> {
     let replies = session
         .get(LINKSTATE_SELECTOR)
         .target(QueryTarget::All)
@@ -626,10 +638,9 @@ async fn collect_linkstate(session: &Session) -> Result<Vec<(NodeKind, String, S
         let Ok(sample) = reply.result() else { continue };
         let key = sample.key_expr().as_str().to_owned();
         let region = key.rsplit('/').next().unwrap_or("default").to_owned();
-        let author = author_of_linkstate(&key).unwrap_or(NodeKind::Peer);
         let bytes = sample.payload().to_bytes();
         match std::str::from_utf8(&bytes) {
-            Ok(dot) => out.push((author, region, dot.to_owned())),
+            Ok(dot) => out.push((region, dot.to_owned())),
             Err(err) => {
                 return Err(Error::AdminReply {
                     key,
@@ -677,19 +688,9 @@ fn add_link(links: &mut BTreeMap<(String, String), LinkSummary>, from: &str, ent
             region,
             bidirectional: false,
             multicast,
+            in_routing_map: false,
+            routing_cost: None,
         });
-}
-
-/// The role of the node that published a `…/<whatami>/linkstate/<region>` key.
-fn author_of_linkstate(key: &str) -> Option<NodeKind> {
-    let mut chunks = key.strip_prefix("@/")?.split('/');
-    let _zid = chunks.next()?;
-    match chunks.next()? {
-        "router" => Some(NodeKind::Router),
-        "peer" => Some(NodeKind::Peer),
-        "client" => Some(NodeKind::Client),
-        _ => None,
-    }
 }
 
 /// Orientation-independent map key so both directions collapse to one entry.
@@ -742,10 +743,10 @@ fn protocol_of(locator: &str) -> Option<String> {
 }
 
 /// A link-state graph decoded from Graphviz DOT.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq)]
 struct DotGraph {
     nodes: Vec<String>,
-    edges: Vec<(String, String)>,
+    edges: Vec<(String, String, Option<f64>)>,
 }
 
 /// Parses the DOT that `linkstate/<region>` returns.
@@ -765,10 +766,11 @@ struct DotGraph {
 /// link-state overlay, not fail the whole topology refresh.
 fn parse_dot(dot: &str) -> DotGraph {
     let mut labels: BTreeMap<String, String> = BTreeMap::new();
-    let mut edges_by_index: Vec<(String, String)> = Vec::new();
+    let mut edges_by_index: Vec<(String, String, Option<f64>)> = Vec::new();
 
     for line in dot.lines().map(str::trim) {
-        if let Some((left, right)) = line.split_once("->") {
+        let edge = line.split_once("->").or_else(|| line.split_once("--"));
+        if let Some((left, right)) = edge {
             let from = left.trim().to_owned();
             let to = right
                 .split_whitespace()
@@ -777,7 +779,10 @@ fn parse_dot(dot: &str) -> DotGraph {
                 .trim_end_matches(&['[', ';'][..])
                 .to_owned();
             if !from.is_empty() && !to.is_empty() {
-                edges_by_index.push((from, to));
+                let weight = extract_label(line)
+                    .and_then(|label| label.parse::<f64>().ok())
+                    .filter(|weight| weight.is_finite());
+                edges_by_index.push((from, to, weight));
             }
         } else if let Some(label) = extract_label(line) {
             let index = line
@@ -794,7 +799,9 @@ fn parse_dot(dot: &str) -> DotGraph {
     // Resolve indices to zids, dropping edges whose endpoints we never saw.
     let edges = edges_by_index
         .into_iter()
-        .filter_map(|(from, to)| Some((labels.get(&from)?.clone(), labels.get(&to)?.clone())))
+        .filter_map(|(from, to, weight)| {
+            Some((labels.get(&from)?.clone(), labels.get(&to)?.clone(), weight))
+        })
         .collect();
 
     let mut nodes: Vec<String> = labels.into_values().collect();
@@ -945,10 +952,47 @@ digraph {
         assert_eq!(
             graph.edges,
             vec![
-                ("aaaa1111".to_owned(), "bbbb2222".to_owned()),
-                ("bbbb2222".to_owned(), "cccc3333".to_owned()),
+                ("aaaa1111".to_owned(), "bbbb2222".to_owned(), Some(1.0)),
+                ("bbbb2222".to_owned(), "cccc3333".to_owned(), Some(1.0)),
             ]
         );
+    }
+
+    #[test]
+    fn undirected_dot_edges_resolve_to_zids() {
+        let graph = parse_dot(&SAMPLE_DOT.replace("digraph", "graph").replace("->", "--"));
+        assert_eq!(graph.edges.len(), 2);
+        assert_eq!(graph.edges[0].2, Some(1.0));
+    }
+
+    #[test]
+    fn linkstate_regions_preserve_router_and_peer_roles() {
+        assert_eq!(linkstate_region_kind("north"), NodeKind::Router);
+        assert_eq!(linkstate_region_kind("south:0:router"), NodeKind::Router);
+        assert_eq!(linkstate_region_kind("south:1:peer"), NodeKind::Peer);
+    }
+
+    #[test]
+    fn stronger_linkstate_roles_win_regardless_of_reply_order() {
+        let mut nodes = BTreeMap::new();
+        let mut links = BTreeMap::new();
+        let mut diagnostics = Vec::new();
+
+        merge_linkstate(
+            vec![("south:0:peer".to_owned(), SAMPLE_DOT.to_owned())],
+            &mut nodes,
+            &mut links,
+            &mut diagnostics,
+        );
+        assert!(nodes.values().all(|node| node.kind == NodeKind::Peer));
+
+        merge_linkstate(
+            vec![("north".to_owned(), SAMPLE_DOT.to_owned())],
+            &mut nodes,
+            &mut links,
+            &mut diagnostics,
+        );
+        assert!(nodes.values().all(|node| node.kind == NodeKind::Router));
     }
 
     #[test]
@@ -977,43 +1021,27 @@ digraph {
     }
 
     #[test]
-    fn the_role_comes_from_the_admin_key() {
-        assert_eq!(
-            kind_from_admin_key("@/21300f7774a87677b3bde854d771d22b/router"),
-            Some(NodeKind::Router)
-        );
-        assert_eq!(kind_from_admin_key("@/abc/peer"), Some(NodeKind::Peer));
-        assert_eq!(kind_from_admin_key("@/abc/client"), Some(NodeKind::Client));
+    fn topology_queries_router_admin_records() {
+        assert_eq!(NODES_SELECTOR, "@/*/router?_stats=true");
+        assert_eq!(CONFIG_SELECTOR, "@/*/router/config");
+        assert_eq!(LINKSTATE_SELECTOR, "@/*/router/linkstate/*");
     }
 
     #[test]
-    fn only_a_nodes_own_entry_names_its_role() {
-        // A subtree under the node describes something the node HAS, not what
-        // the node IS, so it must not be read as a second node.
-        assert_eq!(kind_from_admin_key("@/abc/router/linkstate/north"), None);
-        assert_eq!(kind_from_admin_key("@/abc/session/xyz"), None);
-        assert_eq!(kind_from_admin_key("fleet/telemetry"), None);
-    }
-
-    #[test]
-    fn a_router_serving_no_clients_is_still_a_router() {
-        // The regression this replaces: the role used to be inferred from
-        // whether the body listed a client session, which made every client a
-        // peer and demoted a router whose clients were attached elsewhere.
-        let key = "@/2af868ffdc370409c4cb6127bb22c07/router";
-        assert_eq!(kind_from_admin_key(key), Some(NodeKind::Router));
-    }
-
-    #[test]
-    fn the_author_of_a_linkstate_graph_is_read_from_its_key() {
-        assert_eq!(
-            author_of_linkstate("@/abc/router/linkstate/north"),
-            Some(NodeKind::Router)
-        );
-        assert_eq!(
-            author_of_linkstate("@/abc/peer/linkstate/south:0:peer"),
-            Some(NodeKind::Peer)
-        );
+    fn only_an_exact_router_status_key_is_a_router_record() {
+        assert!(is_router_status_key(
+            "@/21300f7774a87677b3bde854d771d22b/router"
+        ));
+        for key in [
+            "@/abc/peer",
+            "@/abc/client",
+            "@/abc/router/config",
+            "@/abc/router/linkstate/north",
+            "@//router",
+            "fleet/telemetry",
+        ] {
+            assert!(!is_router_status_key(key), "accepted {key}");
+        }
     }
 
     #[test]
@@ -1037,6 +1065,8 @@ digraph {
         assert_eq!(link.protocol.as_deref(), Some("tcp"));
         assert_eq!(link.region.as_deref(), Some("north"));
         assert!(!link.bidirectional);
+        assert!(!link.in_routing_map);
+        assert_eq!(link.routing_cost, None);
     }
 
     #[test]

@@ -31,7 +31,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, className
       role="tablist"
       aria-label={label}
       className={cn(
-        "rounded-control bg-surface-2 border-line inline-flex h-8 items-center gap-0.5 border p-0.5",
+        "rounded-control bg-surface-2 border-line flex h-9 w-full items-center gap-0.5 border p-1 [&>button]:flex-1 [&>button]:justify-center",
         className,
       )}
     >

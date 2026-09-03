@@ -34,7 +34,7 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={label}
       className={cn(
-        "rounded-control bg-surface-2 border-line inline-flex h-8 items-center gap-0.5 border p-0.5",
+        "rounded-control bg-surface-2 border-line inline-flex h-9 items-center gap-0.5 border p-1",
         className,
       )}
     >
@@ -48,7 +48,7 @@ export function SegmentedControl<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(segment.value)}
             className={cn(
-              "rounded-inner text-small tracking-ui h-full px-3 font-medium whitespace-nowrap",
+              "rounded-inner text-small tracking-ui flex h-full items-center justify-center px-3 font-medium whitespace-nowrap",
               focusRing,
               transitionFast,
               selected

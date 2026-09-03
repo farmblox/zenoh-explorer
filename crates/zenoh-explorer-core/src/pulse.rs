@@ -5,7 +5,7 @@
 //! themselves, declarations are published as they are made, samples stream.
 //!
 //! Two things do not. The admin space is a QUERYABLE, not a publisher — a
-//! remote router answers `@/*/*` when asked and never volunteers that its
+//! remote router answers `@/*/router` when asked and never volunteers that its
 //! link-state changed. So the topology snapshot is unavoidably a query.
 //!
 //! What closes the gap is that the things which ARE live tell us when a query

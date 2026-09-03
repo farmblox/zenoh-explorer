@@ -16,12 +16,14 @@ export {
 export {
   neighbourhoodOf,
   neighboursOf,
+  observedOnlyCount,
   singleHomedCount,
-  unconfirmedCount,
   type Hop,
   type Neighbour,
 } from "./lib/neighbours";
+export { isObservedOnlyLink } from "./lib/edgeStyle";
 export { describeCoverage, type Coverage } from "./lib/coverage";
 export { NodeInspector, type NodeInspectorProps } from "./components/NodeInspector";
+export { RouterAdminWarning, type RouterAdminWarningProps } from "./components/RouterAdminWarning";
 export { SOURCE_LABELS } from "./lib/sources";
 export { describeRegion, describeRoutingRegion, type RegionDescription } from "./lib/regionLabel";

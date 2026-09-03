@@ -51,6 +51,20 @@ export function Legend({ className }: { className?: string }) {
           </svg>
         </Entry>
       ))}
+
+      <Entry label="chosen route" title="The route Zenoh reports for the selected node">
+        <svg width={20} height={10} className="shrink-0" aria-hidden>
+          <line
+            x1={0}
+            y1={5}
+            x2={20}
+            y2={5}
+            stroke="var(--accent-strong)"
+            strokeWidth={5.5}
+            strokeLinecap="round"
+          />
+        </svg>
+      </Entry>
     </div>
   );
 }

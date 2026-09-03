@@ -36,7 +36,7 @@ export function LiveIndicator({ session }: LiveIndicatorProps) {
         onClick={() => void resync(session.id)}
         title={
           connected
-            ? "Following the network — the view updates itself. Click to re-read everything, which is only needed if a node's admin space was switched on after you connected."
+            ? "Following the network — the view updates itself. Click to re-read everything, which is only needed if a router's readable admin space was enabled after you connected."
             : "Connected to nothing. Click to try reading the network again."
         }
         className={cn(
