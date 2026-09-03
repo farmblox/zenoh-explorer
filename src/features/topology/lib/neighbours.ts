@@ -1,4 +1,5 @@
 import type { LinkSummary, NodeSummary, TopologySnapshot } from "@/ipc";
+import { isObservedOnlyLink } from "./edgeStyle";
 
 /** One link off a node, with whatever is known about the far end. */
 export interface Neighbour {
@@ -6,13 +7,15 @@ export interface Neighbour {
   readonly zid: string;
   /** `undefined` when the far end is named by a link but is not in the graph. */
   readonly node: NodeSummary | undefined;
+  /** A router transport seen in sessions but absent from link-state. */
+  readonly observedOnly: boolean;
 }
 
 /**
  * Every link touching one node, resolved to the node at the other end.
  *
  * Shared so the inspector panel and the node detail page cannot disagree about
- * how many links a node has, or which of them are unconfirmed. Links are stored
+ * how many links a node has, or which of them sit outside link-state. Links are stored
  * undirected, so `from` is whichever end reported it and either can be ours.
  */
 export function neighboursOf(zid: string, snapshot: TopologySnapshot): readonly Neighbour[] {
@@ -22,13 +25,18 @@ export function neighboursOf(zid: string, snapshot: TopologySnapshot): readonly 
     .filter((link) => link.from === zid || link.to === zid)
     .map((link) => {
       const other = link.from === zid ? link.to : link.from;
-      return { link, zid: other, node: byZid.get(other) };
+      return {
+        link,
+        zid: other,
+        node: byZid.get(other),
+        observedOnly: isObservedOnlyLink(link, byZid),
+      };
     });
 }
 
-/** How many of a node's links only one end has reported. */
-export function unconfirmedCount(neighbours: readonly Neighbour[]): number {
-  return neighbours.filter(({ link }) => !link.bidirectional).length;
+/** How many router transports are absent from the current link-state map. */
+export function observedOnlyCount(neighbours: readonly Neighbour[]): number {
+  return neighbours.filter(({ observedOnly }) => observedOnly).length;
 }
 
 /** One direct neighbour, plus where IT goes. */
@@ -36,6 +44,8 @@ export interface Hop {
   readonly link: LinkSummary;
   readonly zid: string;
   readonly node: NodeSummary | undefined;
+  /** A router transport seen in sessions but absent from link-state. */
+  readonly observedOnly: boolean;
   /**
    * The neighbour's own other links, one hop further out.
    *
@@ -81,13 +91,13 @@ export function neighbourhoodOf(zid: string, snapshot: TopologySnapshot): readon
     }
   }
 
-  return neighboursOf(zid, snapshot).map(({ link, zid: other, node }) => {
+  return neighboursOf(zid, snapshot).map(({ link, zid: other, node, observedOnly }) => {
     const onwardZids = [...(adjacency.get(other) ?? [])].filter((candidate) => candidate !== zid);
     const onward = onwardZids
       .map((candidate) => byZid.get(candidate))
       .filter((candidate): candidate is NodeSummary => candidate !== undefined);
 
-    return { link, zid: other, node, onward, singleHomed: onwardZids.length === 0 };
+    return { link, zid: other, node, observedOnly, onward, singleHomed: onwardZids.length === 0 };
   });
 }
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { ScrollText, Trash2 } from "lucide-react";
 
 import {
   Button,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui";
 import { SHORTCUT_GROUPS, SHORTCUTS } from "@/app/shortcuts";
 import { useAsync } from "@/hooks";
-import { profiles as profilesIpc } from "@/ipc";
+import { openDistributionLicenses, profiles as profilesIpc } from "@/ipc";
 import { cn } from "@/lib/cn";
 import { ageSince, groupedNumber } from "@/lib/format";
 import { focusRing, transitionFast } from "@/lib/states";
@@ -341,6 +341,14 @@ function About() {
         <Fact label="Zenoh" value="1.10" />
         <Fact label="Source" value="github.com/farmblox/zenoh-explorer" />
       </dl>
+
+      <Button
+        variant="secondary"
+        icon={<ScrollText size={13} />}
+        onClick={() => void openDistributionLicenses()}
+      >
+        Open distribution licenses
+      </Button>
 
       <p className="text-tiny text-ink-faint leading-relaxed">
         Eclipse Zenoh is a trademark of the Eclipse Foundation. This project is not affiliated with

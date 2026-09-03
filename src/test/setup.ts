@@ -20,6 +20,15 @@ vi.mock("@tauri-apps/api/event", () => ({
   emit: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@tauri-apps/api/path", () => ({
+  resolveResource: vi.fn().mockResolvedValue("/resources/licenses/DISTRIBUTION_LICENSES.txt"),
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openPath: vi.fn().mockResolvedValue(undefined),
+  openUrl: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: vi.fn().mockResolvedValue(undefined),
   readText: vi.fn().mockResolvedValue(""),

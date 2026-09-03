@@ -22,10 +22,10 @@ import { useActiveSessionId, useLiveEpoch, useTopology } from "@/stores";
 import { ViewHeader } from "@/shell/ViewHeader";
 import { readHighlights } from "./lib/highlights";
 
-/** Every node's effective configuration, as published in its own admin space. */
-const CONFIG_SELECTOR = "@/*/*/config";
+/** Every router's effective configuration, as published in its admin space. */
+const CONFIG_SELECTOR = "@/*/router/config";
 
-/** Generous: a config document is large and every node answers separately. */
+/** Generous: a config document is large and every router answers separately. */
 const TIMEOUT_MS = 6_000;
 
 /** Colour per token. Keys carry the structure, so they are the brightest. */
@@ -36,14 +36,14 @@ interface ConfigReply {
   readonly sample: SampleRecord;
 }
 
-/** `@/<zid>/<whatami>/config` → the two parts that identify the replier. */
+/** `@/<zid>/router/config` → the two parts that identify the replier. */
 function identify(keyExpr: string): { zid: string; whatami: string } {
   const chunks = keyExpr.replace(/^@\//, "").split("/");
   return { zid: chunks[0] ?? keyExpr, whatami: chunks[1] ?? "node" };
 }
 
 /**
- * The configuration each node is actually running.
+ * The configuration each router is actually running.
  *
  * Read from the admin space rather than from any file, because the file on disk
  * is what someone intended and this is what the process resolved — defaults
@@ -171,11 +171,11 @@ export function ConfigView() {
         // same thing — two answers to one question, neither of them the view.
         <EmptyState
           icon={loading ? <Spinner /> : <SlidersHorizontal />}
-          title={loading ? "Asking every node" : "No node published its configuration"}
+          title={loading ? "Asking every router" : "No router published its configuration"}
           description={
             loading
               ? `Running ${CONFIG_SELECTOR} across the network.`
-              : "Zenoh publishes a node's configuration only when adminspace.enabled is on and adminspace.permissions.read allows it. Both are off by default, so a network of untouched nodes answers nothing here."
+              : "Zenoh publishes a router's configuration only when adminspace.enabled is on and adminspace.permissions.read allows it. Both are off by default, so untouched routers answer nothing here."
           }
         />
       ) : (

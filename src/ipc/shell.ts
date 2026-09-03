@@ -5,7 +5,8 @@
  * outside this directory may do.
  */
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { resolveResource } from "@tauri-apps/api/path";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 
 /** Event the Rust side emits when a menu item with an id is chosen. */
 const MENU_EVENT = "zenoh://menu";
@@ -25,4 +26,10 @@ export function onMenuEvent(handler: (id: string) => void): Promise<UnlistenFn> 
 /** Opens a URL in the user's browser, never in the app's own webview. */
 export function openExternal(url: string): Promise<void> {
   return openUrl(url);
+}
+
+/** Opens the complete license document bundled with every installer. */
+export async function openDistributionLicenses(): Promise<void> {
+  const path = await resolveResource("licenses/DISTRIBUTION_LICENSES.txt");
+  await openPath(path);
 }

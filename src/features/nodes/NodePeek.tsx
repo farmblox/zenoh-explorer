@@ -14,9 +14,10 @@ import {
 import {
   neighbourhoodOf,
   nodeLabel,
+  observedOnlyCount,
+  RouterAdminWarning,
   singleHomedCount,
   SOURCE_LABELS,
-  unconfirmedCount,
   type Hop,
 } from "@/features/topology";
 import { profileFromLocator } from "@/features/connect";
@@ -98,7 +99,7 @@ export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode 
   );
 
   const hops = neighbourhoodOf(node.zid, snapshot);
-  const unconfirmed = unconfirmedCount(hops);
+  const observedOnly = observedOnlyCount(hops);
   const dependents = singleHomedCount(hops);
   const meta =
     node.metadata && typeof node.metadata === "object" && !Array.isArray(node.metadata)
@@ -152,7 +153,7 @@ export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode 
       >
         <header className="border-line shrink-0 border-b px-6 pt-5 pb-4">
           <div className="flex items-start gap-3">
-            <NodeKindIcon kind={node.kind} local={node.isLocal} alert={unconfirmed > 0} />
+            <NodeKindIcon kind={node.kind} local={node.isLocal} alert={observedOnly > 0} />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2.5">
                 <h2 className="text-title text-ink truncate font-medium tracking-tight">
@@ -196,10 +197,16 @@ export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode 
                 <span
                   title={
                     node.source === "adminSpace"
-                      ? "It answered for itself, so everything here is its own account of its state."
-                      : "Another node reported it. Its role, name and other links stay unknown until its own admin space answers."
+                      ? "This router answered its own status record."
+                      : node.kind === "router"
+                        ? "Another source reported this router, but its own status record did not answer."
+                        : node.source === "transport"
+                          ? "The explorer holds a direct transport to this node."
+                          : "Another network source reported this node."
                   }
-                  className={node.source === "adminSpace" ? undefined : "text-warn"}
+                  className={
+                    node.kind === "router" && node.source !== "adminSpace" ? "text-warn" : undefined
+                  }
                 >
                   {SOURCE_LABELS[node.source].toLowerCase()}
                 </span>
@@ -224,11 +231,12 @@ export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode 
               : dependents === 0
                 ? `Every one of its ${groupedNumber(hops.length)} neighbours has another way to the network. Losing this node cuts nothing off.`
                 : `${groupedNumber(dependents)} of its ${groupedNumber(hops.length)} neighbours reach the network only through this node. Losing it takes ${dependents === 1 ? "that one" : "them"} with it.`}
-            {unconfirmed > 0 ? (
+            {observedOnly > 0 ? (
               <span className="text-ink-faint">
                 {" "}
-                {groupedNumber(unconfirmed)} of the links {unconfirmed === 1 ? "is" : "are"}{" "}
-                unconfirmed.
+                {groupedNumber(observedOnly)} router{" "}
+                {observedOnly === 1 ? "transport is" : "transports are"} outside the current routing
+                map.
               </span>
             ) : null}
           </p>
@@ -236,6 +244,8 @@ export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode 
 
         <ScrollArea className="flex-1">
           <div className="space-y-6 p-6">
+            <RouterAdminWarning node={node} />
+
             <section>
               <div className="mb-2.5 flex items-baseline gap-2.5">
                 <SectionLabel>Neighbours</SectionLabel>
@@ -254,7 +264,11 @@ export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode 
                 <Panel>
                   <EmptyState
                     title="No links reported"
-                    description="Either this node is isolated, or its admin space is switched off and only the other end of each link can see it."
+                    description={
+                      node.kind === "router"
+                        ? "Either this router is isolated, or its status record did not answer and only the other end of each link is visible."
+                        : "No router session table or direct transport reported a link for this node."
+                    }
                   />
                 </Panel>
               ) : (
@@ -271,7 +285,7 @@ export function NodePeek({ open, node, snapshot, sessionId, onClose, onOpenNode 
                     <span>Role</span>
                     <span>Protocol</span>
                     <span>Routing region</span>
-                    <span className="text-right">Reported by</span>
+                    <span className="text-right">Evidence</span>
                   </div>
 
                   <div className="divide-line-soft divide-y">
@@ -369,12 +383,14 @@ function NeighbourRow({ hop, onOpenNode }: { hop: Hop; onOpenNode: (zid: string)
           {hop.link.region ?? "–"}
         </span>
         <span className="truncate text-right">
-          {hop.link.bidirectional ? (
-            <span className="text-ink-faint">both ends</span>
-          ) : (
-            <span className="text-warn" title="Only one end reported this link">
-              one end
+          {hop.link.inRoutingMap ? (
+            <span className="text-accent">link-state</span>
+          ) : hop.observedOnly ? (
+            <span className="text-warn" title="Absent from the current link-state map">
+              session only
             </span>
+          ) : (
+            <span className="text-ink-faint">session</span>
           )}
         </span>
       </div>

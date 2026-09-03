@@ -37,6 +37,14 @@
       ]
     },
     {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "$RESOURCE/licenses/DISTRIBUTION_LICENSES.txt"
+        }
+      ]
+    },
+    {
       "identifier": "fs:allow-write-text-file",
       "allow": [
         {

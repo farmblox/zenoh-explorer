@@ -5,6 +5,7 @@ pnpm-lock.yaml
 src/ipc/generated
 src-tauri/gen
 design/mockup
+scripts/licenses/*.hbs
 
 # Design-canvas working files and the page they seed. The seeded page is a
 # ~2 MiB generated payload, and the .dc.html sources are authored for another

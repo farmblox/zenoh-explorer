@@ -1,150 +1,246 @@
 <div align="center">
+  <img src=".github/assets/logo.png" alt="Zenoh Explorer" width="112" height="112">
 
-<h1>Zenoh Explorer</h1>
+  <h1>Zenoh Explorer</h1>
 
-<p>
-  A desktop app for looking at <a href="https://zenoh.io">Eclipse Zenoh</a> networks.<br>
-  Topology, key space, key-expression testing, and live data. Think MQTT Explorer, for Zenoh.
-</p>
+  <p><strong>See the mesh. Follow the route. Inspect the data.</strong></p>
 
-<p>
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#what-you-get">What you get</a> ·
-  <a href="docs/architecture.md">Architecture</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a>
-</p>
+  <p>
+    A desktop workbench for understanding a live
+    <a href="https://zenoh.io">Eclipse Zenoh</a> deployment—from router
+    link-state and selected routes to key expressions, transports, and samples.
+  </p>
 
-<p>
-  <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square">
-  <img alt="Rust" src="https://img.shields.io/badge/rust-1.95-CE422B?style=flat-square&logo=rust&logoColor=white">
-  <img alt="Tauri" src="https://img.shields.io/badge/tauri-2.11-24C8DB?style=flat-square&logo=tauri&logoColor=white">
-  <img alt="Zenoh" src="https://img.shields.io/badge/zenoh-1.10-4a9eff?style=flat-square">
-  <img alt="Platforms" src="https://img.shields.io/badge/macOS%20·%20Linux%20·%20Windows-8a919c?style=flat-square">
-</p>
+  <p>
+    <a href="https://github.com/farmblox/zenoh-explorer/releases/latest"><strong>Download the latest release</strong></a>
+    ·
+    <a href="#connect-to-a-network">Connect</a>
+    ·
+    <a href="#development">Develop</a>
+    ·
+    <a href="docs/architecture.md">Architecture</a>
+  </p>
 
+  <p>
+    <a href="https://github.com/farmblox/zenoh-explorer/actions/workflows/ci.yml"><img src="https://github.com/farmblox/zenoh-explorer/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+    <a href="https://github.com/farmblox/zenoh-explorer/releases/latest"><img src="https://img.shields.io/github/v/release/farmblox/zenoh-explorer?display_name=tag&style=flat-square" alt="Latest release"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="Apache 2.0 license"></a>
+    <img src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-181c22?style=flat-square" alt="macOS, Linux, and Windows">
+  </p>
 </div>
 
----
+Zenoh already knows how your network is connected, what it declares, and where
+it will forward data. Zenoh Explorer turns that operational state into one
+coherent desktop tool. It is useful when a key expression does not match, a
+peer disappears behind a router, a route takes an unexpected hop, or you simply
+need to understand a deployment you did not build.
 
-> [!NOTE]
-> This is young. Every view is built and the backend is well covered by tests,
-> but it has been run against a handful of networks, not hundreds.
-> [Status](#status) has the details.
+## What you can inspect
 
-## Why
+| Area                  | What it answers                                                                                                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Routed topology**   | Which routers, peers, and clients exist; which edges are in Zenoh link-state; the routing region and cost of each edge; and which router transports sit outside the current routing map. |
+| **Live route trace**  | The successor decisions Zenoh reports from a selected node's router to the explorer's router, shown as an ordered path on the graph and in the node inspector.                           |
+| **Nodes and regions** | What every visible node is attached to, which neighbours depend on it, what a gateway intentionally hides, and whether a router's admin space is readable.                               |
+| **Keyspace**          | Observed keys, publishers, subscribers, queryables, queriers, tokens, storage coverage, ACL findings, and exact key-expression relationships.                                            |
+| **Live data**         | Samples matching any key expression, including encoding, timestamps, priority, attachments, payload preview, and dropped-sample counts.                                                  |
+| **Network tools**     | Queries, guarded publish/delete operations, scouting, raw admin-space browsing, effective router configuration, transport detail, and lifecycle diagnostics.                             |
 
-Debugging Zenoh usually means tailing `zenohd` logs and guessing. Is my
-subscriber actually matching that key? Which router is this peer going through?
-Why did that node drop off?
+The topology renderer is built for real meshes rather than small flowcharts. It
+uses WebGL, a worker-driven layout, a virtualized node list, adaptive label
+density, and stable drag positions so large networks stay interactive.
 
-The answers are all in the network already. Zenoh publishes an admin space, and
-`zenoh-keyexpr` can tell you exactly what an expression matches. This app just
-puts a window on it.
+## Install
 
-## Quick start
+Download the installer for your platform from the
+[latest release](https://github.com/farmblox/zenoh-explorer/releases/latest).
 
-You will need Rust 1.95+, Node 22.12+, pnpm 10+, and your platform's
-[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
+| Platform     | Available packages                    |
+| ------------ | ------------------------------------- |
+| macOS 10.15+ | Apple Silicon and Intel `.dmg` images |
+| Linux x86_64 | AppImage, Debian package, and RPM     |
+| Windows x64  | Setup executable and MSI              |
+
+macOS releases are Developer ID signed and notarized. Release builds also carry
+signed updater artifacts so update packages can be authenticated before they
+are installed.
+
+For an AppImage:
 
 ```bash
-git clone https://github.com/farmblox/zenoh-explorer
+chmod +x Zenoh.Explorer_*_amd64.AppImage
+./Zenoh.Explorer_*_amd64.AppImage
+```
+
+## Connect to a network
+
+Open Zenoh Explorer, choose **Add a Connection**, and enter a router or peer.
+The common case is:
+
+```text
+Transport  TCP
+Address    localhost:7447
+Mode       Client
+```
+
+Client mode is the default because it observes the deployment without joining
+its peer-routing mesh. Multiple connections can stay open in separate tabs.
+
+### Try it with a local router
+
+If you do not have a Zenoh network available, start a router with Docker:
+
+```bash
+docker run --rm --init -p 7447:7447/tcp eclipse/zenoh:1.10.0 \
+  --cfg='adminspace/enabled:true' \
+  --adminspace-permissions r
+```
+
+Then connect Zenoh Explorer to `tcp/localhost:7447`.
+
+### Topology visibility
+
+Zenoh Explorer can always inspect its own direct transports. Seeing beyond the
+first hop requires readable admin space on each router whose sessions and
+routing state you want to inspect:
+
+```json5
+{
+  adminspace: {
+    enabled: true,
+    permissions: {
+      read: true,
+      write: false,
+    },
+  },
+}
+```
+
+The explorer queries each reachable router at `@/<router-id>/router`, then reads
+its link-state and successor records. Peers and clients do **not** need to expose
+their own admin space to be discovered through a router. When a router is known
+but does not answer, the topology, node inspector, and status bar call out the
+coverage gap instead of presenting a partial map as complete.
+
+See Zenoh's documentation for the underlying
+[admin-space model](https://zenoh.io/docs/manual/abstractions/#admin-space) and
+[router configuration](https://zenoh.io/docs/manual/configuration/).
+
+## Connections and safety
+
+The connection editor supports TCP, QUIC, TLS over TCP, WebSocket, UDP, and Unix
+domain sockets. TLS connections can use system trust or a custom CA, optionally
+with a client certificate and mutual TLS. Advanced JSON5 is available when a
+deployment needs Zenoh configuration that does not belong in the common form.
+
+Saved profiles retain certificate paths but do not persist inline private keys.
+Connection failures are diagnosed into actionable remedies for common endpoint,
+timeout, certificate, and mTLS problems.
+
+Sessions are read-only in the interface by default. Publishing or deleting
+requires an explicit per-session **Allow writes** switch beside the action it
+unlocks. Closing a session clears that permission.
+
+## Development
+
+You will need:
+
+- Rust 1.95 or newer; `rust-toolchain.toml` selects the repository toolchain
+- Node.js 22.12 or newer
+- pnpm 10
+- Your platform's [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
+
+```bash
+git clone https://github.com/farmblox/zenoh-explorer.git
 cd zenoh-explorer
 pnpm install
 pnpm dev
 ```
 
-If you do not have a network handy:
+`pnpm dev` launches the Tauri application, not a browser-only version of the
+frontend.
+
+### Development network
+
+The repository includes a three-router network with readable admin space,
+link-state, regions, and seeded data:
 
 ```bash
-docker run --rm -p 7447:7447/tcp eclipse/zenoh:1.10.0 \
-  --adminspace-permissions=rw --cfg='adminspace/enabled:true'
+pnpm testnet
+pnpm testnet:seed
 ```
 
-Connect to `tcp/localhost:7447` and you are in.
-
-> [!IMPORTANT]
-> Zenoh ships with `adminspace.enabled` set to **false**. Without it the
-> explorer can see the transports it holds open but cannot read topology,
-> declarations or link-state from anything else. If the topology view looks
-> empty, check this first. The app will say so in the events log.
-
-### Other commands
+Connect to `tcp/localhost:7448`. Stop it with:
 
 ```bash
-pnpm build     # bundle for the current platform
-pnpm check     # everything CI runs
-pnpm bindings  # regenerate TypeScript types from Rust
+pnpm testnet:down
 ```
 
-## How it is built
-
-The rule the whole codebase follows: **logic lives in Rust, the frontend only
-renders.** Nothing in React decides anything about a Zenoh network.
-
-```
-crates/zenoh-explorer-core     the domain. No Tauri, no UI, unit tested.
-crates/tauri-plugin-zenoh-*    four Tauri plugins, one per domain
-src-tauri                      the shell. Registers plugins, and that's it.
-src                            React + TypeScript
-```
-
-The backend is four first-party [Tauri
-plugins](https://v2.tauri.app/develop/plugins/): `zenoh-session`,
-`zenoh-topology`, `zenoh-keyspace` and `zenoh-data`. Each one owns its commands,
-its permission set and its TypeScript client. That is why `put` and `delete` can
-sit outside the default permissions: a build has to ask for
-`zenoh-data:read-write` before it can write to the network it is inspecting.
-
-Every type that crosses the boundary is generated from the Rust definition with
-`ts-rs`, so renaming a field breaks the TypeScript build instead of producing
-`undefined` at runtime.
-
-|          |                                                                        |
-| -------- | ---------------------------------------------------------------------- |
-| Backend  | Rust 1.95, [zenoh 1.10](https://github.com/eclipse-zenoh/zenoh), Tokio |
-| Shell    | [Tauri 2.11](https://v2.tauri.app)                                     |
-| Frontend | React 19, TypeScript 7, Vite 8, Tailwind 4, Zustand                    |
-
-More detail in [docs/architecture.md](docs/architecture.md).
-
-## Status
-
-|                                                                                 |              |
-| ------------------------------------------------------------------------------- | ------------ |
-| Core domain: sessions, discovery, declarations, key index, taps, key-expr tools | ✅ 118 tests |
-| Five plugins with permissions and TS clients                                    | ✅           |
-| Shell: tabs, sidebar, status bar, theming, shortcuts, resizable panels          | ✅           |
-| Keyspace and live tap, admin space, peers, scouting, events                     | ✅           |
-| Topology: region / router / flat, drill-down, route trace, inspector            | ✅           |
-| Regions, transport detail, configuration                                        | ✅           |
-| Command palette, tap export, per-node throughput rates                          | 📋 planned   |
-
-## Testing
+### Quality commands
 
 ```bash
-pnpm test:rust   # domain logic, plus commands through the real ACL
-pnpm test        # frontend, with the IPC layer stubbed
-pnpm e2e         # the built app, driven through WebDriver
+pnpm check      # TypeScript, ESLint, formatting, Vitest, Clippy, and Rust tests
+pnpm bindings   # regenerate TypeScript IPC types from Rust definitions
+pnpm licenses:check # verify approved licenses and the bundled notice document
+pnpm build      # create a production bundle for the current platform
+pnpm e2e        # build and drive the real Tauri app through WebDriver
 ```
 
-The middle one is worth calling out. It uses `tauri::test::mock_builder` to run
-a real `App` on a mock runtime, so commands go through the actual permission
-system and the actual serde boundary, with no display server and no window. It
-runs on macOS too, which WebDriver could not do until recently.
+The Rust integration suite opens real loopback Zenoh networks to verify live
+sample delivery, cross-router discovery, link-state costs, and successor-based
+route tracing. Command tests cross the actual Tauri permission and
+serialization boundary; frontend tests stub only the IPC edge.
+
+The license check requires `cargo-deny` 0.20.2 and `cargo-about` 0.9.2. CI
+installs the pinned versions automatically; contributors only need them when
+running the compliance check locally or changing production dependencies.
+
+## Architecture
+
+```text
+Zenoh network
+    ↓
+zenoh-explorer-core        network semantics, discovery, indexing, diagnostics
+    ↓
+tauri-plugin-zenoh-*       thin commands, events, channels, and permissions
+    ↓
+generated TypeScript IPC   Rust types exported with ts-rs
+    ↓
+React + Sigma              desktop UI and WebGL topology rendering
+```
+
+Network decisions live in `zenoh-explorer-core`; Tauri plugins translate them
+across IPC, and React renders the result. This keeps Zenoh semantics testable
+without a window and prevents a second implementation from drifting into the
+frontend. Read the [architecture guide](docs/architecture.md) for the plugin
+boundaries, event model, data flow, and frontend layering.
+
+| Layer         | Technology                                     |
+| ------------- | ---------------------------------------------- |
+| Network core  | Rust, Zenoh 1.10, Tokio                        |
+| Desktop shell | Tauri 2                                        |
+| Interface     | React 19, TypeScript 6, Vite 8, Tailwind CSS 4 |
+| Topology      | Sigma.js 3, Graphology, ForceAtlas2            |
 
 ## Contributing
 
-Please do. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and the layering
-rules. Adding a view is a folder and one line in a registry; adding a command is
-a few more steps, all listed there.
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the
+setup, layering rules, command checklist, and testing strategy. Please follow
+the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+- [Report a bug](https://github.com/farmblox/zenoh-explorer/issues/new?template=bug.yml)
+- [Request a feature](https://github.com/farmblox/zenoh-explorer/issues/new?template=feature.yml)
+- [Report a security issue](SECURITY.md)
+
+Zenoh Explorer is still early software. If a discovery result looks wrong,
+include the Zenoh version, deployment shape, and whether router admin space is
+enabled in the issue.
 
 ## License
 
-[Apache 2.0](LICENSE), © Farmblox.
+[Apache License 2.0](LICENSE), © Farmblox Inc.
 
 Eclipse Zenoh is a trademark of the Eclipse Foundation. This project is not
-affiliated with or endorsed by them.
-
-The topology graph is drawn with [React Flow](https://reactflow.dev) by xyflow,
-and laid out by [dagre](https://github.com/dagrejs/dagre). Both are MIT
-licensed. Every other dependency is in `package.json` and `Cargo.toml`.
+affiliated with or endorsed by the Eclipse Foundation. The topology renderer
+uses [Sigma.js](https://www.sigmajs.org/) and
+[Graphology](https://graphology.github.io/), both under the MIT License.

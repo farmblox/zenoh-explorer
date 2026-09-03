@@ -11,8 +11,8 @@ import { cn } from "@/lib/cn";
 import { pressable } from "@/lib/states";
 import { ViewHeader } from "@/shell/ViewHeader";
 
-/** Everything every node publishes about itself. */
-const DEFAULT_SELECTOR = "@/*/*";
+/** Every router's status record, including its live session table. */
+const DEFAULT_SELECTOR = "@/*/router";
 
 /**
  * Subtrees worth one click, since the admin space is not self-documenting.
@@ -21,18 +21,18 @@ const DEFAULT_SELECTOR = "@/*/*";
  * surface rather than the parts that happened to get a button.
  */
 const PRESETS = [
-  { label: "Nodes", selector: "@/*/*" },
-  { label: "Config", selector: "@/*/*/config" },
-  { label: "Link-state", selector: "@/*/*/linkstate/*" },
+  { label: "Routers", selector: "@/*/router" },
+  { label: "Config", selector: "@/*/router/config" },
+  { label: "Link-state", selector: "@/*/router/linkstate/*" },
   { label: "Subscribers", selector: "@/*/*/subscriber/**" },
   { label: "Publishers", selector: "@/*/*/publisher/**" },
   { label: "Queryables", selector: "@/*/*/queryable/**" },
   { label: "Queriers", selector: "@/*/*/querier/**" },
   { label: "Live tokens", selector: "@/*/*/token/**" },
-  { label: "Routes", selector: "@/*/*/route/successor/**" },
-  { label: "Plugins", selector: "@/*/*/status/plugins/**" },
-  { label: "Storages", selector: "@/*/*/status/plugins/storage_manager/**" },
-  { label: "Metrics", selector: "@/*/*/metrics" },
+  { label: "Routes", selector: "@/*/router/route/successor/**" },
+  { label: "Plugins", selector: "@/*/router/status/plugins/**" },
+  { label: "Storages", selector: "@/*/router/status/plugins/storage_manager/**" },
+  { label: "Metrics", selector: "@/*/router/metrics" },
 ] as const;
 
 const COLUMNS: readonly Column<SampleRecord>[] = [
@@ -112,7 +112,7 @@ export function AdminView() {
             onChange={setSelector}
             sessionId={sessionId}
             prefix="selector"
-            placeholder="@/*/*/linkstate/*"
+            placeholder="@/*/router/linkstate/*"
             className="flex-1"
           />
           <Button type="submit" variant="primary" icon={<Play size={13} />} disabled={loading}>
@@ -153,7 +153,7 @@ export function AdminView() {
           <EmptyState
             icon={<AtSign />}
             title="No replies"
-            description="Zenoh defaults `adminspace.enabled` to false. Nodes need it switched on before they answer these queries."
+            description="Zenoh defaults `adminspace.enabled` to false. Routers need it switched on before they expose status and session data."
           />
         }
       />

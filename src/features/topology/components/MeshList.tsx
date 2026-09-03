@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { Input, ListRow, ResizablePanel, SegmentedControl } from "@/components/ui";
 import type { LinkSummary, NodeSummary } from "@/ipc";
 import { rate as formatRate, shortZid } from "@/lib/format";
+import { isObservedOnlyLink } from "../lib/edgeStyle";
 import { label as nodeLabel } from "../lib/grouping";
 import { TopologyNodeIcon } from "./TopologyNodeIcon";
 
@@ -77,10 +78,11 @@ export function MeshList({ nodes, links, rates, anchors, selectedZid, onSelect }
   const alerts = useMemo(() => {
     const linked = new Set<string>();
     const uncertain = new Set<string>();
+    const byZid = new Map(nodes.map((node) => [node.zid, node]));
     for (const link of links) {
       linked.add(link.from);
       linked.add(link.to);
-      if (!link.bidirectional) {
+      if (isObservedOnlyLink(link, byZid)) {
         uncertain.add(link.from);
         uncertain.add(link.to);
       }

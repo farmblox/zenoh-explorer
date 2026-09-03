@@ -6,7 +6,7 @@
 //! the way you think".
 //!
 //! Zenoh answers per router, at
-//! `@/<zid>/<whatami>/route/successor/src/<src>/dst/<dst>`, whose payload is the
+//! `@/<zid>/router/route/successor/src/<src>/dst/<dst>`, whose payload is the
 //! zid that router would forward to next. Only routers answer at all; a peer or
 //! client holds no routing table.
 //!

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LinkSummary, NodeSummary, TopologySnapshot } from "@/ipc";
-import { neighbourhoodOf, singleHomedCount, unconfirmedCount } from "./neighbours";
+import { neighbourhoodOf, observedOnlyCount, singleHomedCount } from "./neighbours";
 
 function node(zid: string, kind: NodeSummary["kind"]): NodeSummary {
   return {
@@ -21,8 +21,17 @@ function node(zid: string, kind: NodeSummary["kind"]): NodeSummary {
   };
 }
 
-function link(from: string, to: string, bidirectional = true): LinkSummary {
-  return { from, to, protocol: "tcp", region: "north", bidirectional, multicast: false };
+function link(from: string, to: string, inRoutingMap = false): LinkSummary {
+  return {
+    from,
+    to,
+    protocol: "tcp",
+    region: "north",
+    bidirectional: true,
+    multicast: false,
+    inRoutingMap,
+    routingCost: inRoutingMap ? 1 : null,
+  };
 }
 
 /** rtr-a is the hub; cli-1 hangs off it alone; rtr-b has its own leaf. */
@@ -33,7 +42,7 @@ const SNAPSHOT: TopologySnapshot = {
     node("cli-1", "client"),
     node("cli-2", "client"),
   ],
-  links: [link("rtr-a", "rtr-b"), link("rtr-a", "cli-1"), link("rtr-b", "cli-2", false)],
+  links: [link("rtr-a", "rtr-b", true), link("rtr-a", "cli-1"), link("rtr-b", "cli-2")],
   localZid: "rtr-a",
   capturedAtMs: 0,
   storages: [],
@@ -61,9 +70,13 @@ describe("neighbourhoodOf", () => {
     expect(singleHomedCount(hops)).toBe(1);
   });
 
-  it("counts links only one end reported", () => {
-    expect(unconfirmedCount(neighbourhoodOf("rtr-b", SNAPSHOT))).toBe(1);
-    expect(unconfirmedCount(neighbourhoodOf("rtr-a", SNAPSHOT))).toBe(0);
+  it("counts router transports missing from link-state, not access links", () => {
+    const snapshot = {
+      ...SNAPSHOT,
+      links: [...SNAPSHOT.links, link("rtr-a", "rtr-b")],
+    };
+    expect(observedOnlyCount(neighbourhoodOf("rtr-b", snapshot))).toBe(1);
+    expect(observedOnlyCount(neighbourhoodOf("cli-2", snapshot))).toBe(0);
   });
 
   it("is empty for a node with no links", () => {

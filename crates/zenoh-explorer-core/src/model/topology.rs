@@ -6,14 +6,15 @@ use ts_rs::TS;
 use super::node::NodeSummary;
 use crate::storage::StorageSummary;
 
-/// A directed edge between two nodes, as reported by one of them.
+/// One deduplicated, undirected link between two nodes.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct LinkSummary {
-    /// Zid of the node reporting the link.
+    /// One endpoint. Orientation is retained from the first report but carries
+    /// no routing direction.
     pub from: String,
-    /// Zid of the node on the other end.
+    /// The other endpoint.
     pub to: String,
     /// Transport protocol, parsed out of the locator (`tcp`, `quic`, `tls`, ...).
     pub protocol: Option<String>,
@@ -28,6 +29,13 @@ pub struct LinkSummary {
     pub bidirectional: bool,
     /// Whether the link is multicast.
     pub multicast: bool,
+    /// Whether Zenoh included this edge in a link-state routing graph.
+    pub in_routing_map: bool,
+    /// Link-state cost. Lower-cost edges are preferred by Zenoh's router graph.
+    ///
+    /// Absent on session-only access links and when a future Zenoh DOT format
+    /// omits or changes the edge label.
+    pub routing_cost: Option<f64>,
 }
 
 impl LinkSummary {
@@ -53,25 +61,25 @@ pub struct TopologySnapshot {
     pub links: Vec<LinkSummary>,
     /// Zid of the session the explorer opened, so the UI can anchor the view.
     pub local_zid: String,
-    /// Every storage the network's nodes have configured.
+    /// Every storage the network's routers have configured.
     ///
-    /// Read from each node's configuration during the same probe, so it arrives
+    /// Read from each router's configuration during the same probe, so it arrives
     /// pushed like everything else rather than being fetched when a view opens.
     pub storages: Vec<StorageSummary>,
     /// Wall-clock capture time in milliseconds since the Unix epoch.
     pub captured_at_ms: u64,
-    /// How many nodes are in the graph on another node's word.
+    /// How many known routers did not answer their own status record.
     ///
-    /// A node that answered `@/<zid>/<whatami>` described itself. One that did
-    /// not is here because something else reported a session to it, so its role,
-    /// its name and its other links are all unknown. Non-zero means the view is
-    /// partial, and by how much.
+    /// Peers and clients are expected to come from a router's session table and
+    /// do not count here. A router that appears only through another router's
+    /// sessions or link-state graph cannot reveal the peers behind it, so a
+    /// non-zero value means the view may stop at that router.
     ///
     /// The explorer's own session never counts: in client mode it has no admin
     /// entry of its own to find, so including it would mark every snapshot
     /// partial however well the rest of the network answered.
     pub unverified_nodes: usize,
-    /// How many nodes described themselves through the admin space.
+    /// How many routers answered their `@/<zid>/router` status record.
     ///
     /// Zero means the graph stops at the first hop: either no node has
     /// `adminspace.enabled` (Zenoh leaves it off by default) or none is
