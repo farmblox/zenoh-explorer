@@ -233,7 +233,7 @@ enabled in the issue.
 
 ## License
 
-[Apache License 2.0](LICENSE), © Farmblox.
+[Apache License 2.0](LICENSE), © Farmblox Inc.
 
 Eclipse Zenoh is a trademark of the Eclipse Foundation. This project is not
 affiliated with or endorsed by the Eclipse Foundation. The topology renderer
