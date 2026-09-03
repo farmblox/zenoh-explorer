@@ -6491,7 +6491,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-zenoh-data"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -6505,7 +6505,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-zenoh-keyspace"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -6519,7 +6519,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-zenoh-profiles"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -6536,7 +6536,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-zenoh-session"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -6551,7 +6551,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-zenoh-topology"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -8776,7 +8776,7 @@ dependencies = [
 
 [[package]]
 name = "zenoh-explorer"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "log",
  "serde",
@@ -8810,7 +8810,7 @@ dependencies = [
 
 [[package]]
 name = "zenoh-explorer-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ahash",
  "dashmap",
@@ -9190,7 +9190,7 @@ dependencies = [
 
 [[package]]
 name = "zenoh-testnet"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde_json",
  "tokio",
