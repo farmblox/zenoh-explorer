@@ -34,7 +34,8 @@ discards silently and a diagnostic tool has to show its drop count.
 **Topology does not require the admin space.**
 `info().transport_events_listener()` and `link_events_listener()`, both with
 `.history(true)`, replay current state and then stream changes, asking nothing
-of the far end. Polling `@/**` is the richer source, not the primary one.
+of the far end. Polling router status at `@/*/router` is the richer source, not
+the primary one.
 
 **Liveliness is application presence, not node presence.** Zenoh does not
 auto-declare a token per session; tokens are app-declared. Do not build node
@@ -82,7 +83,7 @@ empty network — the probe already reports it as a diagnostic.
 **Regions are `region_name`, not a convention.** Zenoh 1.9 added a real
 `region_name` to the node configuration, and it is what
 `gateway.south[].filters[].region_names` matches on. It is read from
-`@/*/*/config` and wins; `metadata.location` is a fallback, because
+`@/*/router/config` and wins; `metadata.location` is a fallback, because
 `region_name` is null by default. `NodeSummary.region_source` says which
 answered. Do not confuse either with a LINK's region (`north`,
 `south:0:peer`), which names a routing tree and belongs to the link.

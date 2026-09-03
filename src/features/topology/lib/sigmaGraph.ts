@@ -51,9 +51,6 @@ export interface SigmaNodeAttributes {
   hoverColor: string;
   labelBackground: string;
   labelColor: string;
-  context: boolean;
-  firsthand: boolean;
-  isLocal: boolean;
   alert: string | null;
 }
 
@@ -62,7 +59,7 @@ export interface SigmaEdgeAttributes {
   size: number;
   color: string;
   label: string;
-  protocol: string;
+  detailLabel: string;
   type: "line";
   kind: EdgeKind;
   weight: number;
@@ -84,14 +81,14 @@ const NODE_SIZE: Record<NodeKind, number> = {
 };
 
 const EDGE_WEIGHT: Record<EdgeKind, number> = {
-  // The northbound router mesh is the skeleton everything else hangs from.
-  trunk: 3.2,
+  // The link-state graph is the skeleton everything else hangs from.
+  routing: 3.2,
   // Router-to-peer/client links should stay close without crushing the mesh.
   access: 1.5,
   // Direct peer links explain adjacency but must not overpower the backbone.
-  mesh: 0.65,
-  // A link only one endpoint reports is weak evidence and weak attraction.
-  unconfirmed: 0.35,
+  peer: 0.65,
+  // Observed router transports outside link-state are weak layout evidence.
+  observed: 0.35,
 };
 
 /**
@@ -113,19 +110,19 @@ export function buildSigmaGraph(
   const positions = seedPositions(snapshot.nodes, snapshot.links, previous);
 
   const degree = new Map<string, number>();
-  const unconfirmed = new Map<string, number>();
+  const observedOnly = new Map<string, number>();
   for (const link of snapshot.links) {
     degree.set(link.from, (degree.get(link.from) ?? 0) + 1);
     degree.set(link.to, (degree.get(link.to) ?? 0) + 1);
-    if (!link.bidirectional) {
-      unconfirmed.set(link.from, (unconfirmed.get(link.from) ?? 0) + 1);
-      unconfirmed.set(link.to, (unconfirmed.get(link.to) ?? 0) + 1);
+    if (classifyEdge(link, byZid).kind === "observed") {
+      observedOnly.set(link.from, (observedOnly.get(link.from) ?? 0) + 1);
+      observedOnly.set(link.to, (observedOnly.get(link.to) ?? 0) + 1);
     }
   }
 
   for (const node of snapshot.nodes) {
     const position = positions.get(node.zid) ?? { x: 0, y: 0 };
-    const alert = nodeAlert(node, degree.get(node.zid) ?? 0, unconfirmed.get(node.zid) ?? 0);
+    const alert = nodeAlert(node, degree.get(node.zid) ?? 0, observedOnly.get(node.zid) ?? 0);
     const context = anchors.has(node.zid);
     const base = nodeColours(node, alert, context, palette);
 
@@ -147,9 +144,6 @@ export function buildSigmaGraph(
       hoverColor: palette.inkMuted,
       labelBackground: palette.surface1,
       labelColor: palette.ink,
-      context,
-      firsthand: isFirsthand(node.source),
-      isLocal: node.isLocal,
       alert,
     });
   }
@@ -161,10 +155,10 @@ export function buildSigmaGraph(
     graph.addUndirectedEdgeWithKey(`${link.from}--${link.to}--${index}`, link.from, link.to, {
       size: edgeWidth(kind, snapshot.links.length),
       color: edgeColour(kind, palette),
-      // Empty at rest. The reducer supplies `protocol` only for the selected
+      // Empty at rest. The reducer supplies detail only for the selected
       // neighbourhood, so labels never carpet a dense graph.
       label: "",
-      protocol: link.protocol ?? kind,
+      detailLabel: edgeDetail(link, kind),
       // Sigma's rectangle renderer anti-aliases this line. The raw GL_LINES
       // program is faster and visibly stair-stepped in WKWebView.
       type: "line",
@@ -179,9 +173,11 @@ export function buildSigmaGraph(
 }
 
 /** What about a node needs attention, indexed in O(nodes + links). */
-function nodeAlert(node: NodeSummary, linkCount: number, uncertain: number): string | null {
+function nodeAlert(node: NodeSummary, linkCount: number, observedOnly: number): string | null {
   if (linkCount === 0 && !node.isLocal) return "no links";
-  return uncertain > 0 ? `${uncertain} link${uncertain === 1 ? "" : "s"} unconfirmed` : null;
+  return observedOnly > 0
+    ? `${observedOnly} router link${observedOnly === 1 ? "" : "s"} outside routing map`
+    : null;
 }
 
 function nodeColours(
@@ -217,14 +213,14 @@ function nodeColours(
 
 function edgeColour(kind: EdgeKind, palette: SigmaPalette): string {
   switch (kind) {
-    case "trunk":
+    case "routing":
       return withAlpha(palette.accent, 0.64);
     case "access":
       return withAlpha(palette.inkMuted, 0.46);
-    case "mesh":
+    case "peer":
       return withAlpha(palette.accentStrong, 0.36);
-    case "unconfirmed":
-      return withAlpha(palette.warn, 0.78);
+    case "observed":
+      return withAlpha(palette.warn, 0.62);
   }
 }
 
@@ -242,13 +238,13 @@ function edgeWidth(kind: EdgeKind, total: number): number {
   const scale = total > 30_000 ? 0.5 : total > 10_000 ? 0.62 : total > 2_000 ? 0.8 : 1;
   const width = (() => {
     switch (kind) {
-      case "trunk":
+      case "routing":
         return 4;
       case "access":
         return 2.6;
-      case "mesh":
+      case "peer":
         return 1.8;
-      case "unconfirmed":
+      case "observed":
         return 2.2;
     }
   })();
@@ -314,9 +310,26 @@ function seedPositions(
 export function topologyStructureKey(snapshot: TopologySnapshot): string {
   const nodes = snapshot.nodes.map((node) => `${node.zid}:${node.kind}`).join("|");
   const links = snapshot.links
-    .map((link) => `${link.from}>${link.to}:${link.bidirectional ? 1 : 0}`)
+    .map((link) => `${link.from}>${link.to}:${link.inRoutingMap ? 1 : 0}`)
     .join("|");
   return `${nodes}#${links}`;
+}
+
+function edgeDetail(link: LinkSummary, kind: EdgeKind): string {
+  if (link.inRoutingMap) {
+    const region = link.region ?? "routing";
+    const cost = link.routingCost === null ? "" : ` · cost ${formatCost(link.routingCost)}`;
+    return `${region}${cost}`;
+  }
+  if (kind === "access") return `${link.protocol ?? "session"} · access`;
+  if (kind === "peer") return `${link.protocol ?? "session"} · peer mesh`;
+  return `${link.protocol ?? "session"} · observed only`;
+}
+
+function formatCost(value: number): string {
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 function hashString(input: string): number {

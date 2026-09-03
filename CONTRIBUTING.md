@@ -68,7 +68,20 @@ pnpm check
 ```
 
 Typecheck, ESLint, Prettier, Vitest, Clippy with `-D warnings`, and the Rust
-tests. Same thing CI runs.
+tests. CI also runs the distribution-license check below.
+
+When production dependencies change, install the pinned license tools and
+regenerate the notice shipped in every installer:
+
+```bash
+cargo install --locked --version 0.20.2 cargo-deny
+cargo install --locked --version 0.9.2 --features cli cargo-about
+pnpm licenses:generate
+pnpm licenses:check
+```
+
+`licenses:check` rejects licenses outside the reviewed allowlists and fails if
+`DISTRIBUTION_LICENSES.txt` is stale.
 
 ## Tests
 

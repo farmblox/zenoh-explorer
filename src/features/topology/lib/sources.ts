@@ -3,10 +3,9 @@ import type { DiscoverySource, TopologySnapshot } from "@/ipc";
 /**
  * Whether we know this node first-hand.
  *
- * `adminSpace` means the node described itself; `transport` means we hold a
- * session to it. Everything else is hearsay — somebody else told us it exists,
- * and it may not be reachable, may have gone away, or may never have been what
- * was claimed.
+ * `adminSpace` means a router answered its status record; `transport` means we
+ * hold a session to the node. Everything else was reported indirectly and may
+ * no longer be reachable.
  *
  * The graph draws the difference, because a topology tool that renders a rumour
  * identically to a fact is worse than one that shows less.
@@ -19,8 +18,8 @@ export function isFirsthand(source: DiscoverySource): boolean {
  * Which sources of truth the graph is drawn from.
  *
  * Zenoh tells you about a node in several ways and they are not equally
- * trustworthy. A node that answered its own admin space described itself; one
- * seen only in a scout reply is a claim someone else made. Being able to strip
+ * trustworthy. A router that answered its own status record described itself;
+ * one seen only in a scout reply is a claim someone else made. Being able to strip
  * the graph back to what it knows first-hand is the difference between reading
  * a topology and guessing at one.
  */
@@ -28,7 +27,7 @@ export type SourceFilter = "all" | DiscoverySource;
 
 /** Label and one-line meaning for each source, in descending confidence. */
 export const SOURCE_LABELS: Record<DiscoverySource, string> = {
-  adminSpace: "Admin space",
+  adminSpace: "Router status",
   transport: "Open transports",
   linkState: "Link-state",
   liveliness: "Liveliness tokens",

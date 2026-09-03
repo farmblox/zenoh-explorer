@@ -14,7 +14,7 @@
 //! - [`config`] — connection profiles and their translation to `zenoh::Config`
 //! - [`connection`] — timeouts, retry and what `open` waits for
 //! - [`session`] — open sessions and the registry that owns them
-//! - [`admin`] — reading topology out of `@/**`
+//! - [`admin`] — reading router session tables out of `@/*/router`
 //! - [`acl`] — what a node's access-control policy would do to a key
 //! - [`diagnose`] — turning transport failures into something actionable
 //! - [`discovery`] — every way to learn what is on the network, and which one told us

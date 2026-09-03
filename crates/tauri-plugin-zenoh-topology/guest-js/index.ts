@@ -34,10 +34,9 @@ export function scout(durationMs?: number): Promise<ScoutedNode[]> {
 /**
  * The path a message would take between two nodes.
  *
- * A graph shows which links exist; this shows which one Zenoh would pick. Only
- * routers hold a routing table, so a trace that starts at a client or peer
- * stops immediately with `noSuccessor` — that is the near end having nothing to
- * report, not a fault.
+ * A graph shows which links exist; this shows which one Zenoh would pick.
+ * Callers anchor clients and peers to a router first because only routers hold
+ * successor tables.
  */
 export function routeTrace(sessionId: SessionId, from: string, to: string): Promise<Trace> {
   return invoke("plugin:zenoh-topology|route_trace", { sessionId, from, to });

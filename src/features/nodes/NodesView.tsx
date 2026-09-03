@@ -13,7 +13,7 @@ import {
   ToolbarDivider,
   type Column,
 } from "@/components/ui";
-import { nodeLabel, SOURCE_LABELS, UNGROUPED } from "@/features/topology";
+import { isObservedOnlyLink, nodeLabel, SOURCE_LABELS, UNGROUPED } from "@/features/topology";
 import type { NodeKind, NodeSummary } from "@/ipc";
 import { groupedNumber } from "@/lib/format";
 import { useReveal } from "@/navigation/useReveal";
@@ -38,7 +38,7 @@ const ROLE_RANK: Record<NodeKind, number> = { router: 0, peer: 1, client: 2 };
 interface Row {
   readonly node: NodeSummary;
   readonly links: number;
-  readonly unconfirmed: number;
+  readonly observedOnly: number;
 }
 
 const COLUMNS: readonly Column<Row>[] = [
@@ -85,10 +85,10 @@ const COLUMNS: readonly Column<Row>[] = [
         {/* The count alone would hide the interesting half: a node with four
             links, three of which nobody confirmed, is not a well-connected
             node. */}
-        {row.unconfirmed > 0 ? (
-          <span className="text-warn" title={`${row.unconfirmed} unconfirmed`}>
+        {row.observedOnly > 0 ? (
+          <span className="text-warn" title={`${row.observedOnly} outside routing map`}>
             {" "}
-            ·{row.unconfirmed}
+            ·{row.observedOnly}
           </span>
         ) : null}
       </span>
@@ -135,12 +135,13 @@ export function NodesView() {
   const rows = useMemo<readonly Row[]>(() => {
     if (!snapshot) return [];
 
-    const links = new Map<string, { total: number; unconfirmed: number }>();
+    const links = new Map<string, { total: number; observedOnly: number }>();
+    const byZid = new Map(snapshot.nodes.map((node) => [node.zid, node]));
     for (const link of snapshot.links) {
       for (const end of [link.from, link.to]) {
-        const tally = links.get(end) ?? { total: 0, unconfirmed: 0 };
+        const tally = links.get(end) ?? { total: 0, observedOnly: 0 };
         tally.total += 1;
-        if (!link.bidirectional) tally.unconfirmed += 1;
+        if (isObservedOnlyLink(link, byZid)) tally.observedOnly += 1;
         links.set(end, tally);
       }
     }
@@ -157,7 +158,7 @@ export function NodesView() {
       )
       .map((node) => {
         const tally = links.get(node.zid);
-        return { node, links: tally?.total ?? 0, unconfirmed: tally?.unconfirmed ?? 0 };
+        return { node, links: tally?.total ?? 0, observedOnly: tally?.observedOnly ?? 0 };
       })
       .sort(
         (a, b) =>
@@ -255,10 +256,10 @@ export function NodesView() {
               }
               description={
                 awaiting
-                  ? "Querying every reachable node's admin space."
+                  ? "Querying every reachable router's status record."
                   : filter || role !== "all"
                     ? "Nothing on this network matches. Clear the filter to see every node."
-                    : "No node replied on the admin space. Zenoh ships with adminspace.enabled set to false, so nodes have to opt in before the explorer can read them."
+                    : "No router replied at @/<zid>/router and no direct transport was found. Zenoh leaves router adminspace disabled by default."
               }
             />
           }

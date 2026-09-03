@@ -58,8 +58,8 @@ export function RegionsView() {
             title={awaiting ? "Probing the network" : "No regions"}
             description={
               awaiting
-                ? "Querying every reachable node's admin space."
-                : "Nothing answered on the admin space, so there is nothing to group. Zenoh leaves adminspace.enabled off by default."
+                ? "Querying every reachable router's status record."
+                : "No router status supplied region data, so there is nothing to group. Zenoh leaves router adminspace disabled by default."
             }
           />
         ) : (

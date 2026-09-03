@@ -40,13 +40,31 @@ function node(zid: string, kind: NodeSummary["kind"], isLocal = false): NodeSumm
   };
 }
 
-function link(from: string, to: string, bidirectional = true): LinkSummary {
-  return { from, to, protocol: "tcp", region: "north", bidirectional, multicast: false };
+function link(from: string, to: string, bidirectional = true, inRoutingMap = false): LinkSummary {
+  return {
+    from,
+    to,
+    protocol: "tcp",
+    region: "north",
+    bidirectional,
+    multicast: false,
+    inRoutingMap,
+    routingCost: inRoutingMap ? 1 : null,
+  };
 }
 
 const SNAPSHOT: TopologySnapshot = {
-  nodes: [node("rtr-a", "router", true), node("peer-a", "peer"), node("cli-a", "client")],
-  links: [link("rtr-a", "peer-a"), link("peer-a", "cli-a", false)],
+  nodes: [
+    node("rtr-a", "router", true),
+    node("rtr-b", "router"),
+    node("peer-a", "peer"),
+    node("cli-a", "client"),
+  ],
+  links: [
+    link("rtr-a", "rtr-b", true, true),
+    link("rtr-a", "peer-a"),
+    link("peer-a", "cli-a", false),
+  ],
   localZid: "rtr-a",
   storages: [],
   capturedAtMs: 1,
@@ -58,8 +76,8 @@ describe("buildSigmaGraph", () => {
   it("builds layered role beacons and semantic links", () => {
     const { graph } = buildSigmaGraph(SNAPSHOT, new Set(), new Map(), PALETTE);
 
-    expect(graph.order).toBe(3);
-    expect(graph.size).toBe(2);
+    expect(graph.order).toBe(4);
+    expect(graph.size).toBe(3);
     expect(graph.getNodeAttribute("rtr-a", "type")).toBe("beacon");
     expect(graph.getNodeAttribute("rtr-a", "size")).toBeGreaterThan(
       graph.getNodeAttribute("peer-a", "size"),
@@ -69,9 +87,9 @@ describe("buildSigmaGraph", () => {
     );
     expect(graph.getNodeAttribute("rtr-a", "forceLabel")).toBe(true);
 
-    const uncertain = graph.findEdge((_edge, attributes) => attributes.kind === "unconfirmed");
-    expect(uncertain).toBeDefined();
-    expect(graph.getEdgeAttribute(uncertain ?? "", "color")).not.toBe("#000000ff");
+    const routing = graph.findEdge((_edge, attributes) => attributes.kind === "routing");
+    expect(routing).toBeDefined();
+    expect(graph.getEdgeAttribute(routing ?? "", "detailLabel")).toBe("north · cost 1");
   });
 
   it("preserves positions a user moved", () => {
@@ -95,5 +113,20 @@ describe("buildSigmaGraph", () => {
     };
 
     expect(topologyStructureKey(changedMetadata)).toBe(topologyStructureKey(SNAPSHOT));
+  });
+
+  it("does not restart layout when only link detail changes", () => {
+    const changedEvidence = {
+      ...SNAPSHOT,
+      links: SNAPSHOT.links.map((entry) => ({
+        ...entry,
+        bidirectional: !entry.bidirectional,
+        protocol: "quic",
+        region: "south:0:router",
+        routingCost: entry.routingCost === null ? null : 2,
+      })),
+    };
+
+    expect(topologyStructureKey(changedEvidence)).toBe(topologyStructureKey(SNAPSHOT));
   });
 });

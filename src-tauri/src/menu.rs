@@ -93,7 +93,7 @@ fn about_metadata<R: Runtime>(app: &AppHandle<R>) -> AboutMetadata<'static> {
     AboutMetadata {
         name: Some("Zenoh Explorer".into()),
         version: Some(env!("CARGO_PKG_VERSION").into()),
-        copyright: Some("© Farmblox. Apache-2.0.".into()),
+        copyright: Some("© Farmblox Inc. Apache-2.0.".into()),
         website: Some("https://github.com/farmblox/zenoh-explorer".into()),
         website_label: Some("Source".into()),
         icon: about_icon(app),
