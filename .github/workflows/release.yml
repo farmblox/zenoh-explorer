@@ -87,6 +87,26 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libxdo-dev
 
+      # Tauri's bundler downloads linuxdeploy into the cache directory the
+      # first time it runs and reuses whatever is there afterwards, so a copy
+      # put there beforehand is the copy it uses. The one it would fetch is a
+      # July 2024 build whose exclude list still lets libwayland-client into
+      # the AppImage, and an AppImage carrying Ubuntu's libwayland-client
+      # cannot create an EGL display on a host with Mesa 25 or newer: the web
+      # process aborts and the window never appears. Upstream's current build
+      # leaves that library to the host. See docs/releasing.md.
+      - name: Use a linuxdeploy that leaves libwayland-client to the host
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          arch="${{ matrix.target }}"
+          arch="${arch%%-*}"
+          tools="${XDG_CACHE_HOME:-$HOME/.cache}/tauri"
+          mkdir -p "$tools"
+          curl -fsSL -o "$tools/linuxdeploy-$arch.AppImage" \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$arch.AppImage"
+          chmod +x "$tools/linuxdeploy-$arch.AppImage"
+          "$tools/linuxdeploy-$arch.AppImage" --appimage-extract-and-run --version
+
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
@@ -165,6 +185,21 @@ jobs:
             --target ${{ matrix.target }}
             --features updater
             --config src-tauri/tauri.updater.conf.json
+
+      # The exclude list belongs to upstream, so check the property we rely
+      # on rather than trusting the tool that is supposed to provide it.
+      - name: Verify the AppImage leaves libwayland-client to the host
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          appimage="$(find "target/${{ matrix.target }}/release/bundle/appimage" -maxdepth 1 -name '*.AppImage' -print -quit)"
+          test -n "$appimage"
+          appimage="$(readlink -f "$appimage")"
+          cd "$RUNNER_TEMP"
+          "$appimage" --appimage-extract >/dev/null
+          if [ -e squashfs-root/usr/lib/libwayland-client.so.0 ]; then
+            echo "::error::The AppImage bundles libwayland-client.so.0 and will not open a window on Mesa 25 or newer"
+            exit 1
+          fi
 
       - name: Verify macOS signature and notarization
         if: startsWith(matrix.os, 'macos')
