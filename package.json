@@ -1,7 +1,7 @@
 {
   "name": "zenoh-explorer",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "Apache-2.0",
   "type": "module",
   "description": "A modern explorer for Zenoh networks.",
@@ -64,6 +64,8 @@
     "@tauri-apps/plugin-notification": "^2.4.0",
     "@tauri-apps/plugin-opener": "^2.5.5",
     "@tauri-apps/plugin-os": "^2.3.2",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.11.0",
     "clsx": "^2.1.1",
     "graphology": "0.26.0",
     "graphology-layout-forceatlas2": "0.10.1",

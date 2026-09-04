@@ -15,6 +15,7 @@ import {
   useTapStore,
   useTopologyStore,
   useUiStore,
+  useUpdateStore,
 } from "@/stores";
 
 /** Routes one backend broadcast to whichever store owns it. */
@@ -106,6 +107,11 @@ export async function bootstrap(): Promise<() => void> {
   if (useSessionStore.getState().sessions.length === 0) {
     useUiStore.getState().openOverlay("connect");
   }
+
+  // The check does not delay first paint or opening a saved session. A current
+  // app says nothing; an available version appears at the far right of the
+  // status bar, where global lifecycle state belongs.
+  void useUpdateStore.getState().initialize();
 
   return () => {
     unlistenEvents();

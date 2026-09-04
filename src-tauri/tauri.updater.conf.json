@@ -3,6 +3,19 @@
   "bundle": {
     "createUpdaterArtifacts": true
   },
+  "app": {
+    "security": {
+      "capabilities": [
+        "default",
+        {
+          "identifier": "updater",
+          "description": "Allows signed release builds to check, install, and restart for updates.",
+          "windows": ["main"],
+          "permissions": ["updater:default", "process:allow-restart"]
+        }
+      ]
+    }
+  },
   "plugins": {
     "updater": {
       "endpoints": [

@@ -4,6 +4,7 @@ import { useNavigation } from "@/navigation/useNavigation";
 import { ConnectDialog } from "@/features/connect";
 import { CommandPalette } from "@/features/palette";
 import { SettingsDialog } from "@/features/settings";
+import { UpdateDialog } from "@/features/update";
 import { useActiveSessionId } from "@/stores";
 import { Sidebar } from "./sidebar/Sidebar";
 import { StatusBar } from "./statusbar/StatusBar";
@@ -62,6 +63,7 @@ export function AppShell() {
       <CommandPalette />
       <ConnectDialog />
       <SettingsDialog />
+      <UpdateDialog />
       {/* Positioned against the window, so it clears the status bar rather
           than being clipped by the content pane's overflow. */}
       <Toaster />
