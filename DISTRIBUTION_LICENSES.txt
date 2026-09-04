@@ -10758,20 +10758,6 @@ Apache License 2.0 (Apache-2.0)
 ================================================================================
 
 Used by:
-- tauri-plugin-zenoh-data 0.1.1
-  Source: https://crates.io/crates/tauri-plugin-zenoh-data/0.1.1
-- tauri-plugin-zenoh-keyspace 0.1.1
-  Source: https://crates.io/crates/tauri-plugin-zenoh-keyspace/0.1.1
-- tauri-plugin-zenoh-profiles 0.1.1
-  Source: https://crates.io/crates/tauri-plugin-zenoh-profiles/0.1.1
-- tauri-plugin-zenoh-session 0.1.1
-  Source: https://crates.io/crates/tauri-plugin-zenoh-session/0.1.1
-- tauri-plugin-zenoh-topology 0.1.1
-  Source: https://crates.io/crates/tauri-plugin-zenoh-topology/0.1.1
-- zenoh-explorer-core 0.1.1
-  Source: https://crates.io/crates/zenoh-explorer-core/0.1.1
-- zenoh-explorer 0.1.1
-  Source: https://crates.io/crates/zenoh-explorer/0.1.1
 - allocator-api2 0.2.21
   Source: https://crates.io/crates/allocator-api2/0.2.21
 - anyhow 1.0.104

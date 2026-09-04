@@ -5,8 +5,10 @@
 
 Used by:
 {{#each used_by}}
+{{#if crate.source}}
 - {{crate.name}} {{crate.version}}
   Source: https://crates.io/crates/{{crate.name}}/{{crate.version}}
+{{/if}}
 {{/each}}
 
 {{{text}}}

@@ -70,7 +70,14 @@ config overlay.
 ## Cutting a release
 
 ```bash
-# bump the version in package.json — tauri.conf.json reads it from there
+# Keep package.json and the Cargo workspace version in sync. Tauri reads the
+# installer/updater version from package.json; CARGO_PKG_VERSION comes from
+# Cargo.toml.
+#
+# The third-party notice intentionally excludes workspace crates, so a
+# version-only bump does not require regenerating it. `pnpm licenses:check`
+# below proves that assumption and catches real dependency changes.
+pnpm licenses:check
 git tag v0.2.0
 git push origin v0.2.0
 ```
