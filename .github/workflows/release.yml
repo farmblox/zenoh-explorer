@@ -190,7 +190,18 @@ jobs:
           tagName: ${{ inputs.tag || github.ref_name }}
           releaseName: Zenoh Explorer ${{ inputs.tag || github.ref_name }}
           releaseBody: |
-            See the assets below to download this version.
+            Zenoh Explorer 0.1.2 adds:
+
+            - A scalable WebGL topology built around Zenoh link-state
+            - Live successor-based route traces in the node inspector
+            - Cross-router peer discovery and explicit admin-space coverage
+            - Signed in-app updates for releases after 0.1.2
+            - Complete dependency license notices in every installer
+            - A Linux AppImage compatible with current Mesa/Wayland systems
+
+            This is the first release that actively checks for updates. Users
+            on 0.1.1 must install 0.1.2 manually once; later releases can be
+            installed from the status bar.
           # Published by hand after checking the artifacts. A bad build is then
           # a deleted draft rather than something already on people's machines.
           releaseDraft: true

@@ -35,6 +35,17 @@ It looks like this:
 }
 ```
 
+Signed release builds check this endpoint once after startup. A current app
+shows only its quiet version label at the far right of the status bar. When a
+newer version exists, that label becomes an update action; the user reviews the
+release notes and explicitly chooses **Update and restart**. Download progress
+stays in the status bar and dialog. Failed checks are silent because an offline
+launch is normal; failed installs remain visible and retryable.
+
+The updater was first invoked by version 0.1.2. Version 0.1.1 contains signed
+updater artifacts and the native plugin, but no runtime check, so it cannot
+discover 0.1.2 by itself. That one transition requires a manual installer.
+
 One caveat worth knowing: `releases/latest` skips prereleases. Mark a release as
 a prerelease and the updater will keep pointing at the last stable one, which is
 usually what you want, but it does mean prereleases cannot be tested through the
@@ -78,6 +89,8 @@ config overlay.
 # version-only bump does not require regenerating it. `pnpm licenses:check`
 # below proves that assumption and catches real dependency changes.
 pnpm licenses:check
+# Update `releaseBody` in .github/workflows/release.yml with notes that read
+# well both on GitHub and as plain text in the in-app update dialog.
 git tag v0.2.0
 git push origin v0.2.0
 ```

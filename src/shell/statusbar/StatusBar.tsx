@@ -7,6 +7,7 @@ import { groupedNumber } from "@/lib/format";
 import { useActiveSession, useTopology, useUiStore } from "@/stores";
 import { describeCoverage } from "@/features/topology";
 import { LiveIndicator } from "./LiveIndicator";
+import { UpdateStatus } from "./UpdateStatus";
 
 /**
  * The bottom strip.
@@ -107,6 +108,8 @@ export function StatusBar() {
           {coverage.label}
         </span>
       ) : null}
+
+      <UpdateStatus />
     </footer>
   );
 }

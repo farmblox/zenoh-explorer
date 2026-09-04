@@ -28,3 +28,6 @@ export { useDiagnosticsStore } from "./diagnosticsStore";
 export type { LogEntry } from "./diagnosticsStore";
 
 export { useLastChange, useLiveEpoch, useLiveStore } from "./liveStore";
+
+export { useUpdateStore } from "./updateStore";
+export type { UpdatePhase } from "./updateStore";

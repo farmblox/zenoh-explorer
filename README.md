@@ -63,7 +63,9 @@ Download the installer for your platform from the
 
 macOS releases are Developer ID signed and notarized. Release builds also carry
 signed updater artifacts so update packages can be authenticated before they
-are installed.
+are installed. Starting with 0.1.2, the app checks on launch and offers a signed
+update from the bottom-right status bar; installation always requires
+confirmation.
 
 For an AppImage:
 

@@ -18,6 +18,8 @@ export * as profiles from "@plugin/zenoh-profiles";
 
 export { pickCertificate } from "./files";
 export { onMenuEvent, openDistributionLicenses, openExternal } from "./shell";
+export { appVersion, findUpdate, installUpdate } from "./update";
+export type { AvailableUpdate, UpdateProgress } from "./update";
 
 export { IpcError, toIpcError } from "./errors";
 export type { CommandError, CommandErrorCode } from "./errors";
