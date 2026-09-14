@@ -89,7 +89,7 @@ export function PublishDialog({
   const [sending, setSending] = useState(false);
 
   // Opening is when the key should follow the selection; typing in here after
-  // that is a deliberate choice the selection must not overwrite. 
+  // that is a deliberate choice the selection must not overwrite.
   // The payload is not on this list: it is the draft, and opening the dialog is not a
   // decision to throw it away.
   const [wasOpen, setWasOpen] = useState(open);
