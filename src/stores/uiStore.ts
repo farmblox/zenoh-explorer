@@ -58,6 +58,15 @@ interface UiState {
    * a production network this morning.
    */
   armedSessions: Record<string, boolean>;
+  /**
+   * The value sitting in the publish dialog's editor, per session.
+   *
+   * Kept across opens so a draft survives closing the dialog — whether it was
+   * sent and is about to be sent again with a small change, or never sent at
+   * all. Like arming, deliberately not persisted: a half-written payload is
+   * this run's business.
+   */
+  writeDrafts: Record<string, string>;
   sidebarCollapsed: boolean;
   statusBarExpanded: boolean;
   overlay: Overlay;
@@ -80,6 +89,10 @@ interface UiState {
   writesArmed(sessionId: SessionId | null): boolean;
   armWrites(sessionId: SessionId, armed: boolean): void;
 
+  /** The publish dialog's draft on this session, or the empty string. */
+  writeDraft(sessionId: SessionId | null): string;
+  setWriteDraft(sessionId: SessionId, value: string): void;
+
   toggleSidebar(): void;
   toggleStatusBar(): void;
 
@@ -100,6 +113,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   viewBySession: {},
   fallbackView: "scouting",
   armedSessions: {},
+  writeDrafts: {},
   sidebarCollapsed: false,
   statusBarExpanded: false,
   overlay: "none",
@@ -124,7 +138,10 @@ export const useUiStore = create<UiState>()((set, get) => ({
     set((state) => {
       const next = { ...state.viewBySession };
       delete next[sessionId];
-      return { viewBySession: next };
+      // A closed session's draft is a payload sitting in memory for nothing.
+      const drafts = { ...state.writeDrafts };
+      delete drafts[sessionId];
+      return { viewBySession: next, writeDrafts: drafts };
     }),
 
   writesArmed: (sessionId) =>
@@ -132,6 +149,11 @@ export const useUiStore = create<UiState>()((set, get) => ({
 
   armWrites: (sessionId, armed) =>
     set((state) => ({ armedSessions: { ...state.armedSessions, [sessionId]: armed } })),
+
+  writeDraft: (sessionId) => (sessionId === null ? "" : (get().writeDrafts[sessionId] ?? "")),
+
+  setWriteDraft: (sessionId, value) =>
+    set((state) => ({ writeDrafts: { ...state.writeDrafts, [sessionId]: value } })),
 
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   toggleStatusBar: () => set((state) => ({ statusBarExpanded: !state.statusBarExpanded })),

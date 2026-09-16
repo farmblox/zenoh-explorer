@@ -76,23 +76,28 @@ export function PublishDialog({
 }: PublishDialogProps) {
   const armed = useUiStore((state) => state.writesArmed(sessionId));
   const armWrites = useUiStore((state) => state.armWrites);
+  // The editor reads and writes the session's draft, so what was typed last
+  // time is still here when the dialog opens again — sent or not.
+  const payload = useUiStore((state) => state.writeDraft(sessionId));
+  const setWriteDraft = useUiStore((state) => state.setWriteDraft);
+  const setPayload = (value: string) => setWriteDraft(sessionId, value);
 
   const [kind, setKind] = useState<Kind>("put");
   const [key, setKey] = useState(initialKey);
-  const [payload, setPayload] = useState("");
   const [encoding, setEncoding] = useState<Encoding>("text/plain");
   const [analysis, setAnalysis] = useState<KeyExprAnalysis | null>(null);
   const [sending, setSending] = useState(false);
 
   // Opening is when the key should follow the selection; typing in here after
   // that is a deliberate choice the selection must not overwrite.
+  // The payload is not on this list: it is the draft, and opening the dialog is not a
+  // decision to throw it away.
   const [wasOpen, setWasOpen] = useState(open);
   if (wasOpen !== open) {
     setWasOpen(open);
     if (open) {
       setKind("put");
       setKey(initialKey);
-      setPayload("");
       setAnalysis(null);
       setSending(false);
     }
